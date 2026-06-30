@@ -1,1688 +1,571 @@
 <!DOCTYPE html>
 <html lang="th">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ระบบรายงานพยานหลักฐานวิดีโอ บก.ทล. (LINE Mini App - Production Real-world)</title>
-    
-    <!-- นำเข้า Google Fonts: Prompt & Kanit สำหรับการออกแบบที่ทันสมัยแบบไทย -->
-    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    
-    <!-- นำเข้า Tailwind CSS CDN -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    
-    <!-- นำเข้า Chart.js สำหรับทำแผนภูมิสถิติพยาบาล -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    
-    <!-- นำเข้า Font Awesome สำหรับแสดงไอคอนแบบโปรดักชัน -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-
-    <!-- นำเข้า LINE LIFF SDK สำหรับเชื่อมต่อกับระบบ LINE จริง -->
-    <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
-
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    fontFamily: {
-                        sans: ['Prompt', 'sans-serif'],
-                        display: ['Kanit', 'sans-serif']
-                    }
-                }
-            }
-        }
-    </script>
-
-    <style>
-        ::-webkit-scrollbar {
-            width: 6px;
-            height: 6px;
-        }
-        ::-webkit-scrollbar-track {
-            background: #0f172a;
-        }
-        ::-webkit-scrollbar-thumb {
-            background: #334155;
-            border-radius: 8px;
-        }
-        ::-webkit-scrollbar-thumb:hover {
-            background: #10b981;
-        }
-        .phone-shadow {
-            box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.7);
-        }
-        .glass-premium {
-            background: rgba(15, 23, 42, 0.75);
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
-        }
-        .text-glow {
-            text-shadow: 0 0 12px rgba(16, 185, 129, 0.4);
-        }
-        @keyframes slideUp {
-            from { transform: translateY(100%); opacity: 0; }
-            to { transform: translateY(0); opacity: 1; }
-        }
-        .animate-slideUp {
-            animation: slideUp 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-        }
-    </style>
+<meta charset="UTF-8" />
+<title>ระบบฐานข้อมูลรถวิทยุในสังกัด</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700;800&family=IBM+Plex+Sans+Thai:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+<style>
+  :root{
+    --emerald: #059669;
+    --emerald-dark: #064e3b;
+    --emerald-mid: #047857;
+    --emerald-light: #34d399;
+    --ink: #0f172a;
+    --paper: #f8faf9;
+  }
+  *{ -webkit-tap-highlight-color: transparent; }
+  body{
+    font-family:'Prompt','IBM Plex Sans Thai',sans-serif;
+    background:
+      radial-gradient(circle at 10% 0%, #ecfdf5 0%, transparent 45%),
+      radial-gradient(circle at 90% 100%, #f0fdfa 0%, transparent 45%),
+      var(--paper);
+    color: var(--ink);
+  }
+  #mobileApp{
+    max-width: 480px; margin: 0 auto; min-height: 100vh; background:#fff;
+    display:flex; flex-direction:column; box-shadow:0 0 50px rgba(4,30,20,.18);
+    position:relative; overflow:hidden;
+  }
+  .app-header{
+    background:linear-gradient(135deg,var(--emerald-light) 0%, var(--emerald) 45%, var(--emerald-dark) 100%);
+    color:#fff; padding:18px 20px; position:sticky; top:0; z-index:30;
+    box-shadow:0 6px 20px -6px rgba(4,77,47,.45);
+  }
+  .bottom-nav{
+    position:sticky; bottom:0; left:0; right:0; background:rgba(255,255,255,.9);
+    backdrop-filter: blur(14px) saturate(180%); -webkit-backdrop-filter: blur(14px) saturate(180%);
+    border-top:1px solid rgba(0,0,0,.06); display:flex; z-index:30;
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .bottom-nav button{
+    flex:1; padding:11px 4px 9px; font-size:11.5px; font-weight:500;
+    display:flex; flex-direction:column; align-items:center; gap:4px;
+    color:#94a3b8; background:transparent; border:none;
+  }
+  .bottom-nav button.active{ color:var(--emerald-mid); font-weight:700; }
+  .bottom-nav button .ic{ font-size:21px; }
+  .tab-panel{ display:none; flex:1; padding:18px; padding-bottom:28px; overflow-y:auto; }
+  .tab-panel.active{ display:block; }
+  .card{
+    background:#fff; border:1px solid rgba(15,23,42,.06); border-radius:18px;
+    padding:16px; box-shadow:0 4px 16px -6px rgba(15,23,42,.08);
+  }
+  input[type=text], input[type=password], .dropdown-input{
+    width:100%; border:1.5px solid #e2e8f0; border-radius:12px;
+    padding:11px 14px; font-size:14px; outline:none; background:#f8fafc;
+  }
+  input[type=text]:focus, input[type=password]:focus, .dropdown-input:focus{
+    border-color:var(--emerald); background:#fff; box-shadow:0 0 0 4px rgba(5,150,105,.12);
+  }
+  .btn-primary{
+    background:linear-gradient(135deg,var(--emerald-light),var(--emerald) 55%,var(--emerald-dark));
+    color:#fff; border-radius:14px; padding:13px; font-weight:700; font-size:14.5px;
+    width:100%; border:none; box-shadow:0 10px 24px -8px rgba(5,150,105,.55);
+  }
+  .btn-primary:disabled{ opacity:.5; box-shadow:none; }
+  .dropdown-list{
+    position:absolute; z-index:50; background:#fff; border:1px solid #e2e8f0;
+    border-radius:12px; max-height:190px; overflow-y:auto; width:100%;
+    box-shadow:0 14px 32px -8px rgba(15,23,42,.18); margin-top:6px; display:none;
+  }
+  .dropdown-list div{ padding:10px 14px; font-size:14px; cursor:pointer; }
+  .dropdown-list div:hover{ background:#ecfdf5; color:var(--emerald-mid); font-weight:600; }
+  .badge{ display:inline-block; padding:3px 11px; border-radius:999px; font-size:11px; font-weight:700; }
+  .spinner{
+    border:3px solid #d1fae5; border-top:3px solid var(--emerald);
+    border-radius:50%; width:22px; height:22px; animation:spin 0.8s linear infinite;
+  }
+  @keyframes spin{ to{ transform:rotate(360deg);} }
+</style>
 </head>
-<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col font-sans selection:bg-emerald-500 selection:text-slate-900">
+<body>
 
-    <!-- แถบ Header หลักระดับองค์กร -->
-    <header class="bg-slate-950 border-b border-slate-900 py-4 px-6 sticky top-0 z-40">
-        <div class="max-w-[1700px] mx-auto flex flex-col lg:flex-row justify-between items-center gap-4">
-            <div class="flex items-center gap-3">
-                <div class="bg-gradient-to-tr from-emerald-600 to-teal-400 p-2.5 rounded-2xl text-slate-950 shadow-lg shadow-emerald-500/20">
-                    <i class="fa-solid fa-shield-halved text-2xl"></i>
-                </div>
-                <div>
-                    <h1 class="text-xl font-extrabold tracking-tight text-white flex items-center gap-2 font-display">
-                        HIGHWAY POLICE EVIDENCE SYSTEM
-                        <span class="text-emerald-400 text-xs px-2.5 py-0.5 bg-emerald-950/80 border border-emerald-800 rounded-full font-bold">V4.0 PRO</span>
-                    </h1>
-                    <p class="text-xs text-slate-400">ระบบตรวจสอบยานพาหนะ อัปโหลดวิดีโอคัดแยกโฟลเดอร์ Google Drive และสรุปใบหลักฐานภาพผ่านระบบ LINE Mini App สำหรับใช้งานจริง</p>
-                </div>
-            </div>
-            
-            <div class="flex items-center gap-3 flex-wrap justify-center">
-                <div class="flex items-center gap-2 bg-slate-900/80 px-4 py-2 rounded-xl border border-slate-800">
-                    <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                    <span class="text-xs text-slate-300 font-semibold" id="api-status-text">โหมดประมวลผล: ระบบจำลอง</span>
-                </div>
-                <button onclick="toggleConfigModal()" class="bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold px-3 py-2 rounded-xl border border-slate-700 transition-all flex items-center gap-1.5">
-                    <i class="fa-solid fa-gears text-emerald-400"></i> ตั้งค่าเชื่อมต่อระบบจริง
-                </button>
-            </div>
+<div id="mobileApp">
+
+  <div class="app-header flex items-center justify-between">
+    <div>
+      <div class="text-xs opacity-80">ระบบฐานข้อมูล</div>
+      <div class="font-bold text-lg leading-tight">รถวิทยุในสังกัด 🚓</div>
+    </div>
+    <div id="userMiniBox" class="text-right text-xs opacity-90">
+      <div id="userMiniName">กำลังโหลด...</div>
+    </div>
+  </div>
+
+  <div id="tab-send" class="tab-panel active">
+    <div class="card mb-3">
+      <div class="flex items-center gap-3">
+        <img id="userAvatar" src="https://api.dicebear.com/7.x/initials/svg?seed=U" class="w-11 h-11 rounded-full border-2 border-emerald-200" />
+        <div>
+          <div class="font-bold text-gray-800" id="userNameTxt">ผู้ใช้งาน</div>
+          <div class="text-xs text-gray-400" id="userIdTxt">LINE ID: -</div>
         </div>
-    </header>
-
-    <!-- คอนเทนต์หลักแบ่งฝั่งหน้าจอมือถือและแดชบอร์ดหลังบ้าน -->
-    <main class="flex-1 p-4 lg:p-6 grid grid-cols-1 xl:grid-cols-12 gap-6 max-w-[1700px] w-full mx-auto">
-        
-        <!-- ==================== ฝั่งซ้าย: เครื่องจำลองมือถือ (LINE Mini App) ==================== -->
-        <section class="xl:col-span-5 flex flex-col items-center">
-            
-            <!-- โครงจำลองโทรศัพท์มือถือ -->
-            <div class="w-full max-w-[390px] bg-slate-950 p-4 rounded-[50px] border-8 border-slate-900 phone-shadow relative">
-                <!-- แถบรูกล้องและลำโพง -->
-                <div class="absolute top-6 left-1/2 transform -translate-x-1/2 w-36 h-5 bg-slate-900 rounded-full z-20 flex items-center justify-center gap-1.5">
-                    <span class="w-2 h-2 rounded-full bg-slate-950 border border-slate-800"></span>
-                    <span class="w-14 h-1.5 bg-slate-800 rounded-full"></span>
-                </div>
-
-                <!-- หน้าจอมือถือจำลองภายใน -->
-                <div class="bg-slate-100 rounded-[34px] overflow-hidden flex flex-col h-[740px] text-slate-800 relative shadow-inner">
-                    
-                    <!-- ส่วนหัว LINE App -->
-                    <div class="bg-[#06C755] text-white pt-8 pb-3.5 px-5 flex justify-between items-center shadow-md">
-                        <div class="flex items-center gap-2">
-                            <i class="fa-solid fa-compass text-sm animate-spin" style="animation-duration: 10s;"></i>
-                            <span class="text-[10px] font-black tracking-widest uppercase">LINE LIFF SDK APP</span>
-                        </div>
-                        <h3 class="font-extrabold text-xs tracking-wide">รายงานข้อมูลจุดตรวจ</h3>
-                        <div class="flex gap-1.5">
-                            <span class="w-2.5 h-2.5 rounded-full bg-white opacity-85 animate-ping"></span>
-                        </div>
-                    </div>
-
-                    <!-- แท็บการควบคุมด้านในมือถือ -->
-                    <div class="bg-white border-b border-slate-200 flex text-center">
-                        <button id="phone-tab-upload" onclick="switchPhoneTab('upload')" class="flex-1 py-3 text-xs font-bold transition-all text-[#06C755] border-b-2 border-[#06C755]">
-                            <i class="fa-solid fa-upload mr-1"></i>ส่งรายงาน
-                        </button>
-                        <button id="phone-tab-history" onclick="switchPhoneTab('history')" class="flex-1 py-3 text-xs font-bold transition-all text-slate-400 hover:text-slate-600">
-                            <i class="fa-solid fa-clock-rotate-left mr-1"></i>ประวัติในเครื่อง
-                        </button>
-                    </div>
-
-                    <!-- หน้าจอแสดงเนื้อหา -->
-                    <div class="flex-1 p-4 overflow-y-auto bg-slate-50 flex flex-col justify-between" id="phone-content-area">
-                        
-                        <!-- 1. ส่วนหน้าฟอร์มอัพโหลด -->
-                        <div id="phone-form-view" class="space-y-4">
-                            
-                            <!-- บัตรระบุโปรไฟล์ LINE -->
-                            <div class="bg-emerald-50 border border-emerald-100 p-3 rounded-2xl flex items-center justify-between shadow-sm">
-                                <div class="flex items-center gap-2.5">
-                                    <img id="user-avatar" src="https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&fit=crop" alt="LINE Avatar" class="w-10 h-10 rounded-full border-2 border-[#06C755] object-cover shadow-sm">
-                                    <div>
-                                        <span class="text-[9px] text-emerald-600 font-extrabold block leading-none">ผู้ใช้ระบบ LIFF</span>
-                                        <span id="user-display-name" class="text-xs font-extrabold text-slate-800 block mt-1">ส.ทล.3 กก.1 บก.ทล.</span>
-                                    </div>
-                                </div>
-                                <button onclick="simulateSwitchUser()" class="text-[9px] bg-white hover:bg-emerald-100 text-emerald-700 py-1.5 px-2.5 rounded-xl font-bold border border-emerald-200 transition-all flex items-center gap-1">
-                                    <i class="fa-solid fa-arrows-rotate"></i>สลับผู้ใช้งาน
-                                </button>
-                            </div>
-
-                            <!-- ส่วนป้อนทะเบียนรถยนต์แบบแยกช่อง -->
-                            <div class="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm space-y-3">
-                                <span class="text-xs font-extrabold text-slate-700 flex items-center gap-1.5">
-                                    <i class="fa-solid fa-car text-emerald-500"></i>ข้อมูลทะเบียนรถยนต์
-                                </span>
-                                
-                                <div class="grid grid-cols-2 gap-2">
-                                    <div>
-                                        <label class="text-[10px] text-slate-400 font-bold block mb-1">หมวดอักษร</label>
-                                        <input type="text" id="plate-char" value="กข" placeholder="กข" maxlength="3" class="w-full text-xs font-bold border border-slate-200 rounded-xl px-3 py-2.5 focus:ring-2 focus:ring-emerald-500 focus:outline-none text-center uppercase text-slate-800">
-                                    </div>
-                                    <div>
-                                        <label class="text-[10px] text-slate-400 font-bold block mb-1">หมวดตัวเลข</label>
-                                        <input type="text" id="plate-num" value="1234" placeholder="1234" maxlength="4" class="w-full text-xs font-bold border border-slate-200 rounded-xl px-3 py-2.5 focus:ring-2 focus:ring-emerald-500 focus:outline-none text-center text-slate-800">
-                                    </div>
-                                </div>
-
-                                <!-- เมนูพิมพ์ค้นหาจังหวัด Dropdown -->
-                                <div class="relative">
-                                    <label class="text-[10px] text-slate-400 font-bold block mb-1">หมวดจังหวัด</label>
-                                    <div class="relative">
-                                        <input type="text" id="province-search" value="ลพบุรี" placeholder="พิมพ์ชื่อเพื่อค้นหาจังหวัด..." onfocus="openProvinceSelect()" oninput="filterProvinceSelect()" class="w-full text-xs font-bold border border-slate-200 rounded-xl pl-3 pr-8 py-2.5 focus:ring-2 focus:ring-emerald-500 focus:outline-none text-slate-800">
-                                        <button onclick="clearProvinceField()" class="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs">
-                                            <i class="fa-solid fa-circle-xmark"></i>
-                                        </button>
-                                    </div>
-                                    
-                                    <!-- ตัวเลือกจังหวัดแบบ Dropdown -->
-                                    <div id="province-dropdown-list" class="hidden absolute z-50 left-0 right-0 mt-1.5 max-h-40 overflow-y-auto bg-white border border-slate-200 rounded-xl shadow-xl">
-                                        <!-- ประมวลผลดึงด้วย JS -->
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- ส่วนเลือกและแนบวิดีโอ -->
-                            <div class="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm space-y-2">
-                                <label class="text-xs font-extrabold text-slate-700 block">🎥 แฟ้มวิดีโอหลักฐาน</label>
-                                <div class="border-2 border-dashed border-slate-200 hover:border-[#06C755] rounded-xl p-4 bg-slate-50 relative text-center cursor-pointer transition-all">
-                                    <input type="file" id="video-file-picker" accept="video/*" onchange="onVideoFileSelected()" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer">
-                                    <div class="flex flex-col items-center justify-center gap-1.5">
-                                        <i class="fa-solid fa-cloud-arrow-up text-xl text-[#06C755]"></i>
-                                        <span class="text-[11px] font-bold text-emerald-600">กดเพื่ออัปโหลดจากเครื่อง</span>
-                                        <span class="text-[9px] text-slate-400">หากไม่ได้เลือก ระบบจะดึงพยานหลักฐานจำลองระดับเสถียร</span>
-                                    </div>
-                                </div>
-                                <div id="video-name-tag" class="p-2.5 bg-slate-100 rounded-xl border border-slate-200 flex justify-between items-center text-[10px] text-slate-600">
-                                    <span class="truncate max-w-[200px]">📎 highway_monitor_record.mp4</span>
-                                    <span class="bg-amber-100 text-amber-800 text-[8px] font-bold px-1.5 py-0.5 rounded uppercase">จำลอง</span>
-                                </div>
-                            </div>
-
-                            <!-- วันเวลาจำลอง สำหรับจัดเก็บ -->
-                            <div class="bg-amber-50 border border-amber-200/60 p-3.5 rounded-2xl">
-                                <label class="text-[10px] font-bold text-amber-800 block mb-1">📅 วันที่ระบุของระบบ (ค้างไว้เพื่อส่งประวัติย้อนหลังได้)</label>
-                                <input type="date" id="system-date-input" value="2026-06-30" class="w-full text-xs font-bold border border-amber-300 rounded-lg px-2.5 py-1.5 bg-white text-slate-700 focus:outline-none">
-                            </div>
-
-                            <!-- ปุ่มสั่งอัปโหลดหลัก -->
-                            <button onclick="executeUploadAction()" id="btn-upload-primary" class="w-full bg-[#06C755] hover:bg-[#05b04c] text-white py-3.5 px-4 rounded-2xl font-bold text-xs shadow-md shadow-emerald-500/10 transition-all flex justify-center items-center gap-2">
-                                <i class="fa-solid fa-cloud-arrow-up"></i>อัปโหลดจัดหมวดหมู่ลงระบบคลาวด์
-                            </button>
-
-                        </div>
-
-                        <!-- 2. หน้าสำเร็จและออกหลักฐาน (Receipt Section) -->
-                        <div id="phone-success-view" class="hidden space-y-4 animate-slideUp">
-                            <div class="bg-emerald-100 border border-emerald-200 p-3 rounded-2xl text-center">
-                                <h4 class="text-xs font-black text-emerald-800 flex items-center justify-center gap-1">
-                                    <i class="fa-solid fa-circle-check"></i> อัปโหลดและบันทึกประวัติสำเร็จ
-                                </h4>
-                            </div>
-
-                            <!-- พื้นที่สำหรับแสดงภาพ Canvas ใบเสร็จยืนยันตัวตนแบบหรูหรา -->
-                            <div class="bg-white p-2.5 rounded-2xl border border-slate-200 shadow-sm flex flex-col items-center">
-                                <span class="text-[10px] font-bold text-slate-400 mb-2 flex items-center gap-1">
-                                    <i class="fa-solid fa-image text-emerald-500"></i>ภาพใบเสร็จหลักฐาน (High-DPI Canvas)
-                                </span>
-                                <!-- แคนวาสที่จะถูกเรนเดอร์ภาพคมชัดสูง -->
-                                <canvas id="receipt-canvas" class="w-full h-auto border border-slate-200 rounded-xl bg-white shadow-inner"></canvas>
-                            </div>
-
-                            <button onclick="downloadReceiptPNG()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-3 px-4 rounded-2xl font-bold text-xs shadow-md transition-all flex justify-center items-center gap-2">
-                                <i class="fa-solid fa-download"></i> 📥 ดาวน์โหลดรูปภาพหลักฐานลงเครื่อง
-                            </button>
-
-                            <button onclick="simulateShareToLineGroup()" class="w-full bg-sky-500 hover:bg-sky-600 text-white py-2.5 px-4 rounded-2xl font-bold text-xs transition-all flex justify-center items-center gap-2">
-                                <i class="fa-solid fa-share-nodes"></i> 💬 แชร์รูปรายงานหลักฐานเข้า LINE
-                            </button>
-
-                            <button onclick="resetUploadForm()" class="w-full bg-slate-300 hover:bg-slate-400 text-slate-800 py-2.5 px-4 rounded-2xl font-bold text-xs transition-all">
-                                ➕ ส่งรายงานทะเบียนแผ่นต่อไป
-                            </button>
-                        </div>
-
-                        <!-- 3. ส่วนประวัติรายงานย้อนหลังในเครื่องโทรศัพท์ -->
-                        <div id="phone-history-view" class="hidden space-y-3">
-                            <div class="bg-slate-200 px-3.5 py-2 rounded-xl flex items-center justify-between">
-                                <span class="text-xs font-bold text-slate-700">รายการบันทึกในอุปกรณ์นี้</span>
-                                <span id="history-badge-count" class="bg-slate-700 text-white px-2 py-0.5 rounded-full text-[10px] font-bold">0</span>
-                            </div>
-                            <div id="history-list-inside-phone" class="space-y-2 max-h-[460px] overflow-y-auto">
-                                <!-- โหลดข้อมูลประวัติโดยอัตโนมัติจาก LocalStorage -->
-                            </div>
-                        </div>
-
-                    </div>
-                </div>
-
-                <!-- ระบบการแจ้งเตือน Popup สวยๆ -->
-                <div id="toast-notif" class="hidden absolute bottom-12 left-6 right-6 bg-slate-900/95 text-white p-3.5 rounded-2xl shadow-2xl flex items-center gap-3 border border-slate-800 animate-slideUp z-50 glass-premium">
-                    <div class="bg-emerald-500/20 text-emerald-400 p-2 rounded-xl" id="toast-icon-wrapper">
-                        <i class="fa-solid fa-check"></i>
-                    </div>
-                    <div>
-                        <span id="toast-message-text" class="text-xs font-bold block">บันทึกสำเร็จ</span>
-                    </div>
-                </div>
-
-            </div>
-        </section>
-
-        <!-- ==================== ฝั่งขวา: แดชบอร์ดสรุปสถิติ & ประตูผู้พัฒนา (Dashboard & Developer Admin) ==================== -->
-        <section class="xl:col-span-7 flex flex-col bg-slate-950 rounded-3xl border border-slate-900 overflow-hidden shadow-2xl min-h-[500px]">
-            
-            <!-- แถบเลือกโหมดหลังบ้าน -->
-            <div class="bg-slate-900 border-b border-slate-900 p-4 flex flex-wrap gap-2 justify-between items-center">
-                <div class="flex flex-wrap gap-1.5">
-                    <button id="admin-tab-btn-dashboard" onclick="switchAdminTab('dashboard')" class="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all bg-sky-600 text-white">
-                        <i class="fa-solid fa-chart-line text-sky-200"></i> แดชบอร์ดสรุปสถิติประจำวัน
-                    </button>
-                    <button id="admin-tab-btn-drive" onclick="switchAdminTab('drive')" class="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all bg-slate-800 text-slate-400 hover:bg-slate-700">
-                        <i class="fa-solid fa-folder-tree text-amber-400"></i> ตรวจสอบโฟลเดอร์ Google Drive
-                    </button>
-                    <button id="admin-tab-btn-sheet" onclick="switchAdminTab('sheet')" class="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all bg-slate-800 text-slate-400 hover:bg-slate-700">
-                        <i class="fa-solid fa-table text-emerald-400"></i> แผ่นตาราง Google Sheets
-                    </button>
-                    <button id="admin-tab-btn-developer" onclick="switchAdminTab('developer')" class="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all bg-slate-800 text-slate-400 hover:bg-slate-700">
-                        <i class="fa-solid fa-code text-indigo-400"></i> โค้ด Apps Script & คู่มือติดตั้งคลาวด์จริง
-                    </button>
-                </div>
-                
-                <span class="text-xs text-slate-500 font-medium hidden md:inline">Command Center Portal</span>
-            </div>
-
-            <!-- ส่วนของคอนเทนต์ด้านหลังบ้าน -->
-            <div class="flex-1 p-5 overflow-y-auto">
-                
-                <!-- 2.1 หน้า Dashboard รายงานประจำวัน -->
-                <div id="admin-view-dashboard" class="space-y-6 animate-slideUp">
-                    
-                    <!-- ส่วนกรองวันที่เพื่อดึงข้อมูลเชิงลึก -->
-                    <div class="bg-slate-900 p-4 rounded-2xl border border-slate-800 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 shadow-md">
-                        <div>
-                            <h3 class="text-sm font-extrabold text-white mb-0.5 flex items-center gap-2">
-                                <i class="fa-solid fa-database text-sky-400"></i> เรียกดูข้อมูลหลังบ้านตามกำหนดเวลา
-                            </h3>
-                            <p class="text-xs text-slate-400">ระบุวันที่ด้านขวาเพื่อดึงรายงานและกราฟแจกแจงจังหวัดประจำวัน</p>
-                        </div>
-                        
-                        <!-- เครื่องมือกำหนดวันดูย้อนหลัง -->
-                        <div class="bg-slate-950 p-2.5 rounded-xl border border-slate-800 flex items-center gap-2 w-full md:w-auto">
-                            <span class="text-xs text-slate-300 font-bold">ระบุวันที่ประมวลผล:</span>
-                            <input type="date" id="filter-date-picker" value="2026-06-30" onchange="onFilterDateChanged()" class="bg-slate-900 text-xs text-white border border-slate-700 rounded-lg px-2 py-1.5 focus:outline-none">
-                            <span id="thai-date-badge" class="text-[10px] text-sky-400 font-bold bg-sky-950 px-2.5 py-1 rounded border border-sky-900">
-                                30-06-2569
-                            </span>
-                        </div>
-                    </div>
-
-                    <!-- การ์ดตัวชี้วัด (KPI Cards) -->
-                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                        <div class="bg-slate-900 p-4 rounded-2xl border border-slate-800/80 flex items-center justify-between">
-                            <div>
-                                <span class="text-[10px] text-slate-400 font-bold block uppercase">อัปโหลดวันที่ระบุ</span>
-                                <span id="kpi-count-today" class="text-2xl font-black text-sky-400 text-glow">2 รายการ</span>
-                            </div>
-                            <span class="p-3 bg-sky-950 rounded-xl text-sky-400 text-lg">
-                                <i class="fa-solid fa-video"></i>
-                            </span>
-                        </div>
-                        <div class="bg-slate-900 p-4 rounded-2xl border border-slate-800/80 flex items-center justify-between">
-                            <div>
-                                <span class="text-[10px] text-slate-400 font-bold block uppercase">ยอดอัปโหลดรวมระบบ</span>
-                                <span id="kpi-count-total" class="text-2xl font-black text-emerald-400 text-glow">6 รายการ</span>
-                            </div>
-                            <span class="p-3 bg-emerald-950 rounded-xl text-emerald-400 text-lg">
-                                <i class="fa-solid fa-server"></i>
-                            </span>
-                        </div>
-                        <div class="bg-slate-900 p-4 rounded-2xl border border-slate-800/80 flex items-center justify-between">
-                            <div>
-                                <span class="text-[10px] text-slate-400 font-bold block uppercase">จำนวนเขตจังหวัดที่ตรวจพบ</span>
-                                <span id="kpi-count-provinces" class="text-2xl font-black text-amber-400 text-glow">5 พื้นที่</span>
-                            </div>
-                            <span class="p-3 bg-amber-950 rounded-xl text-amber-400 text-lg">
-                                <i class="fa-solid fa-map-location-dot"></i>
-                            </span>
-                        </div>
-                    </div>
-
-                    <!-- แผนภูมิและสถิติด้วย Chart.js -->
-                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                        <!-- กราฟเส้นแนวโน้มการรายงานรายวัน -->
-                        <div class="bg-slate-900 p-4 rounded-2xl border border-slate-800 shadow-sm">
-                            <h4 class="text-xs font-bold text-slate-300 mb-3 flex items-center gap-1.5">
-                                <i class="fa-solid fa-chart-line text-sky-400"></i> สถิติยอดรายงานวิดีโอย้อนหลัง 4 วัน
-                            </h4>
-                            <div class="h-44 relative">
-                                <canvas id="chart-daily-uploads"></canvas>
-                            </div>
-                        </div>
-
-                        <!-- กราฟวงกลมแจกแจงจังหวัด -->
-                        <div class="bg-slate-900 p-4 rounded-2xl border border-slate-800 shadow-sm">
-                            <h4 class="text-xs font-bold text-slate-300 mb-3 flex items-center gap-1.5">
-                                <i class="fa-solid fa-chart-pie text-emerald-400"></i> อัตราส่วนข้อมูลแบ่งตามรายจังหวัด
-                            </h4>
-                            <div class="h-44 relative flex justify-center items-center">
-                                <canvas id="chart-province-pie"></canvas>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- เครื่องเล่นตรวจสอบพยานหลักฐานวิดีโอหลัก -->
-                    <div class="bg-slate-900 p-4 rounded-2xl border border-slate-800/60 space-y-3">
-                        <div class="flex justify-between items-center">
-                            <span class="text-xs font-bold text-emerald-400 flex items-center gap-1.5">
-                                <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                                เครื่องเล่นตรวจวิเคราะห์วิดีโอรายงาน
-                            </span>
-                            <button onclick="stopDashboardVideoPlayer()" class="text-[10px] bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded-lg text-slate-300 transition-all">
-                                ล้างคลิปตรวจสอบ <i class="fa-solid fa-ban ml-1"></i>
-                            </button>
-                        </div>
-                        <div class="aspect-video w-full max-h-[340px] bg-black rounded-xl overflow-hidden border border-slate-800 flex items-center justify-center relative">
-                            <video id="dashboard-video-player" src="https://assets.mixkit.co/videos/preview/mixkit-traffic-in-a-highway-of-a-city-43152-large.mp4" controls class="w-full h-full object-contain"></video>
-                        </div>
-                    </div>
-
-                    <!-- รายชื่อการตรวจพบของวันที่ระบุ -->
-                    <div class="space-y-3">
-                        <h4 id="list-date-title" class="text-xs font-bold text-slate-400 uppercase tracking-wider">
-                            รายการรายงานประจำวันที่ 30-06-2569 (2 คัน)
-                        </h4>
-                        <div id="dashboard-list-holder" class="grid grid-cols-1 md:grid-cols-2 gap-3">
-                            <!-- โหลดขึ้นด้วย JavaScript -->
-                        </div>
-                    </div>
-
-                </div>
-
-                <!-- 2.2 โครงสร้างแบบไดเรกทอรี Folder Google Drive จำลอง -->
-                <div id="admin-view-drive" class="hidden space-y-4 animate-slideUp">
-                    <div class="bg-slate-900 p-4 rounded-2xl border border-slate-800 shadow-sm">
-                        <h3 class="text-sm font-extrabold text-white mb-1 flex items-center gap-2">
-                            <i class="fa-solid fa-folder-tree text-amber-400"></i> โครงสร้างการจัดเรียง Folder บน Google Drive
-                        </h3>
-                        <p class="text-xs text-slate-400">ระบบจะทำการคัดกรองวันที่ และหมายเลขทะเบียนรถเพื่อสร้างเป็นชั้นโฟลเดอร์สำหรับแต่ละคันโดยอัตโนมัติ</p>
-                    </div>
-
-                    <div class="bg-slate-900/30 p-5 rounded-2xl border border-slate-800 font-mono text-xs text-slate-300 space-y-3">
-                        <div class="flex items-center gap-2 text-indigo-400 font-bold">
-                            <i class="fa-solid fa-folder-open text-lg"></i>
-                            <span>โฟลเดอร์รากหลัก (MAIN STORAGE ROOT)</span>
-                        </div>
-                        
-                        <div id="drive-folder-tree-inside" class="ml-6 space-y-3 border-l-2 border-slate-800 pl-4">
-                            <!-- โหลดขึ้นด้วย JS -->
-                        </div>
-                    </div>
-                </div>
-
-                <!-- 2.3 ตารางรายงาน Google Sheets -->
-                <div id="admin-view-sheet" class="hidden space-y-4 animate-slideUp">
-                    <div class="bg-slate-900 p-4 rounded-2xl border border-slate-800 shadow-sm">
-                        <h3 class="text-sm font-extrabold text-white mb-1 flex items-center gap-2">
-                            <i class="fa-solid fa-table text-emerald-400"></i> ตารางตรวจสอบประวัติ (GOOGLE SHEETS INTEGRATION LOG)
-                        </h3>
-                        <p class="text-xs text-slate-400">ประวัติแถวข้อมูลจะต่อกันเป็นจำนวน 9 คอลัมน์ ตามรูปแบบของรูปภาพ image_588b98.png ในระบบคลาวด์จริง</p>
-                    </div>
-
-                    <div class="overflow-x-auto rounded-2xl border border-slate-800 bg-slate-950">
-                        <table class="w-full text-left border-collapse text-xs">
-                            <thead>
-                                <tr class="bg-slate-900 border-b border-slate-800 text-slate-300 font-bold">
-                                    <th class="p-3">Timestamp</th>
-                                    <th class="p-3">วันที่บันทึก</th>
-                                    <th class="p-3">LINE User ID</th>
-                                    <th class="p-3">ชื่อผู้ส่ง (LINE Name)</th>
-                                    <th class="p-3">หมวดอักษร</th>
-                                    <th class="p-3">หมวดตัวเลข</th>
-                                    <th class="p-3">หมวดจังหวัด</th>
-                                    <th class="p-3">ชื่อไฟล์</th>
-                                    <th class="p-3">ลิงก์ไฟล์บน Drive</th>
-                                </tr>
-                            </thead>
-                            <tbody id="sheets-table-rows" class="divide-y divide-slate-800/60 text-slate-400">
-                                <!-- แถวรายการถูกโหลดด้วย JS -->
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-
-                <!-- 2.4 หน้าผู้พัฒนาสำหรับดึงโค้ดไปเปิดใช้งานในระบบจริง -->
-                <div id="admin-view-developer" class="hidden space-y-4 animate-slideUp">
-                    <div class="bg-slate-900 p-4 rounded-2xl border border-slate-800">
-                        <h3 class="text-sm font-extrabold text-white mb-1 flex items-center gap-2">
-                            <i class="fa-solid fa-laptop-code text-indigo-400"></i> โค้ด Apps Script สำหรับใช้งานจริงในโปรดักชัน
-                        </h3>
-                        <p class="text-xs text-slate-400">คัดลอกส่วนหัวและสคริปต์นี้ไปวางใน Google Apps Script ของท่าน เพื่อเชื่อมต่อระบบแอปพลิเคชันเข้ากับคลาวด์จริงทันที</p>
-                    </div>
-
-                    <div class="bg-slate-900/60 p-4 rounded-2xl border border-slate-800 space-y-3">
-                        <span class="text-xs font-bold text-white flex justify-between items-center bg-slate-950 px-3 py-2 rounded-xl border border-slate-800">
-                            <span>📜 google_apps_script_backend.js</span>
-                            <button onclick="copyAppsScriptCode()" class="bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] font-bold px-3 py-1.5 rounded-lg transition-all">
-                                <i class="fa-solid fa-copy mr-1"></i>คัดลอกโค้ดใช้งานจริง
-                            </button>
-                        </span>
-                        
-                        <textarea id="apps-script-textarea" readonly class="w-full h-80 bg-slate-950 text-emerald-400 p-4 rounded-xl border border-slate-800 font-mono text-[10px] leading-relaxed focus:outline-none focus:ring-0"></textarea>
-                        
-                        <div class="p-5 bg-indigo-950/30 border border-indigo-900/50 rounded-2xl space-y-3">
-                            <span class="text-xs font-bold text-indigo-300 block"><i class="fa-solid fa-circle-info mr-1"></i> ขั้นตอนการติดตั้งและเชื่อมต่อระบบจริงโดยละเอียด:</span>
-                            
-                            <div class="text-[11px] text-slate-300 space-y-4 font-sans leading-relaxed">
-                                <div class="border-l-2 border-indigo-500 pl-3">
-                                    <span class="font-bold text-white block">ขั้นตอนที่ 1: การจัดการพื้นที่ฝั่ง Google Cloud (Drive & Sheets)</span>
-                                    <ol class="list-decimal pl-4 mt-1 space-y-1 text-slate-400">
-                                        <li>สร้างโฟลเดอร์หลักขึ้นมาใหม่บน Google Drive ของท่าน จากนั้นให้คลิกเปิดโฟลเดอร์นั้น แล้วคัดลอก **ID โฟลเดอร์** จากแถบที่อยู่บนสุดของเบราว์เซอร์</li>
-                                        <li>สร้าง Google Sheets ใหม่ ทำการป้อนชื่อแถวแรก (แถวที่ 1 คอลัมน์ A - I) เรียงลำดับจากซ้ายไปขวาดังนี้: `Timestamp`, `วันที่บันทึก`, `LINE User ID`, `ชื่อผู้ส่ง (LINE Name)`, `หมวดอักษร`, `หมวดตัวเลข`, `หมวดจังหวัด`, `ชื่อไฟล์`, `ลิงก์ไฟล์บน Drive`</li>
-                                    </ol>
-                                </div>
-
-                                <div class="border-l-2 border-indigo-500 pl-3">
-                                    <span class="font-bold text-white block">ขั้นตอนที่ 2: การเปิดใช้และเขียนคำสั่งบน Google Apps Script</span>
-                                    <ol class="list-decimal pl-4 mt-1 space-y-1 text-slate-400">
-                                        <li>บน Google Sheets ที่พึ่งสร้าง กดแถบเมนูด้านบนเลือก **"ส่วนขยาย" (Extensions)** -> **"Google Apps Script"**</li>
-                                        <li>ลบโค้ดเดิมทิ้งให้หมด แล้วทำการคัดลอกสคริปต์จากกล่องสีดำด้านบนมาวางลงไปทั้งหมด</li>
-                                        <li>ทำการแทนที่ข้อความ `"ใส่_ID_โฟลเดอร์หลักบนไดร์ฟของท่านที่นี่"` ในบรรทัดที่ 6 ของโค้ด ด้วย **ID โฟลเดอร์หลัก** ที่คัดลอกมาจาก Google Drive ในขั้นตอนแรก</li>
-                                        <li>กดปุ่มบันทึก จากนั้นมองที่มุมขวาบนคลิกปุ่มสีน้ำเงิน **"ทำให้ใช้งานได้" (Deploy)** -> **"การทำให้ใช้งานได้ใหม่" (New Deployment)**</li>
-                                        <li>เลือกประเภทการติดตั้งเป็น **"เว็บแอป" (Web App)** ตั้งค่ากำหนด 'ผู้มีสิทธิ์เข้าถึง' เป็น **"ทุกคน" (Anyone)** แล้วกด "ทำให้ใช้งานได้"</li>
-                                        <li>ระบบจะขอให้ยืนยันสิทธิ์ในการเข้าถึง Google Drive และ Google Sheets ของคุณ ให้กดยอมรับให้สิทธิ์เรียบร้อย จากนั้นให้ **คัดลอก URL ของเว็บแอป** ที่ได้รับไว้</li>
-                                    </ol>
-                                </div>
-
-                                <div class="border-l-2 border-indigo-500 pl-3">
-                                    <span class="font-bold text-white block">ขั้นตอนที่ 3: การสร้างและติดตั้ง LINE Mini App (LIFF) และผูกความปลอดภัย</span>
-                                    <ol class="list-decimal pl-4 mt-1 space-y-1 text-slate-400">
-                                        <li>เข้าสู่หน้า [LINE Developers Console](https://developers.line.biz/) ล็อกอินด้วยบัญชี LINE ของท่าน</li>
-                                        <li>สร้าง **Provider** และสร้างช่องทางแอปพลิเคชันแบบ **"LINE liff (LINE Mini App)"**</li>
-                                        <li>ในแถบตั้งค่าของ LIFF ให้เพิ่มแอป และคัดลอก **LIFF ID** ที่ได้รับ (เช่น `200xxxxxxx-xxxxxxxx`) เก็บเอาไว้</li>
-                                        <li>นำไฟล์ `index.html` ของระบบนี้ไปเปิดโฮสต์บนพื้นที่ความปลอดภัยประเภท HTTPS (เช่น GitHub Pages หรือ Vercel) นำ URL นั้นมากรอกลงในช่อง **Endpoint URL** ของ LINE LIFF</li>
-                                    </ol>
-                                </div>
-
-                                <div class="border-l-2 border-indigo-500 pl-3">
-                                    <span class="font-bold text-white block">ขั้นตอนที่ 4: เชื่อมโยงระบบทั้งหมดและสลับเข้าสู่ Live API Mode</span>
-                                    <ol class="list-decimal pl-4 mt-1 space-y-1 text-slate-400">
-                                        <li>เปิดหน้าเว็บพอร์ทัลหลักของคุณ กดปุ่มสีเทาที่มุมขวาบน **"ตั้งค่าเชื่อมต่อระบบจริง"**</li>
-                                        <li>ป้อนข้อมูล **Apps Script Web App URL** จากขั้นตอนที่ 2 และ **LINE LIFF ID** จากขั้นตอนที่ 3 ลงไปและกดตกลง บันทึก</li>
-                                        <li>ระบบจะสลับโหมดจาก "จำลองสถานการณ์" เข้าสู่การส่งข้อมูลคลาวด์จริงและเรียกใช้งานโปรไฟล์ LINE ของคุณจริงทันทีอย่างสมบูรณ์แบบ!</li>
-                                    </ol>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-            </div>
-        </section>
-
-    </main>
-
-    <!-- โมดอลสำหรับการกรอกตั้งค่าระบบจริง (Settings Config Modal) -->
-    <div id="config-modal" class="hidden fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50 transition-all">
-        <div class="bg-slate-900 border border-slate-800 max-w-lg w-full rounded-3xl p-6 shadow-2xl relative">
-            <h3 class="text-base font-extrabold text-white mb-2 flex items-center gap-2 font-display">
-                <i class="fa-solid fa-gears text-emerald-400"></i> ตั้งค่าเชื่อมต่อ LINE LIFF & API คลาวด์จริง
-            </h3>
-            <p class="text-xs text-slate-400 mb-4">เชื่อมต่อพอร์ตเพื่อยิง API ส่งข้อมูลจริงไปยัง Google Sheets และ Google Drive ของคุณโดยไม่ต้องผ่านการทดสอบจำลอง</p>
-
-            <div class="space-y-3.5 text-xs">
-                <div>
-                    <label class="block text-slate-300 font-bold mb-1">1. ลิงก์ Apps Script Web App URL</label>
-                    <input type="text" id="config-gas-url" placeholder="https://script.google.com/macros/s/.../exec" class="w-full bg-slate-950 text-white font-mono border border-slate-800 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-emerald-500">
-                </div>
-                <div>
-                    <label class="block text-slate-300 font-bold mb-1">2. LINE LIFF ID</label>
-                    <input type="text" id="config-liff-id" placeholder="200xxxxxxx-xxxxxxxx" class="w-full bg-slate-950 text-white font-mono border border-slate-800 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-emerald-500">
-                </div>
-                <div class="p-3 bg-slate-950 rounded-xl border border-slate-800/80">
-                    <span class="text-[10px] text-slate-400 font-semibold block leading-relaxed">
-                        ⚠️ หากคุณกรอกข้อมูลครบถ้วน ระบบจะบันทึกข้อมูลแบบปลอดภัยในเครื่อง และพยายามเรียกใช้ `liff.init()` จริง และการส่งโพสต์จริงไปยังสคริปต์ของคุณ หากเว้นว่างไว้ ระบบจะยังทำงานอยู่ในสถานะ <b>"ระบบจำลองความสำเร็จ"</b> เพื่อให้คุณพรีวิวทดสอบระบบก่อน
-                    </span>
-                </div>
-            </div>
-
-            <div class="flex gap-2.5 mt-5">
-                <button onclick="saveApiConfigurations()" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold py-2.5 rounded-xl transition-all">
-                    บันทึกและเชื่อมต่อ API
-                </button>
-                <button onclick="toggleConfigModal()" class="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-400 text-xs font-bold py-2.5 rounded-xl transition-all">
-                    ยกเลิก
-                </button>
-            </div>
-        </div>
+      </div>
     </div>
 
-    <script>
-        // กำหนดวิดีโอเริ่มต้นสำหรับจำลองสถานการณ์
-        const DEFAULT_SIMULATED_VIDEO = "https://assets.mixkit.co/videos/preview/mixkit-traffic-in-a-highway-of-a-city-43152-large.mp4";
-
-        // ข้อมูลชุดรายชื่อจังหวัดในไทยเพื่อใช้ทำ Dropdown ค้นหาอัจฉริยะ
-        const PROVINCE_COLLECTION = [
-            "กรุงเทพมหานคร", "กระบี่", "กาญจนบุรี", "กาฬสินธุ์", "กำแพงเพชร", "ขอนแก่น", "จันทบุรี", "ฉะเชิงเทรา", "ชลบุรี", "ชัยนาท", 
-            "ชัยภูมิ", "ชุมพร", "เชียงราย", "เชียงใหม่", "ตรัง", "ตราด", "ตาก", "นครนายก", "นครปฐม", "นครพนม", "นครราชสีมา", 
-            "นครศรีธรรมราช", "นครสวรรค์", "นนทบุรี", "นราธิวาส", "น่าน", "บึงกาฬ", "บุรีรัมย์", "ปทุมธานี", "ประจวบคีรีขันธ์", 
-            "ปราจีนบุรี", "ปัตตานี", "พระนครศรีอยุธยา", "พะเยา", "พังงา", "พัทลุง", "พิจิตร", "พิษณุโลก", "เพชรบุรี", "เพชรบูรณ์", 
-            "แพร่", "ภูเก็ต", "มหาสารคาม", "มุกดาหาร", "แม่ฮ่องสอน", "ยโสธร", "ยะลา", "ร้อยเอ็ด", "ระนอง", "ระยอง", "ราชบุรี", 
-            "ลพบุรี", "ลำปาง", "ลำพูน", "เลย", "ศรีสะเกษ", "สกลนคร", "สงขลา", "สตูล", "สมุทรปราการ", "สมุทรสงคราม", "สมุทรสาคร", 
-            "สระแก้ว", "สระบุรี", "สิงห์บุรี", "สุโขทัย", "สุพรรณบุรี", "สุราษฎร์ธานี", "สุรินทร์", "หนองคาย", "หนองบัวลำภู", 
-            "อ่างทอง", "อุดรธานี", "อุทัยธานี", "อุตรดิตถ์", "อุบลราชธานี", "อำนาจเจริญ"
-        ];
-
-        // ประวัติตั้งต้นจำลองย้อนหลัง
-        let memoryDatabase = [
-            {
-                id: "rec_1",
-                timestamp: "2026-06-30T09:15:00.000Z",
-                dateStr: "30-06-2569",
-                lineUserId: "U9a8b7c6d5e4f3g2h1",
-                lineName: "ด.ต.สมชาย สายตรวจ",
-                linePic: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&fit=crop",
-                licensePlate: "พฮ 5678 นนทบุรี",
-                plateChar: "พฮ",
-                plateNum: "5678",
-                province: "นนทบุรี",
-                fileName: "highway_patrol_north.mp4",
-                videoUrl: "https://assets.mixkit.co/videos/preview/mixkit-cars-driving-on-a-wet-highway-at-night-42289-large.mp4"
-            },
-            {
-                id: "rec_2",
-                timestamp: "2026-06-30T14:45:00.000Z",
-                dateStr: "30-06-2569",
-                lineUserId: "U1e2d3c4b5a6f7g8h9",
-                lineName: "ร.ต.อ.หญิง ณิชา",
-                linePic: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&fit=crop",
-                licensePlate: "บห 9999 กรุงเทพมหานคร",
-                plateChar: "บห",
-                plateNum: "9999",
-                province: "กรุงเทพมหานคร",
-                fileName: "speed_tracker_main.mp4",
-                videoUrl: "https://assets.mixkit.co/videos/preview/mixkit-highway-traffic-at-sunset-12163-large.mp4"
-            },
-            {
-                id: "rec_3",
-                timestamp: "2026-06-29T10:20:00.000Z",
-                dateStr: "29-06-2569",
-                lineUserId: "U3f4e5d6c7b8a90123",
-                lineName: "ส.ทล.3 กก.1 บก.ทล.",
-                linePic: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&fit=crop",
-                licensePlate: "กข 1234 ลพบุรี",
-                plateChar: "กข",
-                plateNum: "1234",
-                province: "ลพบุรี",
-                fileName: "highway_violation_69.mp4",
-                videoUrl: "https://assets.mixkit.co/videos/preview/mixkit-traffic-in-a-highway-of-a-city-43152-large.mp4"
-            },
-            {
-                id: "rec_4",
-                timestamp: "2026-06-28T08:05:00.000Z",
-                dateStr: "28-06-2569",
-                lineUserId: "U9a8b7c6d5e4f3g2h1",
-                lineName: "ด.ต.สมชาย สายตรวจ",
-                linePic: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&fit=crop",
-                licensePlate: "มค 505 ชลบุรี",
-                plateChar: "มค",
-                plateNum: "505",
-                province: "ชลบุรี",
-                fileName: "night_speeding_evidence.mp4",
-                videoUrl: "https://assets.mixkit.co/videos/preview/mixkit-highway-traffic-at-sunset-12163-large.mp4"
-            }
-        ];
-
-        // ตัวแปรสเตตของระบบ
-        let currentPhoneTab = 'upload';
-        let currentAdminTab = 'dashboard';
-        let currentSelectedVideo = null;
-        let filterDateSelected = '2026-06-30';
-        
-        // ข้อมูลจำลองรายชื่อไลน์สำหรับการทดสอบ
-        const SIMULATE_LINE_ACCOUNTS = [
-            { name: "ส.ทล.3 กก.1 บก.ทล.", id: "U3f4e5d6c7b8a90123", pic: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&fit=crop" },
-            { name: "ด.ต.สมชาย สายตรวจ", id: "U9a8b7c6d5e4f3g2h1", pic: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&fit=crop" },
-            { name: "ร.ต.อ.หญิง ณิชา", id: "U1e2d3c4b5a6f7g8h9", pic: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&fit=crop" }
-        ];
-        let lineAccountIndex = 0;
-
-        // สิทธิ์เชื่อมโยงจริงของลูกค้า
-        let clientGasUrl = '';
-        let clientLiffId = '';
-
-        // ตัวแปรเก็บความเคลื่อนไหวชาร์ต
-        let uploadsChartInstance = null;
-        let provincePieInstance = null;
-
-        // เมื่องานหลักทำงานเรียบร้อย
-        window.onload = function() {
-            // โหลดค่ากำหนด API เชื่อมต่อจริงจากเครื่อง (ถ้ามี)
-            loadStoredApiConfigurations();
-            
-            // เตรียม Dropdown รายชื่อจังหวัด
-            setupProvinceDropdown();
-            
-            // แสดงข้อมูลในหน้าจอทั้งหมด
-            refreshRenderedUI();
-            
-            // เตรียมความพร้อมของโครงสร้าง Apps Script ให้สามารถคัดลอกไปใช้ได้ทันที
-            setupAppsScriptCodeView();
-
-            // เริ่มต้นวาดกราฟรายงาน
-            initializeCharts();
-
-            // รันการตรวจสอบและยืนยันการตั้งค่า LIFF จริงในโปรดักชัน
-            verifyLiffConnection();
-        };
-
-        // ตรวจเช็คการตั้งค่า API เชื่อมต่อคลาวด์จริง
-        function loadStoredApiConfigurations() {
-            const storedUrl = localStorage.getItem('client_gas_url');
-            const storedLiff = localStorage.getItem('client_liff_id');
-            if (storedUrl) {
-                clientGasUrl = storedUrl;
-                document.getElementById('config-gas-url').value = storedUrl;
-            }
-            if (storedLiff) {
-                clientLiffId = storedLiff;
-                document.getElementById('config-liff-id').value = storedLiff;
-            }
-            updateModeIndicator();
-        }
-
-        // อัปเดตตัวบอกโหมดการประมวลผล (จำลอง หรือ ระบบจริง)
-        function updateModeIndicator() {
-            const indicatorText = document.getElementById('api-status-text');
-            if (clientGasUrl) {
-                indicatorText.innerText = "โหมดประมวลผล: ระบบจริง (LIVE API)";
-                indicatorText.className = "text-xs text-emerald-400 font-bold animate-pulse";
-            } else {
-                indicatorText.innerText = "โหมดประมวลผล: ระบบจำลอง";
-                indicatorText.className = "text-xs text-slate-300 font-semibold";
-            }
-        }
-
-        // เปิดหรือปิดกล่องโมดอลควบคุม
-        function toggleConfigModal() {
-            const modal = document.getElementById('config-modal');
-            modal.classList.toggle('hidden');
-        }
-
-        // บันทึกการเชื่อมโยงระบบจริงจากลูกค้า
-        function saveApiConfigurations() {
-            const urlInput = document.getElementById('config-gas-url').value.trim();
-            const liffInput = document.getElementById('config-liff-id').value.trim();
-
-            clientGasUrl = urlInput;
-            clientLiffId = liffInput;
-
-            localStorage.setItem('client_gas_url', urlInput);
-            localStorage.setItem('client_liff_id', liffInput);
-
-            toggleConfigModal();
-            updateModeIndicator();
-            triggerCustomToast("⚙️", "บันทึกและเชื่อมพอร์ต API ระบบเรียบร้อยแล้ว");
-
-            // รีเฟรช LINE LIFF ทันที
-            verifyLiffConnection();
-        }
-
-        // ฟังก์ชันระบบเชื่อมโยง LIFF จริงกับเซิร์ฟเวอร์ LINE
-        function verifyLiffConnection() {
-            if (!clientLiffId) return;
-
-            liff.init({ liffId: clientLiffId }).then(() => {
-                if (liff.isLoggedIn()) {
-                    liff.getProfile().then(profile => {
-                        document.getElementById('user-avatar').src = profile.pictureUrl || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&fit=crop';
-                        document.getElementById('user-display-name').innerText = profile.displayName;
-                        
-                        // อัปเดตข้อมูลผู้ใช้จริงลงระบบจำลอง
-                        SIMULATE_LINE_ACCOUNTS[0].name = profile.displayName;
-                        SIMULATE_LINE_ACCOUNTS[0].id = profile.userId;
-                        SIMULATE_LINE_ACCOUNTS[0].pic = profile.pictureUrl;
-
-                        triggerCustomToast("💬", `ล็อกอินไลน์สำเร็จ: ${profile.displayName}`);
-                    });
-                } else {
-                    liff.login();
-                }
-            }).catch(err => {
-                console.warn("LIFF Initialization failed, running in simulation mode:", err);
-            });
-        }
-
-        // สลับแท็บโทรศัพท์มือถือ
-        function switchPhoneTab(tab) {
-            currentPhoneTab = tab;
-            const btnUpload = document.getElementById('phone-tab-upload');
-            const btnHistory = document.getElementById('phone-tab-history');
-            const viewForm = document.getElementById('phone-form-view');
-            const viewHistory = document.getElementById('phone-history-view');
-            const viewSuccess = document.getElementById('phone-success-view');
-
-            btnUpload.className = "flex-1 py-3 text-xs font-bold transition-all " + (tab === 'upload' ? 'text-[#06C755] border-b-2 border-[#06C755]' : 'text-slate-400 hover:text-slate-600');
-            btnHistory.className = "flex-1 py-3 text-xs font-bold transition-all " + (tab === 'history' ? 'text-[#06C755] border-b-2 border-[#06C755]' : 'text-slate-400 hover:text-slate-600');
-
-            if (tab === 'upload') {
-                viewForm.classList.remove('hidden');
-                viewHistory.classList.add('hidden');
-                viewSuccess.classList.add('hidden');
-            } else {
-                viewForm.classList.add('hidden');
-                viewHistory.classList.remove('hidden');
-                viewSuccess.classList.add('hidden');
-                renderPhoneHistoryList();
-            }
-        }
-
-        // สลับแท็บประมวลผลหลังบ้าน (แอดมิน)
-        function switchAdminTab(tab) {
-            currentAdminTab = tab;
-            const tabButtons = ['dashboard', 'drive', 'sheet', 'developer'];
-            const tabViews = ['dashboard', 'drive', 'sheet', 'developer'];
-
-            tabButtons.forEach(btn => {
-                const el = document.getElementById(`admin-tab-btn-${btn}`);
-                let colorClass = 'bg-slate-800 text-slate-400 hover:bg-slate-700';
-                if (btn === tab) {
-                    if (tab === 'dashboard') colorClass = 'bg-sky-600 text-white';
-                    if (tab === 'drive') colorClass = 'bg-amber-600 text-white';
-                    if (tab === 'sheet') colorClass = 'bg-emerald-600 text-white';
-                    if (tab === 'developer') colorClass = 'bg-indigo-600 text-white';
-                }
-                el.className = `flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all ${colorClass}`;
-            });
-
-            tabViews.forEach(v => {
-                const el = document.getElementById(`admin-view-${v}`);
-                if (v === tab) {
-                    el.classList.remove('hidden');
-                } else {
-                    el.classList.add('hidden');
-                }
-            });
-
-            if (tab === 'drive') renderGoogleDriveTree();
-            if (tab === 'sheet') renderGoogleSheetsTable();
-        }
-
-        // จัดการDropdown และรายชื่อจังหวัด
-        function setupProvinceDropdown() {
-            const dropdown = document.getElementById('province-dropdown-list');
-            dropdown.innerHTML = "";
-            PROVINCE_COLLECTION.forEach(p => {
-                const item = document.createElement('div');
-                item.className = "px-3 py-2 text-xs font-medium text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 cursor-pointer border-b border-slate-50";
-                item.innerText = "📍 " + p;
-                item.onclick = function() {
-                    selectProvinceFromList(p);
-                };
-                dropdown.appendChild(item);
-            });
-        }
-
-        function openProvinceSelect() {
-            document.getElementById('province-dropdown-list').classList.remove('hidden');
-        }
-
-        function clearProvinceField() {
-            document.getElementById('province-search').value = "";
-            filterProvinceSelect();
-            openProvinceSelect();
-        }
-
-        function selectProvinceFromList(p) {
-            document.getElementById('province-search').value = p;
-            document.getElementById('province-dropdown-list').classList.add('hidden');
-        }
-
-        function filterProvinceSelect() {
-            const val = document.getElementById('province-search').value.toLowerCase();
-            const list = document.getElementById('province-dropdown-list');
-            const items = list.getElementsByTagName('div');
-            for (let i = 0; i < items.length; i++) {
-                const txt = items[i].textContent || items[i].innerText;
-                if (txt.toLowerCase().includes(val)) {
-                    items[i].style.display = "";
-                } else {
-                    items[i].style.display = "none";
-                }
-            }
-        }
-
-        // ปิดดร็อปดาวน์เมื่อคลิกพื้นที่อื่น
-        document.addEventListener('click', function(e) {
-            if (!e.target.closest('#province-search') && !e.target.closest('#province-dropdown-list')) {
-                document.getElementById('province-dropdown-list').classList.add('hidden');
-            }
-        });
-
-        // จำลองการสลับผู้ใช้งาน LINE
-        function simulateSwitchUser() {
-            lineAccountIndex = (lineAccountIndex + 1) % SIMULATE_LINE_ACCOUNTS.length;
-            const acc = SIMULATE_LINE_ACCOUNTS[lineAccountIndex];
-            document.getElementById('user-avatar').src = acc.pic;
-            document.getElementById('user-display-name').innerText = acc.name;
-            triggerCustomToast("👤", "สลับโปรไฟล์ทดสอบเป็น: " + acc.name);
-        }
-
-        // จัดการการเลือกคลิปวิดีโอผ่านเครื่องมือ
-        function onVideoFileSelected() {
-            const filePicker = document.getElementById('video-file-picker');
-            const nameTag = document.getElementById('video-name-tag');
-            if (filePicker.files.length > 0) {
-                const file = filePicker.files[0];
-                currentSelectedVideo = {
-                    name: file.name,
-                    size: (file.size / (1024 * 1024)).toFixed(2) + " MB",
-                    url: URL.createObjectURL(file),
-                    rawFile: file
-                };
-                nameTag.innerHTML = `
-                    <span class="truncate max-w-[200px]">📎 ${file.name}</span>
-                    <span class="bg-emerald-100 text-emerald-800 text-[8px] font-bold px-1.5 py-0.5 rounded">${currentSelectedVideo.size}</span>
-                `;
-                triggerCustomToast("🎥", "เลือกวิดีโอสำเร็จ");
-            }
-        }
-
-        // ฟังก์ชันช่วยจัดรูปแบบ ค.ศ. เป็น พ.ศ.
-        function parseToThaiBuddhistDate(isoDate) {
-            if (!isoDate) return "";
-            const pts = isoDate.split('-'); // [YYYY, MM, DD]
-            if (pts.length !== 3) return "";
-            const yearBE = parseInt(pts[0]) + 543;
-            return `${pts[2]}-${pts[1]}-${yearBE}`;
-        }
-
-        // ดำเนินการอัปโหลด (จำลอง หรือ ยิง API จริง)
-        function executeUploadAction() {
-            const char = document.getElementById('plate-char').value.trim();
-            const num = document.getElementById('plate-num').value.trim();
-            const province = document.getElementById('province-search').value.trim();
-            const sysDate = document.getElementById('system-date-input').value;
-
-            if (!char || !num || !province) {
-                triggerCustomToast("❌", "กรุณากรอกทะเบียนและระบุจังหวัดให้ครบถ้วน");
-                return;
-            }
-
-            if (!PROVINCE_COLLECTION.includes(province)) {
-                triggerCustomToast("❌", "กรุณาเลือกจังหวัดในตารางรายการให้ถูกต้อง");
-                return;
-            }
-
-            const btnUpload = document.getElementById('btn-upload-primary');
-            btnUpload.disabled = true;
-            btnUpload.innerHTML = `<i class="fa-solid fa-circle-notch animate-spin"></i> กำลังอัปโหลดจัดหมวดหมู่คลาวด์จริง...`;
-
-            // เตรียมโครงสร้างวิดีโอ
-            const videoUrlToSend = currentSelectedVideo ? currentSelectedVideo.url : DEFAULT_SIMULATED_VIDEO;
-            const videoFileName = currentSelectedVideo ? currentSelectedVideo.name : "highway_auto_captured.mp4";
-
-            // ข้อมูลอัปโหลดหลัก
-            const plateFull = `${char} ${num} ${province}`;
-            const targetBEString = parseToThaiBuddhistDate(sysDate);
-            const currentUser = SIMULATE_LINE_ACCOUNTS[lineAccountIndex];
-
-            const newRecord = {
-                id: "rec_" + Date.now(),
-                timestamp: new Date(sysDate).toISOString(),
-                dateStr: targetBEString,
-                lineUserId: currentUser.id,
-                lineName: currentUser.name,
-                linePic: currentUser.pic,
-                licensePlate: plateFull,
-                plateChar: char,
-                plateNum: num,
-                province: province,
-                fileName: videoFileName,
-                videoUrl: videoUrlToSend
-            };
-
-            // หากมีการระบุ API คลาวด์จริง จะยิง API ทันที
-            if (clientGasUrl) {
-                const reader = new FileReader();
-                
-                const processAndSendPayload = (fileDataUri) => {
-                    const payload = {
-                        lineUserId: currentUser.id,
-                        lineName: currentUser.name,
-                        plateChar: char,
-                        plateNum: num,
-                        province: province,
-                        fileName: videoFileName,
-                        fileData: fileDataUri
-                    };
-
-                    fetch(clientGasUrl, {
-                        method: 'POST',
-                        body: JSON.stringify(payload)
-                    })
-                    .then(res => res.json())
-                    .then(data => {
-                        if (data.status === 'success') {
-                            commitRecordToLocal(newRecord);
-                        } else {
-                            btnUpload.disabled = false;
-                            btnUpload.innerHTML = `<i class="fa-solid fa-cloud-arrow-up"></i>อัปโหลดจัดหมวดหมู่ลง Google Drive`;
-                            triggerCustomToast("❌", "API ปลายทางเกิดข้อผิดพลาด: " + data.message);
-                        }
-                    })
-                    .catch(err => {
-                        btnUpload.disabled = false;
-                        btnUpload.innerHTML = `<i class="fa-solid fa-cloud-arrow-up"></i>อัปโหลดจัดหมวดหมู่ลง Google Drive`;
-                        triggerCustomToast("❌", "ไม่สามารถเชื่อมต่อไปยัง URL ของคุณได้");
-                    });
-                };
-
-                if (currentSelectedVideo && currentSelectedVideo.rawFile) {
-                    reader.readAsDataURL(currentSelectedVideo.rawFile);
-                    reader.onload = function() {
-                        processAndSendPayload(reader.result);
-                    };
-                } else {
-                    // ดึงวิดีโอตัวอย่างมาแปลงเป็น Blob เพื่อยิง API จริง
-                    fetch(DEFAULT_SIMULATED_VIDEO)
-                        .then(r => r.blob())
-                        .then(blob => {
-                            reader.readAsDataURL(blob);
-                            reader.onload = function() {
-                                processAndSendPayload(reader.result);
-                            };
-                        })
-                        .catch(() => {
-                            // กรณีเกิดปัญหาการดึงไฟล์ภายนอก ให้จำลองข้อมูล Base64 แบบสั้น
-                            processAndSendPayload("data:video/mp4;base64,AAAAHGZ0eXBtcDQyAAAAAG1wNDJpc29tYXZjMQ==");
-                        });
-                }
-            } else {
-                // หากไม่มี API จริง จะประมวลผลจำลองเสร็จใน 1.2 วินาที
-                setTimeout(() => {
-                    commitRecordToLocal(newRecord);
-                }, 1200);
-            }
-        }
-
-        // ดำเนินการต่อประวัติเมื่อเชื่อมสำเร็จ
-        function commitRecordToLocal(newRecord) {
-            const btnUpload = document.getElementById('btn-upload-primary');
-            btnUpload.disabled = false;
-            btnUpload.innerHTML = `<i class="fa-solid fa-cloud-arrow-up"></i>อัปโหลดจัดหมวดหมู่ลง Google Drive`;
-
-            // ต่อประวัติตัวจริงลงหน่วยความจำ
-            memoryDatabase.unshift(newRecord);
-
-            // ปลุก Canvas และวาดหลักฐานอย่างคมชัด
-            renderReceiptCanvas(newRecord);
-
-            // เปลี่ยนมาหน้าความสำเร็จ
-            document.getElementById('phone-form-view').classList.add('hidden');
-            document.getElementById('phone-success-view').classList.remove('hidden');
-
-            // อัปเดตตัวกรองวันที่หลังบ้านให้ตรงกันเพื่อให้เห็นการเปลี่ยนแปลงทันที
-            const sysDateVal = document.getElementById('system-date-input').value;
-            filterDateSelected = sysDateVal;
-            document.getElementById('filter-date-picker').value = sysDateVal;
-
-            refreshRenderedUI();
-            triggerCustomToast("✅", "อัปโหลดและลงบันทึกประวัติสำเร็จ!");
-        }
-
-        // ระบบวาดรูปหลักฐานประสิทธิภาพความคมชัดสูง (High-DPI Retina Canvas)
-        function renderReceiptCanvas(rec) {
-            const canvas = document.getElementById('receipt-canvas');
-            const ctx = canvas.getContext('2d');
-
-            // กำหนดขนาดมาตรฐาน
-            const baseWidth = 500;
-            const baseHeight = 650;
-
-            // ตรวจสอบความละเอียดหน้าจอ (Retina)
-            const devicePixelRatio = window.devicePixelRatio || 1;
-            canvas.width = baseWidth * devicePixelRatio;
-            canvas.height = baseHeight * devicePixelRatio;
-            canvas.style.width = baseWidth + 'px';
-            canvas.style.height = baseHeight + 'px';
-
-            // ขยายสเกลของการวาด
-            ctx.scale(devicePixelRatio, devicePixelRatio);
-
-            // วาดพื้นหลังการ์ดหลัก
-            ctx.fillStyle = '#ffffff';
-            ctx.fillRect(0, 0, baseWidth, baseHeight);
-
-            // วาดแถบตกแต่งส่วนบน (ไล่เฉดสี)
-            const gradientHeader = ctx.createLinearGradient(0, 0, baseWidth, 0);
-            gradientHeader.addColorStop(0, '#06C755');
-            gradientHeader.addColorStop(1, '#059669');
-            ctx.fillStyle = gradientHeader;
-            ctx.fillRect(0, 0, baseWidth, 120);
-
-            // เขียนคำโปรยส่วนหัว
-            ctx.fillStyle = '#ffffff';
-            ctx.textAlign = 'center';
-            ctx.font = 'bold 20px Prompt, sans-serif';
-            ctx.fillText('ใบรายงานการส่งพยานหลักฐาน', baseWidth / 2, 45);
-
-            ctx.font = '11px Prompt, sans-serif';
-            ctx.fillStyle = '#e6fceb';
-            ctx.fillText('บก.ทล. อัปโหลดวิดีโอจัดระเบียบผ่านคลาวด์อัจฉริยะ', baseWidth / 2, 72);
-            ctx.fillText('ระบบสารสนเทศอัตโนมัติจัดเก็บ Google Drive', baseWidth / 2, 92);
-
-            // วาดกรอบสไตล์ตั๋ว
-            ctx.strokeStyle = '#e2e8f0';
-            ctx.lineWidth = 1.5;
-            ctx.strokeRect(25, 145, baseWidth - 50, baseHeight - 195);
-
-            // ปลุกตราแสตมป์ความสำเร็จ (วงกลมลายน้ำ)
-            ctx.fillStyle = '#ecfdf5';
-            ctx.fillRect(55, 165, baseWidth - 110, 45);
-            ctx.strokeStyle = '#10b981';
-            ctx.lineWidth = 1;
-            ctx.strokeRect(55, 165, baseWidth - 110, 45);
-
-            ctx.fillStyle = '#059669';
-            ctx.font = 'bold 14px Prompt, sans-serif';
-            ctx.fillText('✔ บันทึก Google Drive & Sheets สำเร็จ', baseWidth / 2, 193);
-
-            // เขียนเนื้อหาข้อมูล (จัดวางซ้าย-ขวาอย่างสมดุล)
-            const xLabel = 50;
-            const xVal = baseWidth - 50;
-
-            function drawInfoRow(lbl, val, y) {
-                ctx.fillStyle = '#64748b';
-                ctx.textAlign = 'left';
-                ctx.font = 'normal 13px Prompt, sans-serif';
-                ctx.fillText(lbl, xLabel, y);
-
-                ctx.fillStyle = '#0f172a';
-                ctx.textAlign = 'right';
-                ctx.font = 'bold 13px Prompt, sans-serif';
-                ctx.fillText(val, xVal, y);
-            }
-
-            drawInfoRow('เลขทะเบียนพยานหลักฐาน:', rec.licensePlate, 245);
-            drawInfoRow('ผู้รายงานผู้ใช้ LINE:', rec.lineName, 285);
-            drawInfoRow('LINE ID รหัสอ้างอิง:', rec.lineUserId.substring(0, 16) + '...', 325);
-            drawInfoRow('วันที่รายงานเข้าระบบ:', rec.dateStr, 365);
-            
-            const timeStr = new Date(rec.timestamp).toLocaleTimeString('th-TH', {hour: '2-digit', minute:'2-digit'}) + ' น.';
-            drawInfoRow('เวลาการส่งข้อมูล:', timeStr, 405);
-
-            // ชื่อคลิปจำลอง
-            let shortenedFile = rec.fileName;
-            if (shortenedFile.length > 25) shortenedFile = shortenedFile.substring(0, 22) + '...';
-            drawInfoRow('แฟ้มไฟล์วิดีโอหลักฐาน:', shortenedFile, 445);
-
-            // เส้นประปิดท้าย
-            ctx.strokeStyle = '#cbd5e1';
-            ctx.lineWidth = 1.5;
-            ctx.setLineDash([5, 5]);
-            ctx.beginPath();
-            ctx.moveTo(40, 480);
-            ctx.lineTo(baseWidth - 40, 480);
-            ctx.stroke();
-            ctx.setLineDash([]); // รีเซ็ต
-
-            // ส่วนท้ายใบเสร็จ
-            ctx.fillStyle = '#1e293b';
-            ctx.textAlign = 'center';
-            ctx.font = 'bold 12px Prompt, sans-serif';
-            ctx.fillText('CLOUD STORAGE SECURITY VERIFIED', baseWidth / 2, 515);
-
-            // จำลองลวดลายบาร์โค้ด
-            ctx.fillStyle = '#0f172a';
-            const barcodeXStart = baseWidth / 2 - 100;
-            const barcodeY = 535;
-            const barHeight = 25;
-            ctx.fillRect(barcodeXStart, barcodeY, 8, barHeight);
-            ctx.fillRect(barcodeXStart + 12, barcodeY, 4, barHeight);
-            ctx.fillRect(barcodeXStart + 20, barcodeY, 12, barHeight);
-            ctx.fillRect(barcodeXStart + 36, barcodeY, 2, barHeight);
-            ctx.fillRect(barcodeXStart + 42, barcodeY, 8, barHeight);
-            ctx.fillRect(barcodeXStart + 54, barcodeY, 14, barHeight);
-            ctx.fillRect(barcodeXStart + 72, barcodeY, 4, barHeight);
-            ctx.fillRect(barcodeXStart + 80, barcodeY, 10, barHeight);
-            ctx.fillRect(barcodeXStart + 94, barcodeY, 6, barHeight);
-            ctx.fillRect(barcodeXStart + 104, barcodeY, 12, barHeight);
-            ctx.fillRect(barcodeXStart + 122, barcodeY, 2, barHeight);
-            ctx.fillRect(barcodeXStart + 128, barcodeY, 8, barHeight);
-            ctx.fillRect(barcodeXStart + 140, barcodeY, 14, barHeight);
-            ctx.fillRect(barcodeXStart + 158, barcodeY, 4, barHeight);
-            ctx.fillRect(barcodeXStart + 166, barcodeY, 12, barHeight);
-            ctx.fillRect(barcodeXStart + 182, barcodeY, 8, barHeight);
-
-            ctx.fillStyle = '#94a3b8';
-            ctx.font = 'normal 9px Prompt, sans-serif';
-            ctx.fillText('* คัดสำเนาและยืนยันการจัดเก็บผ่าน Google API SSL *', baseWidth / 2, 582);
-            ctx.fillText('การประมวลผลมีความโปร่งใสและตรวจสอบย้อนหลังได้ 100%', baseWidth / 2, 598);
-        }
-
-        // ดาวน์โหลดไฟล์รูปหลักฐานเป็น PNG จากแคนวาสจริง
-        function downloadReceiptPNG() {
-            const canvas = document.getElementById('receipt-canvas');
-            const url = canvas.toDataURL('image/png');
-            const plateInput = memoryDatabase[0] ? memoryDatabase[0].licensePlate : 'รายงาน';
-            
-            const link = document.createElement('a');
-            link.download = `หลักฐานรายงาน_${plateInput.replace(/\s+/g, '_')}.png`;
-            link.href = url;
-            link.click();
-            triggerCustomToast("📥", "ดาวน์โหลดภาพหลักฐานสำเร็จ");
-        }
-
-        // จำลองระบบแชร์
-        function simulateShareToLineGroup() {
-            triggerCustomToast("💬", "ส่งรูปหลักฐานและรายงานสถานะเข้าไปในห้องแชทกลุ่มสำเร็จ!");
-        }
-
-        // เคลียร์ฟอร์มเตรียมอัปเดตแผ่นถัดไป
-        function resetUploadForm() {
-            document.getElementById('plate-char').value = "";
-            document.getElementById('plate-num').value = "";
-            currentSelectedVideo = null;
-            document.getElementById('video-file-picker').value = "";
-            document.getElementById('video-name-tag').innerHTML = `
-                <span class="truncate max-w-[200px]">ไม่ได้เลือกไฟล์ (ใช้คลิปจำลองอัตโนมัติ)</span>
-                <span class="bg-amber-100 text-amber-800 text-[8px] font-bold px-1.5 py-0.5 rounded uppercase">จำลอง</span>
-            `;
-
-            document.getElementById('phone-form-view').classList.remove('hidden');
-            document.getElementById('phone-success-view').classList.add('hidden');
-        }
-
-        // รีเฟรชและแสดงผล UI รวมหลังการอัปเดตสเตต
-        function refreshRenderedUI() {
-            const thaiDateString = parseToThaiBuddhistDate(filterDateSelected);
-            document.getElementById('thai-date-badge').innerText = thaiDateString;
-            
-            const filtered = getFilteredRecords();
-            document.getElementById('list-date-title').innerText = `รายการรายงานประจำวันที่ ${thaiDateString} (${filtered.length} คัน)`;
-
-            // อัปเดตสถิติ KPI
-            document.getElementById('kpi-count-today').innerText = `${filtered.length} รายการ`;
-            document.getElementById('kpi-count-total').innerText = `${memoryDatabase.length} รายการ`;
-            const uniqueProvinces = [...new Set(memoryDatabase.map(m => m.province))];
-            document.getElementById('kpi-count-provinces').innerText = `${uniqueProvinces.length} พื้นที่`;
-
-            // โหลดประวัติ
-            renderDashboardCards();
-            renderPhoneHistoryList();
-            
-            // รีเฟรชแผนภูมิ
-            updateChartsData();
-        }
-
-        function getFilteredRecords() {
-            const targetString = parseToThaiBuddhistDate(filterDateSelected);
-            return memoryDatabase.filter(m => m.dateStr === targetString);
-        }
-
-        function onFilterDateChanged() {
-            filterDateSelected = document.getElementById('filter-date-picker').value;
-            refreshRenderedUI();
-        }
-
-        // เคลียร์เครื่องเล่นตรวจสอบวิดีโอ
-        function stopDashboardVideoPlayer() {
-            const ply = document.getElementById('dashboard-video-player');
-            ply.src = "";
-            triggerCustomToast("⏹️", "ล้างคลิปตรวจสอบเรียบร้อย");
-        }
-
-        // ดึงคลิปวิดีโอขึ้นแสดงบน Dashboard หลังบ้าน
-        function playVideoOnDashboard(url) {
-            const ply = document.getElementById('dashboard-video-player');
-            ply.src = url;
-            ply.play();
-            triggerCustomToast("▶️", "กำลังพรีวิวดูวิดีโอพยานหลักฐาน");
-        }
-
-        // อัปเดตตารางสรุปรายงานประจำวัน
-        function renderDashboardCards() {
-            const holder = document.getElementById('dashboard-list-holder');
-            holder.innerHTML = "";
-            const filtered = getFilteredRecords();
-
-            if (filtered.length === 0) {
-                holder.innerHTML = `
-                    <div class="col-span-full bg-slate-900/40 text-slate-500 py-12 rounded-2xl text-center text-xs border border-slate-800">
-                        <i class="fa-solid fa-folder-open text-2xl mb-2.5 block text-slate-600"></i>
-                        ไม่มีประวัติการส่งไฟล์รายงานในวันที่ระบุในปฏิทิน
-                    </div>
-                `;
-                return;
-            }
-
-            filtered.forEach(rec => {
-                const card = document.createElement('div');
-                card.className = "bg-slate-900/60 p-4 rounded-2xl border border-slate-800/80 flex flex-col justify-between gap-3.5 shadow-sm";
-                card.innerHTML = `
-                    <div>
-                        <div class="flex justify-between items-center mb-2">
-                            <span class="text-xs font-black text-white px-2.5 py-1 bg-slate-850 rounded-lg border border-slate-800">
-                                <i class="fa-solid fa-car text-emerald-400 mr-1.5"></i>${rec.licensePlate}
-                            </span>
-                            <span class="text-[10px] text-slate-500 font-bold">
-                                🕒 ${new Date(rec.timestamp).toLocaleTimeString('th-TH', {hour: '2-digit', minute:'2-digit'})} น.
-                            </span>
-                        </div>
-                        
-                        <div class="flex items-center gap-2 text-xs py-1.5 border-b border-slate-800/40">
-                            <img src="${rec.linePic}" class="w-5 h-5 rounded-full object-cover">
-                            <span class="text-slate-300"><b>ผู้รายงาน:</b> ${rec.lineName}</span>
-                        </div>
-                        
-                        <p class="text-[10px] text-slate-500 truncate mt-1">
-                            <i class="fa-solid fa-file-video mr-1 text-slate-600"></i>${rec.fileName}
-                        </p>
-                    </div>
-
-                    <div class="flex gap-2 pt-1.5 border-t border-slate-850">
-                        <button onclick="playVideoOnDashboard('${rec.videoUrl}')" class="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-200 py-2 rounded-xl text-xs font-bold transition-all flex justify-center items-center gap-1.5">
-                            <i class="fa-solid fa-play text-emerald-400 text-[10px]"></i>เปิดคลิปหลักฐาน
-                        </button>
-                        <button onclick="activateLocalReceiptFromHistory('${rec.id}')" class="bg-emerald-950/40 hover:bg-emerald-900/60 text-emerald-400 border border-emerald-800/80 p-2 rounded-xl text-xs font-bold transition-all" title="เปิดดูใบหลักฐาน">
-                            <i class="fa-solid fa-receipt"></i>
-                        </button>
-                    </div>
-                `;
-                holder.appendChild(card);
-            });
-        }
-
-        // ดึงใบหลักฐานรายงานย้อนหลังในโทรศัพท์
-        function activateLocalReceiptFromHistory(id) {
-            const found = memoryDatabase.find(m => m.id === id);
-            if (found) {
-                renderReceiptCanvas(found);
-                switchPhoneTab('upload');
-                document.getElementById('phone-form-view').classList.add('hidden');
-                document.getElementById('phone-success-view').classList.remove('hidden');
-                triggerCustomToast("📑", "เรียกดูหลักฐานภาพของ " + found.licensePlate);
-            }
-        }
-
-        // อัปเดตรายการโครงสร้าง Google Drive จำลอง
-        function renderGoogleDriveTree() {
-            const container = document.getElementById('drive-folder-tree-inside');
-            container.innerHTML = "";
-
-            const treeData = {};
-            memoryDatabase.forEach(rec => {
-                if (!treeData[rec.dateStr]) treeData[rec.dateStr] = {};
-                if (!treeData[rec.dateStr][rec.licensePlate]) treeData[rec.dateStr][rec.licensePlate] = [];
-                treeData[rec.dateStr][rec.licensePlate].push(rec);
-            });
-
-            if (Object.keys(treeData).length === 0) {
-                container.innerHTML = `<p class="text-xs text-slate-500 italic">ไม่มีโฟลเดอร์สำหรับค้างข้อมูล</p>`;
-                return;
-            }
-
-            Object.keys(treeData).forEach(date => {
-                const dateBox = document.createElement('div');
-                dateBox.className = "space-y-2";
-                
-                let platesHtml = "";
-                Object.keys(treeData[date]).forEach(plate => {
-                    let filesHtml = "";
-                    treeData[date][plate].forEach(rec => {
-                        filesHtml += `
-                            <div onclick="playVideoOnDashboard('${rec.videoUrl}')" class="flex items-center justify-between p-2 rounded-lg bg-slate-900/40 hover:bg-emerald-950/20 border border-slate-850 transition-all cursor-pointer group">
-                                <span class="flex items-center gap-2 text-slate-300">
-                                    <i class="fa-solid fa-video text-emerald-400"></i>${rec.fileName}
-                                </span>
-                                <span class="text-[9px] text-emerald-400 font-extrabold opacity-0 group-hover:opacity-100 transition-all">
-                                    <i class="fa-solid fa-circle-play mr-1"></i>พรีวิววิดีโอ
-                                </span>
-                            </div>
-                        `;
-                    });
-
-                    platesHtml += `
-                        <div class="ml-6 space-y-1.5 border-l-2 border-dashed border-slate-800/80 pl-4">
-                            <div class="flex items-center gap-2 text-sky-400 font-semibold py-1">
-                                <i class="fa-solid fa-folder text-sm"></i>
-                                <span>${plate}</span>
-                            </div>
-                            <div class="ml-6 space-y-1">
-                                ${filesHtml}
-                            </div>
-                        </div>
-                    `;
-                });
-
-                dateBox.innerHTML = `
-                    <div class="flex items-center gap-2 text-amber-400 font-bold">
-                        <i class="fa-solid fa-folder"></i>
-                        <span>📁 ${date}</span>
-                    </div>
-                    <div class="space-y-2">
-                        ${platesHtml}
-                    </div>
-                `;
-                container.appendChild(dateBox);
-            });
-        }
-
-        // อัปเดตตารางรายงาน Google Sheets
-        function renderGoogleSheetsTable() {
-            const body = document.getElementById('sheets-table-rows');
-            body.innerHTML = "";
-
-            if (memoryDatabase.length === 0) {
-                body.innerHTML = `
-                    <tr>
-                        <td colspan="9" class="p-8 text-center text-slate-500">ยังไม่มีข้อมูลรายงานของวันนี้ในตาราง</td>
-                    </tr>
-                `;
-                return;
-            }
-
-            memoryDatabase.forEach(rec => {
-                const row = document.createElement('tr');
-                row.className = "hover:bg-slate-900/40 transition-colors border-b border-slate-800/50";
-                row.innerHTML = `
-                    <td class="p-3 whitespace-nowrap">${new Date(rec.timestamp).toLocaleString('th-TH')}</td>
-                    <td class="p-3 whitespace-nowrap">
-                        <span class="px-2 py-0.5 rounded bg-slate-800 text-slate-300 font-semibold text-[10px]">${rec.dateStr}</span>
-                    </td>
-                    <td class="p-3 font-mono text-[10px] text-slate-500 truncate max-w-[80px]" title="${rec.lineUserId}">${rec.lineUserId}</td>
-                    <td class="p-3 whitespace-nowrap font-bold text-slate-200">${rec.lineName}</td>
-                    <td class="p-3 whitespace-nowrap font-bold text-emerald-400">${rec.plateChar}</td>
-                    <td class="p-3 whitespace-nowrap font-bold text-sky-400">${rec.plateNum}</td>
-                    <td class="p-3 whitespace-nowrap font-bold text-amber-400">${rec.province}</td>
-                    <td class="p-3 truncate max-w-[120px]" title="${rec.fileName}">${rec.fileName}</td>
-                    <td class="p-3 whitespace-nowrap">
-                        <span class="text-blue-400 underline cursor-pointer hover:text-blue-300" onclick="window.open('${rec.videoUrl}', '_blank')">
-                            เปิดหลักฐาน 🔗
-                        </span>
-                    </td>
-                `;
-                body.appendChild(row);
-            });
-        }
-
-        // จัดการประวัติรายงานย้อนหลังในหน้าจอมือถือ
-        function renderPhoneHistoryList() {
-            const container = document.getElementById('history-list-inside-phone');
-            container.innerHTML = "";
-            document.getElementById('history-badge-count').innerText = memoryDatabase.length;
-
-            if (memoryDatabase.length === 0) {
-                container.innerHTML = `<p class="text-center text-xs text-slate-400 py-12">ไม่มีบันทึกประวัติการส่งรายงานย้อนหลัง</p>`;
-                return;
-            }
-
-            memoryDatabase.forEach(rec => {
-                const item = document.createElement('div');
-                item.className = "bg-white p-3.5 rounded-2xl border border-slate-200/80 shadow-sm space-y-2";
-                item.innerHTML = `
-                    <div class="flex justify-between items-center text-xs">
-                        <span class="font-extrabold text-slate-800">🚗 ${rec.licensePlate}</span>
-                        <span class="text-[9px] text-slate-400">${rec.dateStr}</span>
-                    </div>
-                    <p class="text-[9px] text-slate-500 truncate"><b>ไฟล์:</b> ${rec.fileName}</p>
-                    <div class="flex justify-end gap-1.5 pt-2 border-t border-slate-100">
-                        <button onclick="activateLocalReceiptFromHistory('${rec.id}')" class="text-[9px] bg-slate-100 text-slate-700 border border-slate-200/80 py-1.5 px-3 rounded-lg font-bold hover:bg-slate-200 transition-all">
-                            ดูรูปแสตมป์หลักฐาน
-                        </button>
-                    </div>
-                `;
-                container.appendChild(item);
-            });
-        }
-
-        // เตรียมข้อมูลชุดสคริปต์ใช้งานจริงสำหรับแอดมิน
-        function setupAppsScriptCodeView() {
-            const code = `/**
- * โค้ด Apps Script หลังบ้านสำหรับระบบโปรดักชัน (9 คอลัมน์ ตามรูป image_588b98.png)
- * คัดลอกไปวางบน Google Sheets -> Extensions -> Apps Script เพื่อส่งไฟล์วิดีโอจาก LINE LIFF เข้า Google Drive และ Sheets จริง
- */
-
-const MAIN_FOLDER_ID = "ใส่_ID_โฟลเดอร์หลักบนไดร์ฟของท่านที่นี่";
-
-// [POST] รับข้อมูลส่งรายงานมาจาก LINE Mini App
-function doPost(e) {
+    <div class="card mb-3">
+      <h2 class="font-bold text-emerald-800 mb-3 text-sm">📋 ข้อมูลป้ายทะเบียนรถ</h2>
+      <label class="text-xs text-gray-500 font-semibold">หมวดอักษร</label>
+      <input type="text" id="plateChar" placeholder="เช่น กข" class="mb-3 mt-1" />
+      <label class="text-xs text-gray-500 font-semibold">หมวดตัวเลข</label>
+      <input type="text" id="plateNumber" placeholder="เช่น 1234" inputmode="numeric" class="mb-3 mt-1" />
+      <label class="text-xs text-gray-500 font-semibold">หมวดจังหวัด</label>
+      <div class="relative mt-1 mb-1">
+        <input type="text" id="plateProvince" class="dropdown-input" placeholder="พิมพ์เพื่อค้นหาจังหวัด..." autocomplete="off" />
+        <div id="provinceDropdown" class="dropdown-list"></div>
+      </div>
+    </div>
+
+    <div class="card mb-3">
+      <h2 class="font-bold text-emerald-800 mb-3 text-sm">🎥 ไฟล์วิดีโอหลักฐาน</h2>
+      <input type="file" id="videoFile" accept="video/*" class="text-sm w-full" />
+      <div id="fileNameLabel" class="text-xs text-gray-400 mt-2"></div>
+    </div>
+
+    <button id="btnSubmit" class="btn-primary flex items-center justify-center gap-2">
+      <span id="btnSubmitText">📤 ยืนยันส่งข้อมูล</span>
+    </button>
+    <div id="submitStatus" class="text-center text-xs mt-2 text-gray-500"></div>
+  </div>
+
+  <div id="tab-receipt" class="tab-panel">
+    <div class="text-center mb-3">
+      <h2 class="font-bold text-emerald-800">🧾 ใบหลักฐานภาพรายงาน</h2>
+      <p class="text-xs text-gray-400">บันทึกภาพนี้เพื่อส่งต่อในกลุ่ม LINE</p>
+    </div>
+    <div class="flex justify-center">
+      <canvas id="receiptCanvas" style="width:100%; max-width:380px; border-radius:10px;"></canvas>
+    </div>
+    <button id="btnDownloadImg" class="btn-primary mt-4">📥 ดาวน์โหลดรูปภาพหลักฐานลงเครื่อง</button>
+    <button id="btnBackToForm" class="w-full mt-2 text-emerald-700 text-sm font-semibold py-2">⬅ กลับไปส่งรายงานใหม่</button>
+  </div>
+
+  <div id="tab-today" class="tab-panel">
+    <div class="flex items-center justify-between mb-3">
+      <h2 class="font-bold text-emerald-800 text-sm">📅 รายงานวันนี้</h2>
+      <button id="btnRefreshToday" class="text-xs text-emerald-600 font-semibold">🔄 รีเฟรช</button>
+    </div>
+    <div id="todayList" class="space-y-3"></div>
+  </div>
+
+  <div id="tab-search" class="tab-panel">
+    <h2 class="font-bold text-emerald-800 mb-3 text-sm">🔍 ค้นหาป้ายทะเบียนย้อนหลัง</h2>
+    <input type="text" id="searchInput" placeholder="พิมพ์ อักษร / เลข / จังหวัด..." class="mb-3" />
+    <div id="searchList" class="space-y-3"></div>
+  </div>
+
+  <div id="adminLockScreen" class="absolute inset-0 bg-white z-40 hidden flex-col items-center justify-center p-8 text-center">
+    <div class="text-4xl mb-3">🔒</div>
+    <div class="font-bold text-gray-700 mb-3">กรุณากรอกรหัสผ่านแอดมิน</div>
+    <input type="password" id="adminPassInput" class="text-center mb-3" placeholder="รหัสผ่าน" />
+    <button id="btnAdminConfirm" class="btn-primary mb-2">เข้าสู่ระบบ</button>
+    <button id="btnAdminCancel" class="text-xs text-gray-400">ยกเลิก</button>
+    <div id="adminLockError" class="text-xs text-red-500 mt-2"></div>
+  </div>
+
+  <div class="bottom-nav">
+    <button class="nav-btn active" data-tab="tab-send">
+      <span class="ic">🚗</span><span>ผู้ปฏิบัติ: ส่งคลิป</span>
+    </button>
+    <button class="nav-btn" data-tab="tab-today" data-admin="1">
+      <span class="ic">📊</span><span>แอดมิน: รายงานวัน</span>
+    </button>
+    <button class="nav-btn" data-tab="tab-search" data-admin="1">
+      <span class="ic">🔎</span><span>แอดมิน: ค้นหา</span>
+    </button>
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   ⚠️ ตั้งค่าจำเป็น 2 ค่านี้ก่อนใช้งานจริง
+   ============================================================ */
+const LIFF_ID = "2010560666-vlJ3RPxK"; // LIFF ID จาก LINE Developers Console
+const API_URL = "https://script.google.com/macros/s/XXXXXXXXXXXXXXXX/exec"; // Web App URL ของ code.gs (ลงท้ายด้วย /exec)
+
+/* ============================================================
+   CONFIG & STATE
+   ============================================================ */
+const PROVINCES = ["ลพบุรี","กรุงเทพฯ","สระบุรี","สิงห์บุรี","อยุธยา","อ่างทอง","ชัยนาท","นนทบุรี","ปทุมธานี",
+"นครปฐม","สมุทรปราการ","สมุทรสาคร","สมุทรสงคราม","ราชบุรี","กาญจนบุรี","สุพรรณบุรี","นครนายก","ฉะเชิงเทรา",
+"ปราจีนบุรี","สระแก้ว","ชลบุรี","ระยอง","จันทบุรี","ตราด","นครราชสีมา","บุรีรัมย์","สุรินทร์","ศรีสะเกษ",
+"อุบลราชธานี","ขอนแก่น","อุดรธานี","เลย","หนองคาย","มหาสารคาม","ร้อยเอ็ด","กาฬสินธุ์","สกลนคร","นครพนม",
+"เชียงใหม่","เชียงราย","ลำปาง","ลำพูน","แพร่","น่าน","พะเยา","แม่ฮ่องสอน","ตาก","สุโขทัย","พิษณุโลก",
+"พิจิตร","กำแพงเพชร","นครสวรรค์","อุทัยธานี","เพชรบูรณ์","ภูเก็ต","สุราษฎร์ธานี","นครศรีธรรมราช","สงขลา",
+"กระบี่","พังงา","ตรัง","สตูล","ยะลา","ปัตตานี","นราธิวาส","ระนอง","ชุมพร","พัทลุง"];
+
+let CURRENT_USER = { userId: "-", displayName: "ผู้ใช้งาน", pictureUrl: "" };
+let IS_ADMIN_UNLOCKED = false;
+let PENDING_ADMIN_TAB = null;
+let LAST_REPORT_DATA = null;
+let SELECTED_FILE_BASE64 = null;
+let SELECTED_FILE_OBJ = null;
+
+/* ============================================================
+   LIFF INIT — มี timeout กันค้าง + ไม่บังคับ login
+   ============================================================ */
+async function initLiff() {
   try {
-    var jsonData = JSON.parse(e.postData.contents);
-    
-    var lineUserId = jsonData.lineUserId || "Unknown ID";
-    var lineName = jsonData.lineName || "Unknown Name";
-    var plateChar = jsonData.plateChar || "";
-    var plateNum = jsonData.plateNum || "";
-    var province = jsonData.province || "";
-    var fileData = jsonData.fileData; // แปลงข้อมูล Base64
-    var fileName = jsonData.fileName;
+    if (typeof liff === "undefined") throw new Error("ไม่พบ LIFF SDK");
 
-    // จัดระเบียบเรื่องวันที่ (DD-MM-YYYY พ.ศ.)
-    var today = new Date();
-    var dd = String(today.getDate()).padStart(2, '0');
-    var mm = String(today.getMonth() + 1).padStart(2, '0');
-    var yyyy = today.getFullYear() + 543;
-    var dateString = dd + "-" + mm + "-" + yyyy;
-    
-    var licensePlate = plateChar + " " + plateNum + " " + province;
+    const initPromise = liff.init({ liffId: LIFF_ID });
+    const timeout = new Promise((_, rej) => setTimeout(() => rej(new Error("liff.init timeout")), 6000));
+    await Promise.race([initPromise, timeout]);
 
-    // 1. ไปยังโฟลเดอร์หลัก
-    var mainFolder = DriveApp.getFolderById(MAIN_FOLDER_ID);
-    
-    // 2. ตรวจสอบ/สร้าง โฟลเดอร์วันที่
-    var dateFolder;
-    var dateSubFolders = mainFolder.getFoldersByName(dateString);
-    if (dateSubFolders.hasNext()) {
-      dateFolder = dateSubFolders.next();
+    if (liff.isLoggedIn()) {
+      const profile = await liff.getProfile();
+      CURRENT_USER = {
+        userId: profile.userId,
+        displayName: profile.displayName,
+        pictureUrl: profile.pictureUrl || ""
+      };
+    } else if (liff.isInClient()) {
+      // อยู่ในแอป LINE จริงแต่ยังไม่ login -> ส่งไป login แล้ว redirect กลับมาเอง
+      liff.login({ redirectUri: window.location.href });
+      return;
     } else {
-      dateFolder = mainFolder.createFolder(dateString);
+      console.warn("เปิดนอกแอป LINE — ไม่สามารถดึงโปรไฟล์ LINE ได้");
     }
-
-    // 3. ตรวจสอบ/สร้าง โฟลเดอร์เลขทะเบียนรถ
-    var targetFolder;
-    var plateSubFolders = dateFolder.getFoldersByName(licensePlate);
-    if (plateSubFolders.hasNext()) {
-      targetFolder = plateSubFolders.next();
-    } else {
-      targetFolder = dateFolder.createFolder(licensePlate);
-    }
-
-    // 4. แปลงไฟล์วิดีโอจาก Base64 และบันทึก
-    var contentType = fileData.substring(5, fileData.indexOf(';base64'));
-    var base64Data = fileData.substring(fileData.indexOf(';base64') + 7);
-    var blob = Utilities.newBlob(Utilities.base64Decode(base64Data), contentType, fileName);
-    var file = targetFolder.createFile(blob);
-    var fileUrl = file.getUrl();
-
-    // 5. บันทึกประวัติลง Google Sheet ตามโครงสร้างรูป image_588b98.png (9 คอลัมน์)
-    var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
-    sheet.appendRow([
-      new Date(),       // A: Timestamp
-      dateString,       // B: วันที่บันทึก
-      lineUserId,       // C: LINE User ID
-      lineName,         // D: ชื่อผู้ส่ง (LINE Name)
-      plateChar,        // E: หมวดอักษร
-      plateNum,         // F: หมวดตัวเลข
-      province,         // G: หมวดจังหวัด
-      fileName,         // H: ชื่อไฟล์
-      fileUrl           // I: ลิงก์ไฟล์บน Drive
-    ]);
-
-    return ContentService.createTextOutput(JSON.stringify({
-      "status": "success",
-      "message": "จัดเก็บพยานหลักฐานบนคลาวด์สำเร็จแล้ว",
-      "fileUrl": fileUrl
-    })).setMimeType(ContentService.MimeType.JSON);
-
-  } catch (error) {
-    return ContentService.createTextOutput(JSON.stringify({
-      "status": "error",
-      "message": error.toString()
-    })).setMimeType(ContentService.MimeType.JSON);
+  } catch (err) {
+    console.warn("[LIFF] " + err.message);
+  } finally {
+    renderUserProfile();
   }
 }
 
-// [GET] ดึงประวัติรายงานของวันปัจจุบันไปประมวลผลบน Dashboard
-function doGet(e) {
-  try {
-    var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
-    var data = sheet.getDataRange().getValues();
-    
-    var today = new Date();
-    var dd = String(today.getDate()).padStart(2, '0');
-    var mm = String(today.getMonth() + 1).padStart(2, '0');
-    var yyyy = today.getFullYear() + 543;
-    var targetDate = dd + "-" + mm + "-" + yyyy;
-    
-    var filteredData = [];
-    for (var i = 1; i < data.length; i++) {
-      if (data[i][1] === targetDate) {
-        filteredData.push({
-          "timestamp": data[i][0],
-          "dateStr": data[i][1],
-          "lineUserId": data[i][2],
-          "lineName": data[i][3],
-          "plateChar": data[i][4],
-          "plateNum": data[i][5],
-          "province": data[i][6],
-          "fileName": data[i][7],
-          "fileUrl": data[i][8]
-        });
-      }
-    }
-    
-    return ContentService.createTextOutput(JSON.stringify({
-      "status": "success",
-      "date": targetDate,
-      "records": filteredData
-    })).setMimeType(ContentService.MimeType.JSON);
+function renderUserProfile() {
+  document.getElementById("userNameTxt").innerText = CURRENT_USER.displayName;
+  document.getElementById("userIdTxt").innerText = "LINE ID: " + CURRENT_USER.userId;
+  document.getElementById("userMiniName").innerText = CURRENT_USER.displayName;
+  const avatar = document.getElementById("userAvatar");
+  avatar.src = CURRENT_USER.pictureUrl ||
+    ("https://api.dicebear.com/7.x/initials/svg?seed=" + encodeURIComponent(CURRENT_USER.displayName));
+}
 
-  } catch(error) {
-    return ContentService.createTextOutput(JSON.stringify({
-      "status": "error",
-      "message": error.toString()
-    })).setMimeType(ContentService.MimeType.JSON);
+/* ============================================================
+   เรียก Backend ผ่าน fetch() แทน google.script.run
+   ============================================================ */
+async function apiPost(action, data) {
+  const res = await fetch(API_URL, {
+    method: "POST",
+    headers: { "Content-Type": "text/plain;charset=utf-8" }, // กัน CORS preflight
+    body: JSON.stringify({ action, data })
+  });
+  return res.json();
+}
+
+async function apiGet(action, params) {
+  const url = new URL(API_URL);
+  url.searchParams.set("action", action);
+  Object.entries(params || {}).forEach(([k, v]) => url.searchParams.set(k, v));
+  const res = await fetch(url.toString());
+  return res.json();
+}
+
+/* ============================================================
+   PROVINCE SEARCHABLE DROPDOWN
+   ============================================================ */
+function setupProvinceDropdown() {
+  const input = document.getElementById("plateProvince");
+  const list = document.getElementById("provinceDropdown");
+  function renderList(filter) {
+    const f = (filter || "").trim();
+    const matched = f ? PROVINCES.filter(p => p.includes(f)) : PROVINCES;
+    list.innerHTML = "";
+    if (matched.length === 0) { list.style.display = "none"; return; }
+    matched.slice(0, 20).forEach(p => {
+      const div = document.createElement("div");
+      div.innerText = p;
+      div.onclick = () => { input.value = p; list.style.display = "none"; };
+      list.appendChild(div);
+    });
+    list.style.display = "block";
   }
-}`;
-            document.getElementById('apps-script-textarea').value = code;
-        }
+  input.addEventListener("focus", () => renderList(input.value));
+  input.addEventListener("input", () => renderList(input.value));
+  document.addEventListener("click", (e) => {
+    if (!list.contains(e.target) && e.target !== input) list.style.display = "none";
+  });
+}
 
-        // คัดลอกรหัส Apps Script
-        function copyAppsScriptCode() {
-            const area = document.getElementById('apps-script-textarea');
-            area.select();
-            document.execCommand('copy');
-            triggerCustomToast("📋", "คัดลอกคำสั่งสคริปต์ไปยังคลิปบอร์ดแล้ว");
-        }
+/* ============================================================
+   TAB NAVIGATION
+   ============================================================ */
+function setupBottomNav() {
+  document.querySelectorAll(".nav-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const tabId = btn.dataset.tab;
+      const needsAdmin = btn.dataset.admin === "1";
+      if (needsAdmin && !IS_ADMIN_UNLOCKED) {
+        PENDING_ADMIN_TAB = tabId;
+        document.getElementById("adminLockScreen").classList.remove("hidden");
+        document.getElementById("adminLockScreen").classList.add("flex");
+        return;
+      }
+      switchTab(tabId);
+    });
+  });
+}
 
-        // ระบบกราฟรายงานเชิงโต้ตอบความสวยงามสูง (Interactive Charts)
-        function initializeCharts() {
-            // 1. ชาร์ตยอดรายงานย้อนหลัง 4 วัน
-            const ctxDaily = document.getElementById('chart-daily-uploads').getContext('2d');
-            uploadsChartInstance = new Chart(ctxDaily, {
-                type: 'line',
-                data: getDailyTrendChartData(),
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: { legend: { display: false } },
-                    scales: {
-                        y: {
-                            ticks: { color: '#94a3b8', font: { size: 9 }, stepSize: 1 },
-                            grid: { color: '#1e293b' }
-                        },
-                        x: {
-                            ticks: { color: '#94a3b8', font: { size: 9 } },
-                            grid: { display: false }
-                        }
-                    }
-                }
-            });
+function switchTab(tabId) {
+  document.querySelectorAll(".tab-panel").forEach(p => p.classList.remove("active"));
+  document.getElementById(tabId).classList.add("active");
+  document.querySelectorAll(".nav-btn").forEach(b => b.classList.toggle("active", b.dataset.tab === tabId));
+  if (tabId === "tab-today") loadTodayData();
+  if (tabId === "tab-search") document.getElementById("searchList").innerHTML = "";
+}
 
-            // 2. ชาร์ตวงกลมอัตราส่วนจังหวัด
-            const ctxPie = document.getElementById('chart-province-pie').getContext('2d');
-            provincePieInstance = new Chart(ctxPie, {
-                type: 'pie',
-                data: getProvincePieChartData(),
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            position: 'right',
-                            labels: { color: '#f8fafc', font: { size: 9, family: 'Prompt' } }
-                        }
-                    }
-                }
-            });
-        }
+function setupAdminLock() {
+  document.getElementById("btnAdminConfirm").onclick = async () => {
+    const pass = document.getElementById("adminPassInput").value;
+    document.getElementById("adminLockError").innerText = "";
+    const result = await apiGet("checkAdminPass", { pass });
+    if (result.valid === true) {
+      IS_ADMIN_UNLOCKED = true;
+      document.getElementById("adminLockScreen").classList.add("hidden");
+      document.getElementById("adminLockScreen").classList.remove("flex");
+      document.getElementById("adminPassInput").value = "";
+      if (PENDING_ADMIN_TAB) switchTab(PENDING_ADMIN_TAB);
+    } else {
+      document.getElementById("adminLockError").innerText = "❌ รหัสผ่านไม่ถูกต้อง";
+    }
+  };
+  document.getElementById("btnAdminCancel").onclick = () => {
+    document.getElementById("adminLockScreen").classList.add("hidden");
+    document.getElementById("adminLockScreen").classList.remove("flex");
+  };
+}
 
-        function getDailyTrendChartData() {
-            const targetDates = ["27-06-2569", "28-06-2569", "29-06-2569", "30-06-2569"];
-            const counts = targetDates.map(d => memoryDatabase.filter(m => m.dateStr === d).length);
-            return {
-                labels: ["27 มิ.ย.", "28 มิ.ย.", "29 มิ.ย.", "30 มิ.ย."],
-                datasets: [{
-                    label: 'ยอดส่งพยานหลักฐาน',
-                    data: counts,
-                    backgroundColor: 'rgba(59, 130, 246, 0.15)',
-                    borderColor: '#3b82f6',
-                    borderWidth: 2,
-                    tension: 0.4,
-                    pointBackgroundColor: '#3b82f6',
-                    fill: true
-                }]
-            };
-        }
+/* ============================================================
+   ฟอร์มส่งคลิป
+   ============================================================ */
+function setupUploadForm() {
+  document.getElementById("videoFile").addEventListener("change", (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    SELECTED_FILE_OBJ = file;
+    document.getElementById("fileNameLabel").innerText = "📎 " + file.name + " (" + (file.size/1024/1024).toFixed(2) + " MB)";
+    const reader = new FileReader();
+    reader.onload = () => { SELECTED_FILE_BASE64 = reader.result.split(",")[1]; };
+    reader.readAsDataURL(file);
+  });
 
-        function getProvincePieChartData() {
-            const provinces = {};
-            memoryDatabase.forEach(m => {
-                provinces[m.province] = (provinces[m.province] || 0) + 1;
-            });
-            return {
-                labels: Object.keys(provinces),
-                datasets: [{
-                    data: Object.values(provinces),
-                    backgroundColor: ['#10b981', '#3b82f6', '#f59e0b', '#8b5cf6', '#ec4899', '#14b8a6'],
-                    borderWidth: 1,
-                    borderColor: '#0f172a'
-                }]
-            };
-        }
+  document.getElementById("btnSubmit").addEventListener("click", async () => {
+    const plateChar = document.getElementById("plateChar").value.trim();
+    const plateNumber = document.getElementById("plateNumber").value.trim();
+    const plateProvince = document.getElementById("plateProvince").value.trim();
+    const statusEl = document.getElementById("submitStatus");
 
-        function updateChartsData() {
-            if (uploadsChartInstance && provincePieInstance) {
-                uploadsChartInstance.data = getDailyTrendChartData();
-                uploadsChartInstance.update();
+    if (!plateChar || !plateNumber || !plateProvince) {
+      statusEl.innerText = "⚠️ กรุณากรอกข้อมูลทะเบียนรถให้ครบถ้วน"; statusEl.className="text-center text-xs mt-2 text-red-500"; return;
+    }
+    if (!SELECTED_FILE_OBJ || !SELECTED_FILE_BASE64) {
+      statusEl.innerText = "⚠️ กรุณาเลือกไฟล์วิดีโอ"; statusEl.className="text-center text-xs mt-2 text-red-500"; return;
+    }
 
-                provincePieInstance.data = getProvincePieChartData();
-                provincePieInstance.update();
-            }
-        }
+    const btn = document.getElementById("btnSubmit");
+    btn.disabled = true;
+    document.getElementById("btnSubmitText").innerHTML = '<span class="spinner inline-block align-middle"></span> กำลังอัปโหลด...';
+    statusEl.innerText = "";
 
-        // ระบบแจ้งเตือน Popup สไตล์สวยหรูแทนการพึ่งพา Alert()
-        function triggerCustomToast(icon, text) {
-            const toast = document.getElementById('toast-notif');
-            document.getElementById('toast-icon-wrapper').innerHTML = `<span class="text-xs font-bold">${icon}</span>`;
-            document.getElementById('toast-message-text').innerText = text;
+    try {
+      const payload = {
+        lineUserId: CURRENT_USER.userId,
+        lineName: CURRENT_USER.displayName,
+        plateChar, plateNumber, plateProvince,
+        fileName: SELECTED_FILE_OBJ.name,
+        mimeType: SELECTED_FILE_OBJ.type || "video/mp4",
+        base64Data: SELECTED_FILE_BASE64
+      };
+      const result = await apiPost("uploadVideoReport", payload);
 
-            toast.classList.remove('hidden');
-            setTimeout(() => {
-                toast.classList.add('hidden');
-            }, 3000);
-        }
-    </script>
+      if (result && result.success) {
+        LAST_REPORT_DATA = { ...payload, ...result };
+        drawReceiptCanvas(LAST_REPORT_DATA);
+        switchTab("tab-receipt");
+        resetForm();
+      } else {
+        statusEl.innerText = "❌ เกิดข้อผิดพลาด: " + (result.message || "ไม่ทราบสาเหตุ");
+        statusEl.className = "text-center text-xs mt-2 text-red-500";
+      }
+    } catch (err) {
+      statusEl.innerText = "❌ เกิดข้อผิดพลาด: " + err.message;
+      statusEl.className = "text-center text-xs mt-2 text-red-500";
+    } finally {
+      btn.disabled = false;
+      document.getElementById("btnSubmitText").innerText = "📤 ยืนยันส่งข้อมูล";
+    }
+  });
+
+  document.getElementById("btnBackToForm").addEventListener("click", () => switchTab("tab-send"));
+}
+
+function resetForm() {
+  document.getElementById("plateChar").value = "";
+  document.getElementById("plateNumber").value = "";
+  document.getElementById("plateProvince").value = "";
+  document.getElementById("videoFile").value = "";
+  document.getElementById("fileNameLabel").innerText = "";
+  SELECTED_FILE_BASE64 = null;
+  SELECTED_FILE_OBJ = null;
+}
+
+/* ============================================================
+   CANVAS: ใบหลักฐานภาพ
+   ============================================================ */
+function drawReceiptCanvas(data) {
+  const canvas = document.getElementById("receiptCanvas");
+  const dpr = window.devicePixelRatio || 1;
+  const W = 500, H = 620;
+  canvas.width = W * dpr; canvas.height = H * dpr;
+  canvas.style.width = W + "px"; canvas.style.height = H + "px";
+  const ctx = canvas.getContext("2d");
+  ctx.scale(dpr, dpr);
+
+  ctx.fillStyle = "#ffffff"; ctx.fillRect(0, 0, W, H);
+  ctx.strokeStyle = "#047857"; ctx.lineWidth = 6; ctx.strokeRect(8, 8, W-16, H-16);
+  ctx.strokeStyle = "#10b981"; ctx.lineWidth = 1.5; ctx.strokeRect(16, 16, W-32, H-32);
+
+  ctx.save();
+  ctx.globalAlpha = 0.07; ctx.fillStyle = "#047857"; ctx.font = "bold 80px Arial";
+  ctx.translate(W/2, H/2); ctx.rotate(-Math.PI/8); ctx.textAlign = "center";
+  ctx.fillText("UPLOADED", 0, 0);
+  ctx.restore();
+
+  const grad = ctx.createLinearGradient(0,0,W,0);
+  grad.addColorStop(0, "#047857"); grad.addColorStop(1, "#065f46");
+  ctx.fillStyle = grad; ctx.fillRect(20, 30, W-40, 64);
+
+  ctx.fillStyle = "#ffffff"; ctx.textAlign = "center"; ctx.font = "bold 20px Arial";
+  ctx.fillText("ใบรับรองหลักฐานการรายงาน", W/2, 60);
+  ctx.font = "13px Arial"; ctx.fillText("ระบบฐานข้อมูลรถวิทยุในสังกัด", W/2, 80);
+
+  ctx.fillStyle = "#374151"; ctx.font = "13px Arial"; ctx.textAlign = "left";
+  ctx.fillText("🕒 เวลาที่รายงาน: " + (data.timestamp || ""), 32, 128);
+
+  ctx.font = "bold 14px Arial"; ctx.fillStyle = "#047857";
+  ctx.fillText("👤 ข้อมูลผู้รายงาน", 32, 160);
+  ctx.font = "13px Arial"; ctx.fillStyle = "#111827";
+  ctx.fillText("ชื่อ: " + (data.lineName || "-"), 32, 182);
+  ctx.fillStyle = "#6b7280"; ctx.font = "11px Arial";
+  ctx.fillText("LINE ID: " + (data.lineUserId || "-"), 32, 200);
+
+  ctx.fillStyle = "#ecfdf5"; roundRect(ctx, 32, 224, W-64, 140, 14); ctx.fill();
+  ctx.strokeStyle = "#10b981"; ctx.lineWidth = 1.5; roundRect(ctx, 32, 224, W-64, 140, 14); ctx.stroke();
+
+  ctx.fillStyle = "#047857"; ctx.font = "bold 13px Arial"; ctx.textAlign = "center";
+  ctx.fillText("🚗 ข้อมูลป้ายทะเบียนรถ", W/2, 250);
+
+  ctx.font = "bold 30px Arial"; ctx.fillStyle = "#065f46";
+  ctx.fillText((data.plateChar || "") + "  " + (data.plateNumber || ""), W/2, 300);
+
+  ctx.font = "bold 18px Arial"; ctx.fillStyle = "#047857";
+  ctx.fillText(data.plateProvince || "-", W/2, 335);
+
+  ctx.textAlign = "left"; ctx.font = "bold 13px Arial"; ctx.fillStyle = "#047857";
+  ctx.fillText("📁 ไฟล์หลักฐาน", 32, 400);
+  ctx.font = "12px Arial"; ctx.fillStyle = "#374151";
+  wrapText(ctx, data.fileName || "-", 32, 420, W-64, 16);
+
+  ctx.strokeStyle = "#e5e7eb"; ctx.beginPath(); ctx.moveTo(32, 470); ctx.lineTo(W-32, 470); ctx.stroke();
+
+  ctx.textAlign = "center"; ctx.font = "11px Arial"; ctx.fillStyle = "#9ca3af";
+  ctx.fillText("เอกสารนี้สร้างขึ้นโดยอัตโนมัติจากระบบฐานข้อมูลรถวิทยุในสังกัด", W/2, H-40);
+  ctx.font = "bold 12px Arial"; ctx.fillStyle = "#10b981";
+  ctx.fillText("✔ บันทึกข้อมูลสำเร็จ", W/2, H-20);
+}
+
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x+r, y); ctx.arcTo(x+w, y, x+w, y+h, r); ctx.arcTo(x+w, y+h, x, y+h, r);
+  ctx.arcTo(x, y+h, x, y, r); ctx.arcTo(x, y, x+w, y, r); ctx.closePath();
+}
+
+function wrapText(ctx, text, x, y, maxWidth, lineHeight) {
+  const words = text.split("");
+  let line = "", curY = y;
+  for (let i = 0; i < words.length; i++) {
+    const testLine = line + words[i];
+    if (ctx.measureText(testLine).width > maxWidth && line !== "") {
+      ctx.fillText(line, x, curY); line = words[i]; curY += lineHeight;
+    } else { line = testLine; }
+  }
+  ctx.fillText(line, x, curY);
+}
+
+document.getElementById("btnDownloadImg")?.addEventListener("click", () => {
+  const canvas = document.getElementById("receiptCanvas");
+  const link = document.createElement("a");
+  link.download = "หลักฐานรายงาน_" + (LAST_REPORT_DATA?.plateChar || "") + (LAST_REPORT_DATA?.plateNumber || "") + ".png";
+  link.href = canvas.toDataURL("image/png");
+  link.click();
+});
+
+/* ============================================================
+   แดชบอร์ดวันนี้ / ค้นหา
+   ============================================================ */
+async function loadTodayData() {
+  const container = document.getElementById("todayList");
+  container.innerHTML = '<div class="text-center text-gray-400 text-sm py-6"><span class="spinner inline-block"></span> กำลังโหลด...</div>';
+  const data = await apiGet("fetchToday", {});
+  renderItemCards(container, data.items || []);
+}
+
+document.getElementById("btnRefreshToday")?.addEventListener("click", loadTodayData);
+
+document.getElementById("searchInput")?.addEventListener("input", debounce(async (e) => {
+  const kw = e.target.value;
+  const container = document.getElementById("searchList");
+  const data = await apiGet("searchPlate", { keyword: kw });
+  renderItemCards(container, data.items || []);
+}, 400));
+
+function renderItemCards(container, items) {
+  if (!items.length) {
+    container.innerHTML = '<div class="text-center text-gray-400 text-sm py-6">ไม่พบข้อมูล</div>';
+    return;
+  }
+  container.innerHTML = items.map(it => `
+    <div class="card">
+      <div class="flex justify-between items-start mb-2">
+        <div>
+          <span class="badge bg-emerald-100 text-emerald-700">${it.plateChar} ${it.plateNumber}</span>
+          <span class="badge bg-gray-100 text-gray-600 ml-1">${it.plateProvince}</span>
+        </div>
+        <div class="text-xs text-gray-400">${formatTimeShort(it.timestamp)}</div>
+      </div>
+      <div class="text-sm text-gray-700">👤 ${it.lineName || "-"}</div>
+      <div class="text-xs text-gray-400 mb-2">📁 ${it.fileName || "-"}</div>
+      <a href="${it.fileUrl}" target="_blank" class="text-xs font-semibold text-emerald-600">▶ เปิดดูไฟล์บน Drive</a>
+    </div>
+  `).join("");
+}
+
+function formatTimeShort(ts) {
+  try { return new Date(ts).toLocaleString("th-TH"); } catch(e) { return ts; }
+}
+
+function debounce(fn, wait) {
+  let t;
+  return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), wait); };
+}
+
+/* ============================================================
+   INIT
+   ============================================================ */
+window.addEventListener("DOMContentLoaded", () => {
+  initLiff();
+  setupProvinceDropdown();
+  setupBottomNav();
+  setupAdminLock();
+  setupUploadForm();
+});
+</script>
 </body>
 </html>
