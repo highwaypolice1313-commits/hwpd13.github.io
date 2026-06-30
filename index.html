@@ -109,7 +109,7 @@
     background:#f8fafc;
     transition: border-color .2s ease, box-shadow .2s ease, background .2s ease;
   }
-  input[type=text]:focus, input[type=password]:focus, input[type=date]:focus, .dropdown-input:focus{
+  input[type=text]:focus, input[type=password]:focus, input[type=date]:focus, .dropdown-input:focus, select:focus{
     border-color:var(--emerald); background:#fff;
     box-shadow:0 0 0 4px rgba(5,150,105,.12);
   }
@@ -356,8 +356,8 @@
         </div>
         <div class="kpi-card">
           <div class="text-xs text-gray-400 font-semibold">อัตราซิงค์คลาวด์</div>
-          <div class="text-3xl font-bold text-emerald-700 mt-1">100%</div>
-          <div class="badge mt-2 kpi-trend-up">ระบบเสถียร</div>
+          <div class="text-3xl font-bold text-emerald-700 mt-1" id="kpiSyncRate">-</div>
+          <div id="kpiSyncBadge" class="badge mt-2 kpi-trend-flat">กำลังตรวจสอบ...</div>
         </div>
         <div class="kpi-card">
           <div class="text-xs text-gray-400 font-semibold">รายการสะสมทั้งหมด</div>
@@ -397,7 +397,7 @@
     <!-- ============== ค้นหาวิดีโอ ============== -->
     <div id="pc-search" class="pc-panel hidden">
       <h1 class="text-2xl font-bold text-gray-800 mb-1">ค้นหาวิดีโอ</h1>
-      <p class="text-gray-400 text-sm mb-6">ค้นหาตามอักษร, เลขทะเบียน, จังหวัด หรือกรองตามช่วงวันที่</p>
+      <p class="text-gray-400 text-sm mb-6">ค้นหาตามอักษร, เลขทะเบียน, จังหวัด, เจ้าหน้าที่ หรือกรองตามช่วงวันที่</p>
 
       <div class="pc-card p-5 mb-5">
         <div class="grid grid-cols-4 gap-4 items-end">
@@ -414,11 +414,27 @@
             <input type="date" id="pcDateTo" class="mt-1" />
           </div>
         </div>
+
+        <div class="grid grid-cols-4 gap-4 items-end mt-4">
+          <div class="col-span-2">
+            <label class="text-xs text-gray-500 font-semibold">กรองเฉพาะจังหวัด</label>
+            <select id="pcProvinceFilter" class="mt-1">
+              <option value="">ทุกจังหวัด</option>
+            </select>
+          </div>
+          <div class="col-span-2">
+            <label class="text-xs text-gray-500 font-semibold">กรองเฉพาะเจ้าหน้าที่</label>
+            <select id="pcOfficerFilter" class="mt-1">
+              <option value="">เจ้าหน้าที่ทั้งหมด</option>
+            </select>
+          </div>
+        </div>
+
         <div class="flex items-center gap-2 mt-4 flex-wrap" id="pcQuickRanges">
           <button class="quick-range text-xs font-semibold px-3 py-1.5 rounded-full bg-emerald-50 text-emerald-700" data-range="today">วันนี้</button>
           <button class="quick-range text-xs font-semibold px-3 py-1.5 rounded-full bg-emerald-50 text-emerald-700" data-range="7d">7 วันที่ผ่านมา</button>
           <button class="quick-range text-xs font-semibold px-3 py-1.5 rounded-full bg-emerald-50 text-emerald-700" data-range="30d">เดือนนี้</button>
-          <button class="quick-range text-xs font-semibold px-3 py-1.5 rounded-full bg-gray-100 text-gray-500" data-range="clear">ล้างตัวกรอง</button>
+          <button class="quick-range text-xs font-semibold px-3 py-1.5 rounded-full bg-gray-100 text-gray-500" data-range="clear">ล้างตัวกรองทั้งหมด</button>
         </div>
       </div>
 
@@ -541,6 +557,8 @@ let hourlyChartInstance = null;
 let provinceChartInstance = null;
 let trendChartInstance = null;
 
+let FILTER_OPTIONS_LOADED = false; // กัน populate dropdown ซ้ำซ้อน
+
 /* ============================================================
    ตัวห่อเรียก Apps Script (รองรับกรณีไม่มี google.script.run บนเบราว์เซอร์ทดสอบ)
    ============================================================ */
@@ -574,14 +592,22 @@ function simulateGasCall(funcName, payload) {
   return {};
 }
 
+// คืนค่า { data, ok } เสมอ เพื่อให้ฝั่งเรียกรู้ว่าการเชื่อมต่อ/อ่านข้อมูลจริงสำเร็จหรือไม่
+// (ใช้กับ Cloud Sync Status บนแดชบอร์ด)
 function gasFetchUrl(action, params) {
   const sample = simulateFetchData(action, params);
   return new Promise((resolve) => {
     if (typeof google !== "undefined" && google.script && google.script.run) {
       const fnMap = { fetchToday: "fetchTodayData", searchPlate: "searchPlateData", getStats: "getStatsData" };
-      google.script.run.withSuccessHandler(resolve).withFailureHandler(() => resolve(sample))[fnMap[action]](params);
+      google.script.run
+        .withSuccessHandler((res) => {
+          if (res && res.error) resolve({ data: res, ok: false });
+          else resolve({ data: res, ok: true });
+        })
+        .withFailureHandler(() => resolve({ data: sample, ok: false }))
+        [fnMap[action]](params);
     } else {
-      resolve(sample);
+      resolve({ data: sample, ok: true });
     }
   });
 }
@@ -602,14 +628,17 @@ function simulateFetchData(action, params) {
     return {
       totalCount: 2, todayCount: 2, yesterdayCount: 1, growthPercent: 100,
       activeOfficers: 2, byProvince: { "ลพบุรี":1, "สระบุรี":1 },
-      hourlyToday, trend7days, recent: demoItems
+      hourlyToday, trend7days, recent: demoItems,
+      officerList: [{ userId:"U001", name:"จนท.สมชาย" }, { userId:"U002", name:"จนท.สมหญิง" }],
+      provinceList: ["ลพบุรี","สระบุรี"],
+      syncOk: true
     };
   }
   return { items: demoItems };
 }
 
 /* ============================================================
-   PROVINCE SEARCHABLE DROPDOWN
+   PROVINCE SEARCHABLE DROPDOWN (ฟอร์มส่งคลิป)
    ============================================================ */
 function setupProvinceDropdown() {
   const input = document.getElementById("plateProvince");
@@ -904,12 +933,12 @@ document.getElementById("btnDownloadImg")?.addEventListener("click", () => {
 });
 
 /* ============================================================
-   แดชบอร์ดวันนี้ / ค้นหา (มือถือ)
+   แดชบอร์ดวันนี้ / ค้นหา (มือถือ) — รายการคลิกได้เพื่อพรีวิวคลิปในตัว
    ============================================================ */
 async function loadTodayData() {
   const container = document.getElementById("todayList");
   container.innerHTML = '<div class="text-center text-gray-400 text-sm py-6"><span class="spinner inline-block"></span> กำลังโหลด...</div>';
-  const data = await gasFetchUrl("fetchToday", {});
+  const { data } = await gasFetchUrl("fetchToday", {});
   renderItemCards(container, data.items || []);
 }
 
@@ -918,7 +947,7 @@ document.getElementById("btnRefreshToday")?.addEventListener("click", loadTodayD
 document.getElementById("searchInput")?.addEventListener("input", debounce(async (e) => {
   const kw = e.target.value;
   const container = document.getElementById("searchList");
-  const data = await gasFetchUrl("searchPlate", { keyword: kw });
+  const { data } = await gasFetchUrl("searchPlate", { keyword: kw });
   renderItemCards(container, data.items || []);
 }, 400));
 
@@ -927,8 +956,8 @@ function renderItemCards(container, items) {
     container.innerHTML = '<div class="text-center text-gray-400 text-sm py-6">ไม่พบข้อมูล</div>';
     return;
   }
-  container.innerHTML = items.map(it => `
-    <div class="card">
+  container.innerHTML = items.map((it, idx) => `
+    <div class="card row-clickable" data-idx="${idx}">
       <div class="flex justify-between items-start mb-2">
         <div>
           <span class="badge bg-emerald-100 text-emerald-700">${it.plateChar} ${it.plateNumber}</span>
@@ -938,9 +967,13 @@ function renderItemCards(container, items) {
       </div>
       <div class="text-sm text-gray-700">👤 ${it.lineName || "-"}</div>
       <div class="text-xs text-gray-400 mb-2">📁 ${it.fileName || "-"}</div>
-      <a href="${it.fileUrl}" target="_blank" class="text-xs font-semibold text-emerald-600">▶ เปิดดูไฟล์บน Drive</a>
+      <div class="text-xs font-semibold text-emerald-600">▶ แตะเพื่อดูตัวอย่างวิดีโอ</div>
     </div>
   `).join("");
+
+  container.querySelectorAll(".row-clickable").forEach((card, idx) => {
+    card.addEventListener("click", () => openVideoModal(items[idx]));
+  });
 }
 
 function formatTimeShort(ts) {
@@ -972,13 +1005,17 @@ function setupDesktop() {
     const keyword = document.getElementById("pcSearchInput").value;
     const dateFrom = document.getElementById("pcDateFrom").value;
     const dateTo = document.getElementById("pcDateTo").value;
-    const data = await gasFetchUrl("searchPlate", { keyword, dateFrom, dateTo });
+    const province = document.getElementById("pcProvinceFilter").value;
+    const officer = document.getElementById("pcOfficerFilter").value;
+    const { data } = await gasFetchUrl("searchPlate", { keyword, dateFrom, dateTo, province, officer });
     renderPcSearchResults(data.items || []);
   }, 350);
 
   document.getElementById("pcSearchInput")?.addEventListener("input", runPcSearch);
   document.getElementById("pcDateFrom")?.addEventListener("change", runPcSearch);
   document.getElementById("pcDateTo")?.addEventListener("change", runPcSearch);
+  document.getElementById("pcProvinceFilter")?.addEventListener("change", runPcSearch);
+  document.getElementById("pcOfficerFilter")?.addEventListener("change", runPcSearch);
 
   document.querySelectorAll(".quick-range").forEach(btn => {
     btn.addEventListener("click", () => {
@@ -990,6 +1027,9 @@ function setupDesktop() {
 
       if (range === "clear") {
         fromEl.value = ""; toEl.value = "";
+        document.getElementById("pcProvinceFilter").value = "";
+        document.getElementById("pcOfficerFilter").value = "";
+        document.getElementById("pcSearchInput").value = "";
       } else if (range === "today") {
         fromEl.value = toStr; toEl.value = toStr;
       } else if (range === "7d") {
@@ -1009,12 +1049,51 @@ function setupDesktop() {
   });
 }
 
+// เติม dropdown กรองจังหวัด/เจ้าหน้าที่จากข้อมูลจริงที่มาพร้อม getStatsData
+function populateFilterOptions(stats) {
+  const provinceSel = document.getElementById("pcProvinceFilter");
+  const officerSel = document.getElementById("pcOfficerFilter");
+  if (!provinceSel || !officerSel) return;
+
+  const prevProvince = provinceSel.value;
+  const prevOfficer = officerSel.value;
+
+  provinceSel.innerHTML = '<option value="">ทุกจังหวัด</option>' +
+    (stats.provinceList || []).map(p => `<option value="${p}">${p}</option>`).join("");
+
+  officerSel.innerHTML = '<option value="">เจ้าหน้าที่ทั้งหมด</option>' +
+    (stats.officerList || []).map(o => `<option value="${o.userId}">${o.name}</option>`).join("");
+
+  // คงค่าที่เคยเลือกไว้ (ถ้ายังอยู่ในลิสต์ใหม่)
+  if (prevProvince) provinceSel.value = prevProvince;
+  if (prevOfficer) officerSel.value = prevOfficer;
+}
+
 async function loadStats() {
-  const stats = await gasFetchUrl("getStats", {});
+  const syncRateEl = document.getElementById("kpiSyncRate");
+  const syncBadge = document.getElementById("kpiSyncBadge");
+  syncBadge.classList.remove("kpi-trend-up","kpi-trend-down","kpi-trend-flat");
+  syncBadge.classList.add("kpi-trend-flat");
+  syncBadge.innerText = "กำลังตรวจสอบ...";
+
+  const { data: stats, ok } = await gasFetchUrl("getStats", {});
 
   document.getElementById("kpiToday").innerText = stats.todayCount || 0;
   document.getElementById("kpiOfficers").innerText = stats.activeOfficers || 0;
   document.getElementById("kpiTotal").innerText = stats.totalCount || 0;
+
+  // Cloud Sync Status: สะท้อนผลจริงว่าเชื่อมต่อ/อ่านชีตได้สำเร็จหรือไม่ (ไม่ใช่ค่าคงที่ 100% อีกต่อไป)
+  const reallyOk = ok && stats.syncOk !== false && !stats.error;
+  syncBadge.classList.remove("kpi-trend-up","kpi-trend-down","kpi-trend-flat");
+  if (reallyOk) {
+    syncRateEl.innerText = "100%";
+    syncBadge.classList.add("kpi-trend-up");
+    syncBadge.innerText = "✔ เชื่อมต่อ Sheet สำเร็จ";
+  } else {
+    syncRateEl.innerText = "⚠";
+    syncBadge.classList.add("kpi-trend-down");
+    syncBadge.innerText = "เชื่อมต่อขัดข้อง / ใช้ข้อมูลสำรอง";
+  }
 
   const trendBadge = document.getElementById("kpiTrendBadge");
   const gp = stats.growthPercent || 0;
@@ -1026,6 +1105,7 @@ async function loadStats() {
   renderHourlyChart(stats.hourlyToday || new Array(24).fill(0));
   renderProvinceChart(stats.byProvince || {});
   renderTrendChart(stats.trend7days || []);
+  populateFilterOptions(stats);
 
   const tbody = document.getElementById("pcRecentTable");
   tbody.innerHTML = (stats.recent || []).map((it, idx) => `
@@ -1118,7 +1198,7 @@ function renderPcSearchResults(items) {
 }
 
 /* ============================================================
-   EMBEDDED VIDEO PREVIEWER
+   EMBEDDED VIDEO PREVIEWER (ใช้ร่วมกันทั้งมือถือและ PC)
    ============================================================ */
 function driveEmbedUrl(it) {
   if (it.fileId) return `https://drive.google.com/file/d/${it.fileId}/preview`;
