@@ -9,7 +9,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700;800&family=IBM+Plex+Sans+Thai:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
+<!-- Chart.js ถูกโหลดแบบไดนามิกใน <script> ด้านล่าง (ลองหลาย CDN สำรอง เผื่อบางแหล่งถูกบล็อกโดยเครือข่ายองค์กร) -->
 <style>
   :root{
     --emerald: #059669;
@@ -593,6 +593,45 @@ let DOC_SEQ = null;
 let hourlyChartInstance = null;
 let provinceChartInstance = null;
 let trendChartInstance = null;
+
+/* ============================================================
+   โหลด Chart.js แบบไดนามิก พร้อม CDN สำรอง
+   (บางเครือข่ายองค์กร/รัฐบาลบล็อก cdnjs.cloudflare.com เฉพาะบางไฟล์
+    จึงลองหลายแหล่งเรียงกันจนกว่าจะโหลดสำเร็จ)
+   ============================================================ */
+const CHART_JS_SOURCES = [
+  "https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js",
+  "https://unpkg.com/chart.js@4.4.4/dist/chart.umd.min.js",
+  "https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"
+];
+let chartJsLoadPromise = null;
+
+function loadScriptOnce(src) {
+  return new Promise((resolve, reject) => {
+    const s = document.createElement("script");
+    s.src = src;
+    s.onload = () => resolve();
+    s.onerror = () => reject(new Error("โหลดไม่สำเร็จ: " + src));
+    document.head.appendChild(s);
+  });
+}
+
+function ensureChartJsLoaded() {
+  if (typeof Chart !== "undefined") return Promise.resolve(true);
+  if (chartJsLoadPromise) return chartJsLoadPromise;
+  chartJsLoadPromise = (async () => {
+    for (const src of CHART_JS_SOURCES) {
+      try {
+        await loadScriptOnce(src);
+        if (typeof Chart !== "undefined") return true;
+      } catch (err) {
+        console.warn(err.message);
+      }
+    }
+    return false;
+  })();
+  return chartJsLoadPromise;
+}
 
 /* ============================================================
    MODAL SYSTEM — แทนที่ alert()/confirm() ทั้งหมดด้วย modal
@@ -1277,6 +1316,11 @@ async function loadStats() {
   }
 
   // กราฟทั้ง 3 ตัว แยก try/catch เป็นรายตัว เพื่อไม่ให้กราฟหนึ่งพังแล้วลากกราฟอื่นพังไปด้วย
+  const chartJsOk = await ensureChartJsLoaded();
+  if (!chartJsOk) {
+    ["hourlyChart", "provinceChart", "trendChart"].forEach(id => showChartLoadError(id, "โหลดไลบรารีกราฟ (Chart.js) ไม่สำเร็จจากทุกแหล่งสำรอง อาจถูกเครือข่ายบล็อก"));
+    return;
+  }
   renderChartSafely(() => renderHourlyChart(stats.hourlyToday || new Array(24).fill(0)), "hourlyChart");
   renderChartSafely(() => renderProvinceChart(stats.byProvince || {}), "provinceChart");
   renderChartSafely(() => renderTrendChart(stats.trend7days || []), "trendChart");
@@ -1285,19 +1329,24 @@ async function loadStats() {
 function renderChartSafely(renderFn, canvasId) {
   try {
     if (typeof Chart === "undefined") {
-      throw new Error("ไลบรารี Chart.js โหลดไม่สำเร็จ (ตรวจสอบการเชื่อมต่ออินเทอร์เน็ต หรือ CDN ถูกบล็อก)");
+      throw new Error("ไลบรารี Chart.js ยังไม่พร้อมใช้งาน");
     }
     renderFn();
   } catch (err) {
     console.error("Chart render error (" + canvasId + "):", err);
-    const canvas = document.getElementById(canvasId);
-    if (canvas && canvas.parentElement) {
-      const msg = document.createElement("div");
-      msg.className = "text-center text-xs text-gray-400 py-8";
-      msg.innerText = "⚠ ไม่สามารถแสดงกราฟนี้ได้ (" + err.message + ")";
-      canvas.style.display = "none";
-      canvas.parentElement.appendChild(msg);
-    }
+    showChartLoadError(canvasId, err.message);
+  }
+}
+
+function showChartLoadError(canvasId, message) {
+  const canvas = document.getElementById(canvasId);
+  if (canvas && canvas.parentElement && !canvas.dataset.errorShown) {
+    canvas.dataset.errorShown = "1";
+    const msg = document.createElement("div");
+    msg.className = "text-center text-xs text-gray-400 py-8";
+    msg.innerText = "⚠ ไม่สามารถแสดงกราฟนี้ได้ (" + message + ")";
+    canvas.style.display = "none";
+    canvas.parentElement.appendChild(msg);
   }
 }
 
@@ -1418,6 +1467,7 @@ window.addEventListener("DOMContentLoaded", () => {
   setupBottomNav();
   setupUploadForm();
   setupDesktop();
+  ensureChartJsLoaded(); // เริ่มโหลด Chart.js ล่วงหน้าตั้งแต่เปิดหน้า ไม่ต้องรอถึงตอนวาดกราฟ
 });
 </script>
 </body>
