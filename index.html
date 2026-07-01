@@ -126,6 +126,11 @@
   .btn-primary:hover{ background-position:100% 0; box-shadow:0 14px 28px -8px rgba(5,150,105,.65); }
   .btn-primary:disabled{ opacity:.5; box-shadow:none; }
 
+  .btn-secondary{
+    background:#f1f5f9; color:#334155; border-radius:14px; padding:12px; font-weight:600; font-size:13.5px;
+    width:100%; border:1px solid #e2e8f0;
+  }
+
   .dropdown-list{
     position:absolute; z-index:50; background:#fff; border:1px solid #e2e8f0;
     border-radius:12px; max-height:190px; overflow-y:auto; width:100%;
@@ -179,11 +184,9 @@
     box-shadow:0 6px 24px -10px rgba(15,23,42,.10);
   }
 
-  /* Table rows clickable for video preview */
   .row-clickable{ cursor:pointer; transition: background .15s ease; }
   .row-clickable:hover{ background:#ecfdf5; }
 
-  /* Video preview modal */
   #videoModalOverlay{
     position:fixed; inset:0; background:rgba(6,20,15,.65); backdrop-filter: blur(4px);
     z-index:100; display:none; align-items:center; justify-content:center; padding:24px;
@@ -194,10 +197,13 @@
     box-shadow:0 30px 80px -20px rgba(0,0,0,.5); overflow:hidden;
   }
 
-  /* Loading spinner */
   .spinner{
     border:3px solid #d1fae5; border-top:3px solid var(--emerald);
     border-radius:50%; width:22px; height:22px; animation:spin 0.8s linear infinite;
+  }
+  .spinner-lg{
+    border:4px solid #d1fae5; border-top:4px solid var(--emerald);
+    border-radius:50%; width:42px; height:42px; animation:spin 0.8s linear infinite;
   }
   @keyframes spin{ to{ transform:rotate(360deg);} }
 
@@ -208,9 +214,52 @@
     #mobileApp{ display:none; }
     #desktopApp{ display:flex; }
   }
+
+  /* ================= MODAL SYSTEM ================= */
+  #appModalOverlay{
+    position:fixed; inset:0; z-index:200; display:none;
+    align-items:center; justify-content:center; padding:20px;
+    background:rgba(6,20,15,.55); backdrop-filter: blur(3px);
+    animation: modalFadeIn .18s ease;
+  }
+  #appModalOverlay.open{ display:flex; }
+  @keyframes modalFadeIn{ from{ opacity:0; } to{ opacity:1; } }
+  .app-modal-box{
+    background:#fff; border-radius:20px; max-width:360px; width:100%;
+    padding:26px 24px 22px; text-align:center;
+    box-shadow:0 30px 70px -18px rgba(0,0,0,.45);
+    animation: modalPop .22s cubic-bezier(.2,.9,.3,1.2);
+  }
+  @keyframes modalPop{ from{ opacity:0; transform: scale(.92) translateY(6px); } to{ opacity:1; transform:scale(1) translateY(0); } }
+  .app-modal-icon{
+    width:52px; height:52px; border-radius:50%; margin:0 auto 14px;
+    display:flex; align-items:center; justify-content:center; font-size:24px;
+  }
+  .app-modal-icon.success{ background:#ecfdf5; color:#059669; }
+  .app-modal-icon.error{ background:#fef2f2; color:#dc2626; }
+  .app-modal-icon.warning{ background:#fffbeb; color:#d97706; }
+  .app-modal-icon.info{ background:#eff6ff; color:#2563eb; }
+  .app-modal-icon.loading{ background:#ecfdf5; }
+  .app-modal-title{ font-weight:700; font-size:16px; color:#0f172a; margin-bottom:6px; }
+  .app-modal-msg{ font-size:13.5px; color:#64748b; line-height:1.6; margin-bottom:18px; }
+  .app-modal-actions{ display:flex; gap:10px; }
 </style>
 </head>
 <body>
+
+<!-- ============================================================ -->
+<!-- UNIVERSAL MODAL (แจ้งเตือน / ยืนยัน / กำลังโหลด)               -->
+<!-- ============================================================ -->
+<div id="appModalOverlay">
+  <div class="app-modal-box">
+    <div id="appModalIcon" class="app-modal-icon info">ℹ</div>
+    <div id="appModalTitle" class="app-modal-title">แจ้งเตือน</div>
+    <div id="appModalMsg" class="app-modal-msg">-</div>
+    <div id="appModalActions" class="app-modal-actions">
+      <button id="appModalConfirmBtn" class="btn-primary">ตกลง</button>
+    </div>
+  </div>
+</div>
 
 <!-- ============================================================ -->
 <!-- MOBILE / LIFF VIEW                                            -->
@@ -264,23 +313,22 @@
     <button id="btnSubmit" class="btn-primary flex items-center justify-center gap-2">
       <span id="btnSubmitText">📤 ยืนยันส่งข้อมูล</span>
     </button>
-    <div id="submitStatus" class="text-center text-xs mt-2 text-gray-500"></div>
   </div>
 
   <!-- TAB: ใบหลักฐานภาพ (แสดงหลังอัปโหลดสำเร็จ) -->
   <div id="tab-receipt" class="tab-panel">
     <div class="text-center mb-3">
-      <h2 class="font-bold text-emerald-800">🧾 ใบหลักฐานภาพรายงาน</h2>
+      <h2 class="font-bold text-emerald-800">🧾 เอกสารยืนยันการรายงาน</h2>
       <p class="text-xs text-gray-400">บันทึกภาพนี้เพื่อส่งต่อในกลุ่ม LINE</p>
     </div>
     <div class="flex justify-center">
       <canvas id="receiptCanvas" style="width:100%; max-width:380px; border-radius:10px;"></canvas>
     </div>
     <button id="btnDownloadImg" class="btn-primary mt-4">📥 ดาวน์โหลดรูปภาพหลักฐานลงเครื่อง</button>
-    <button id="btnBackToForm" class="w-full mt-2 text-emerald-700 text-sm font-semibold py-2">⬅ กลับไปส่งรายงานใหม่</button>
+    <button id="btnBackToForm" class="btn-secondary mt-2">⬅ กลับไปส่งรายงานใหม่</button>
   </div>
 
-  <!-- TAB: แอดมิน รายงานวัน -->
+  <!-- TAB: รายงานวัน -->
   <div id="tab-today" class="tab-panel">
     <div class="flex items-center justify-between mb-3">
       <h2 class="font-bold text-emerald-800 text-sm">📅 รายงานวันนี้</h2>
@@ -289,32 +337,22 @@
     <div id="todayList" class="space-y-3"></div>
   </div>
 
-  <!-- TAB: แอดมิน ค้นหา -->
+  <!-- TAB: ค้นหา -->
   <div id="tab-search" class="tab-panel">
     <h2 class="font-bold text-emerald-800 mb-3 text-sm">🔍 ค้นหาป้ายทะเบียนย้อนหลัง</h2>
     <input type="text" id="searchInput" placeholder="พิมพ์ อักษร / เลข / จังหวัด..." class="mb-3" />
     <div id="searchList" class="space-y-3"></div>
   </div>
 
-  <!-- Admin Lock Screen -->
-  <div id="adminLockScreen" class="absolute inset-0 bg-white z-40 hidden flex-col items-center justify-center p-8 text-center">
-    <div class="text-4xl mb-3">🔒</div>
-    <div class="font-bold text-gray-700 mb-3">กรุณากรอกรหัสผ่านแอดมิน</div>
-    <input type="password" id="adminPassInput" class="text-center mb-3" placeholder="รหัสผ่าน" />
-    <button id="btnAdminConfirm" class="btn-primary mb-2">เข้าสู่ระบบ</button>
-    <button id="btnAdminCancel" class="text-xs text-gray-400">ยกเลิก</button>
-    <div id="adminLockError" class="text-xs text-red-500 mt-2"></div>
-  </div>
-
   <div class="bottom-nav">
     <button class="nav-btn active" data-tab="tab-send">
-      <span class="ic">🚗</span><span>ผู้ปฏิบัติ: ส่งคลิป</span>
+      <span class="ic">🚗</span><span>ส่งคลิป</span>
     </button>
-    <button class="nav-btn" data-tab="tab-today" data-admin="1">
-      <span class="ic">📊</span><span>แอดมิน: รายงานวัน</span>
+    <button class="nav-btn" data-tab="tab-today">
+      <span class="ic">📊</span><span>รายงานวันนี้</span>
     </button>
-    <button class="nav-btn" data-tab="tab-search" data-admin="1">
-      <span class="ic">🔎</span><span>แอดมิน: ค้นหา</span>
+    <button class="nav-btn" data-tab="tab-search">
+      <span class="ic">🔎</span><span>ค้นหา</span>
     </button>
   </div>
 </div>
@@ -465,9 +503,16 @@
 <script>
 
 /* ============================================================
-   ENV DETECTION: ทดลองรัน LIFF จริง / โหมดจำลอง (Fallback)
+   ⚠️ ตั้งค่าสำคัญที่ต้องแก้ก่อนใช้งานจริง
+   ============================================================
+   1) วาง URL ของ Apps Script เว็บแอปที่ Deploy แล้ว (ลงท้ายด้วย /exec)
+      วิธีหา: เปิดโปรเจกต์ Apps Script > Deploy > Manage deployments
+      ต้องตั้งค่า "Execute as: Me" และ "Who has access: Anyone"
+      ทุกครั้งที่แก้ code.gs ต้องกด Deploy > Manage deployments > แก้ไข (ไอคอนดินสอ)
+      แล้วเลือกเวอร์ชันใหม่ + Deploy อีกครั้ง ไม่เช่นนั้น URL เดิมจะยังใช้โค้ดเก่าอยู่
    ============================================================ */
-// ⚠️ ใส่ LIFF ID จริงของแอป LINE ของคุณตรงนี้ (ได้จาก LINE Developers Console > LIFF)
+const SCRIPT_URL = "https://script.google.com/macros/s/YOUR_DEPLOYMENT_ID/exec"; // <-- แก้ตรงนี้
+
 const LIFF_ID = "2010560666-vlJ3RPxK"; // <-- แปะ LIFF ID จริงของคุณที่นี่
 
 async function initLiffOrSimulate() {
@@ -478,7 +523,6 @@ async function initLiffOrSimulate() {
       throw new Error("ระบบทำงานในโหมดภายนอกแอป (PC/Browser ปกติ)");
     }
 
-    // ⏱️ ใส่ timeout กัน liff.init() ค้างไม่ resolve เพราะถูกห่อใน iframe ของ Apps Script
     const initPromise = liff.init({ liffId: LIFF_ID });
     const timeoutPromise = new Promise((_, reject) =>
       setTimeout(() => reject(new Error("liff.init timeout (4s)")), 4000)
@@ -496,20 +540,16 @@ async function initLiffOrSimulate() {
         pictureUrl: profile.pictureUrl || "",
         isInClient: liff.isInClient()
       };
-      console.log("เชื่อมต่อ LINE โปรไฟล์สำเร็จ:", CURRENT_USER.displayName);
     } else {
-      console.warn("ยังไม่ได้ล็อกอิน LINE สลับเข้าสู่โหมดใช้งานภายนอก");
       setSimulationUser();
     }
   } catch (err) {
-    console.warn("[โหมดจำลอง] " + err.message);
     setSimulationUser();
   } finally {
     renderUserProfile();
   }
 }
 
-// ฟังก์ชันเสริมสำหรับเซ็ตผู้ใช้จำลองป้องกันโค้ดค้าง
 function setSimulationUser() {
   CURRENT_USER = {
     userId: "SIMULATE-" + Math.random().toString(36).substring(2, 8).toUpperCase(),
@@ -524,9 +564,7 @@ function renderUserProfile() {
   if(document.getElementById("userIdTxt")) document.getElementById("userIdTxt").innerText = "LINE ID: " + CURRENT_USER.userId;
 
   const miniNameEl = document.getElementById("userMiniName");
-  if (miniNameEl) {
-    miniNameEl.innerText = CURRENT_USER.displayName;
-  }
+  if (miniNameEl) miniNameEl.innerText = CURRENT_USER.displayName;
 
   const avatar = document.getElementById("userAvatar");
   if (avatar) {
@@ -547,94 +585,121 @@ const PROVINCES = ["ลพบุรี","กรุงเทพฯ","สระบ
 "กระบี่","พังงา","ตรัง","สตูล","ยะลา","ปัตตานี","นราธิวาส","ระนอง","ชุมพร","พัทลุง"];
 
 let CURRENT_USER = { userId: "SIMULATE-UID", displayName: "ผู้ใช้ทดสอบ (Simulation)", pictureUrl: "" };
-let IS_ADMIN_UNLOCKED = false;
-let PENDING_ADMIN_TAB = null;
 let LAST_REPORT_DATA = null;
 let SELECTED_FILE_BASE64 = null;
 let SELECTED_FILE_OBJ = null;
+let DOC_SEQ = null;
 
 let hourlyChartInstance = null;
 let provinceChartInstance = null;
 let trendChartInstance = null;
 
-let FILTER_OPTIONS_LOADED = false; // กัน populate dropdown ซ้ำซ้อน
+/* ============================================================
+   MODAL SYSTEM — แทนที่ alert()/confirm() ทั้งหมดด้วย modal
+   ============================================================ */
+const modalOverlay = () => document.getElementById("appModalOverlay");
+const modalIcon = () => document.getElementById("appModalIcon");
+const modalTitle = () => document.getElementById("appModalTitle");
+const modalMsg = () => document.getElementById("appModalMsg");
+const modalActions = () => document.getElementById("appModalActions");
+
+const MODAL_ICONS = { success: "✔", error: "✕", warning: "!", info: "ℹ", loading: "" };
+
+function showModal({ type = "info", title = "แจ้งเตือน", message = "", confirmText = "ตกลง", onConfirm = null, cancelText = null, onCancel = null }) {
+  const icon = modalIcon();
+  icon.className = "app-modal-icon " + type;
+  if (type === "loading") {
+    icon.innerHTML = '<span class="spinner-lg"></span>';
+  } else {
+    icon.innerText = MODAL_ICONS[type] || "ℹ";
+  }
+  modalTitle().innerText = title;
+  modalMsg().innerText = message;
+
+  const actions = modalActions();
+  actions.innerHTML = "";
+
+  if (type !== "loading") {
+    if (cancelText) {
+      const cancelBtn = document.createElement("button");
+      cancelBtn.className = "btn-secondary";
+      cancelBtn.innerText = cancelText;
+      cancelBtn.onclick = () => { hideModal(); if (onCancel) onCancel(); };
+      actions.appendChild(cancelBtn);
+    }
+    const confirmBtn = document.createElement("button");
+    confirmBtn.className = "btn-primary";
+    confirmBtn.innerText = confirmText;
+    confirmBtn.onclick = () => { hideModal(); if (onConfirm) onConfirm(); };
+    actions.appendChild(confirmBtn);
+  }
+
+  modalOverlay().classList.add("open");
+}
+
+function showLoadingModal(message) {
+  showModal({ type: "loading", title: "กำลังดำเนินการ", message: message || "กรุณารอสักครู่..." });
+}
+
+function hideModal() {
+  modalOverlay().classList.remove("open");
+}
+
+function showSuccessModal(title, message, onConfirm) {
+  showModal({ type: "success", title, message, onConfirm });
+}
+
+function showErrorModal(title, message, onConfirm) {
+  showModal({ type: "error", title, message, onConfirm });
+}
+
+function showConfirmModal(title, message, onConfirm, onCancel) {
+  showModal({ type: "warning", title, message, confirmText: "ยืนยัน", cancelText: "ยกเลิก", onConfirm, onCancel });
+}
 
 /* ============================================================
-   ตัวห่อเรียก Apps Script (รองรับกรณีไม่มี google.script.run บนเบราว์เซอร์ทดสอบ)
+   เรียก Apps Script Web App จริงผ่าน fetch()
+   (index.html นี้ถูกโฮสต์แยกจาก code.gs เช่นบน GitHub Pages
+    จึงเรียกใช้ google.script.run ไม่ได้ ต้องยิง fetch ไปที่ URL /exec)
    ============================================================ */
-function gasRun(funcName, payload) {
-  return new Promise((resolve, reject) => {
-    if (typeof google !== "undefined" && google.script && google.script.run) {
-      google.script.run
-        .withSuccessHandler(resolve)
-        .withFailureHandler(reject)
-        [funcName](payload);
-    } else {
-      resolve(simulateGasCall(funcName, payload));
-    }
-  });
+function isScriptUrlConfigured() {
+  return typeof SCRIPT_URL === "string" && SCRIPT_URL.startsWith("https://script.google.com/") && !SCRIPT_URL.includes("YOUR_DEPLOYMENT_ID");
 }
 
-function simulateGasCall(funcName, payload) {
-  if (funcName === "uploadVideoReport") {
-    return {
-      success: true,
-      timestamp: new Date().toLocaleString("th-TH"),
-      dateThai: "30-06-2569",
-      fileUrl: "https://drive.google.com/file/d/SIMULATED_FILE_ID/view",
-      fileId: "SIMULATED_FILE_ID",
-      fileName: payload.fileName
-    };
+// สำหรับ action ที่ "อ่านข้อมูล" (GET) — fetchToday / searchPlate / getStats
+async function gasFetchUrl(action, params) {
+  if (!isScriptUrlConfigured()) {
+    return { data: { error: true, message: "ยังไม่ได้ตั้งค่า SCRIPT_URL ในไฟล์ index.html" }, ok: false };
   }
-  if (funcName === "checkAdminPassword") {
-    return payload === "1234"; // รหัสจำลองสำหรับทดสอบ
+  try {
+    const qs = new URLSearchParams({ action, ...params }).toString();
+    const res = await fetch(SCRIPT_URL + "?" + qs, { method: "GET" });
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    const data = await res.json();
+    if (data && data.error) return { data, ok: false };
+    return { data, ok: true };
+  } catch (err) {
+    return { data: { error: true, message: err.message }, ok: false };
   }
-  return {};
 }
 
-// คืนค่า { data, ok } เสมอ เพื่อให้ฝั่งเรียกรู้ว่าการเชื่อมต่อ/อ่านข้อมูลจริงสำเร็จหรือไม่
-// (ใช้กับ Cloud Sync Status บนแดชบอร์ด)
-function gasFetchUrl(action, params) {
-  const sample = simulateFetchData(action, params);
-  return new Promise((resolve) => {
-    if (typeof google !== "undefined" && google.script && google.script.run) {
-      const fnMap = { fetchToday: "fetchTodayData", searchPlate: "searchPlateData", getStats: "getStatsData" };
-      google.script.run
-        .withSuccessHandler((res) => {
-          if (res && res.error) resolve({ data: res, ok: false });
-          else resolve({ data: res, ok: true });
-        })
-        .withFailureHandler(() => resolve({ data: sample, ok: false }))
-        [fnMap[action]](params);
-    } else {
-      resolve({ data: sample, ok: true });
-    }
-  });
-}
-
-function simulateFetchData(action, params) {
-  const demoItems = [
-    { timestamp: new Date().toISOString(), dateThai: "30-06-2569", lineUserId: "U001", lineName: "จนท.สมชาย", plateChar: "กข", plateNumber: "1234", plateProvince: "ลพบุรี", fileName: "clip1.mp4", fileUrl: "#", fileId: "" },
-    { timestamp: new Date(Date.now()-3600000).toISOString(), dateThai: "30-06-2569", lineUserId: "U002", lineName: "จนท.สมหญิง", plateChar: "1กข", plateNumber: "5678", plateProvince: "สระบุรี", fileName: "clip2.mp4", fileUrl: "#", fileId: "" }
-  ];
-  if (action === "getStats") {
-    const hourlyToday = new Array(24).fill(0);
-    hourlyToday[new Date().getHours()] = 2;
-    const trend7days = [];
-    for (let d = 6; d >= 0; d--) {
-      const dt = new Date(); dt.setDate(dt.getDate() - d);
-      trend7days.push({ date: dt.toLocaleDateString("th-TH", { day:"2-digit", month:"2-digit" }), count: d === 0 ? 2 : Math.floor(Math.random()*3) });
-    }
-    return {
-      totalCount: 2, todayCount: 2, yesterdayCount: 1, growthPercent: 100,
-      activeOfficers: 2, byProvince: { "ลพบุรี":1, "สระบุรี":1 },
-      hourlyToday, trend7days, recent: demoItems,
-      officerList: [{ userId:"U001", name:"จนท.สมชาย" }, { userId:"U002", name:"จนท.สมหญิง" }],
-      provinceList: ["ลพบุรี","สระบุรี"],
-      syncOk: true
-    };
+// สำหรับ action ที่ "เขียนข้อมูล" (POST) — uploadVideoReport
+// ใช้ Content-Type: text/plain เพื่อเลี่ยง CORS preflight ที่ Apps Script ไม่รองรับ
+async function gasPost(action, data) {
+  if (!isScriptUrlConfigured()) {
+    return { success: false, message: "ยังไม่ได้ตั้งค่า SCRIPT_URL ในไฟล์ index.html" };
   }
-  return { items: demoItems };
+  try {
+    const res = await fetch(SCRIPT_URL, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify({ action, data })
+    });
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    return await res.json();
+  } catch (err) {
+    return { success: false, message: err.message };
+  }
 }
 
 /* ============================================================
@@ -666,22 +731,11 @@ function setupProvinceDropdown() {
 }
 
 /* ============================================================
-   TAB NAVIGATION (มือถือ)
+   TAB NAVIGATION (มือถือ) — ไม่มีการล็อกอินแล้ว ทุกแท็บเข้าได้ทันที
    ============================================================ */
 function setupBottomNav() {
   document.querySelectorAll(".nav-btn").forEach(btn => {
-    btn.addEventListener("click", () => {
-      const tabId = btn.dataset.tab;
-      const needsAdmin = btn.dataset.admin === "1";
-
-      if (needsAdmin && !IS_ADMIN_UNLOCKED) {
-        PENDING_ADMIN_TAB = tabId;
-        document.getElementById("adminLockScreen").classList.remove("hidden");
-        document.getElementById("adminLockScreen").classList.add("flex");
-        return;
-      }
-      switchTab(tabId);
-    });
+    btn.addEventListener("click", () => switchTab(btn.dataset.tab));
   });
 }
 
@@ -692,27 +746,6 @@ function switchTab(tabId) {
 
   if (tabId === "tab-today") loadTodayData();
   if (tabId === "tab-search") { document.getElementById("searchList").innerHTML = ""; }
-}
-
-function setupAdminLock() {
-  document.getElementById("btnAdminConfirm").onclick = async () => {
-    const pass = document.getElementById("adminPassInput").value;
-    document.getElementById("adminLockError").innerText = "";
-    const valid = await gasRun("checkAdminPassword", pass);
-    if (valid === true) {
-      IS_ADMIN_UNLOCKED = true;
-      document.getElementById("adminLockScreen").classList.add("hidden");
-      document.getElementById("adminLockScreen").classList.remove("flex");
-      document.getElementById("adminPassInput").value = "";
-      if (PENDING_ADMIN_TAB) switchTab(PENDING_ADMIN_TAB);
-    } else {
-      document.getElementById("adminLockError").innerText = "❌ รหัสผ่านไม่ถูกต้อง";
-    }
-  };
-  document.getElementById("btnAdminCancel").onclick = () => {
-    document.getElementById("adminLockScreen").classList.add("hidden");
-    document.getElementById("adminLockScreen").classList.remove("flex");
-  };
 }
 
 /* ============================================================
@@ -733,50 +766,56 @@ function setupUploadForm() {
     const plateChar = document.getElementById("plateChar").value.trim();
     const plateNumber = document.getElementById("plateNumber").value.trim();
     const plateProvince = document.getElementById("plateProvince").value.trim();
-    const statusEl = document.getElementById("submitStatus");
 
     if (!plateChar || !plateNumber || !plateProvince) {
-      statusEl.innerText = "⚠️ กรุณากรอกข้อมูลทะเบียนรถให้ครบถ้วน"; statusEl.className="text-center text-xs mt-2 text-red-500"; return;
+      showModal({ type: "warning", title: "ข้อมูลไม่ครบถ้วน", message: "กรุณากรอกข้อมูลทะเบียนรถให้ครบทุกช่อง" });
+      return;
     }
     if (!SELECTED_FILE_OBJ || !SELECTED_FILE_BASE64) {
-      statusEl.innerText = "⚠️ กรุณาเลือกไฟล์วิดีโอ"; statusEl.className="text-center text-xs mt-2 text-red-500"; return;
+      showModal({ type: "warning", title: "ยังไม่ได้เลือกไฟล์", message: "กรุณาเลือกไฟล์วิดีโอหลักฐานก่อนส่งข้อมูล" });
+      return;
     }
 
-    const btn = document.getElementById("btnSubmit");
-    btn.disabled = true;
-    document.getElementById("btnSubmitText").innerHTML = '<span class="spinner inline-block align-middle"></span> กำลังอัปโหลด...';
-    statusEl.innerText = "";
-
-    try {
-      const payload = {
-        lineUserId: CURRENT_USER.userId,
-        lineName: CURRENT_USER.displayName,
-        plateChar, plateNumber, plateProvince,
-        fileName: SELECTED_FILE_OBJ.name,
-        mimeType: SELECTED_FILE_OBJ.type || "video/mp4",
-        base64Data: SELECTED_FILE_BASE64
-      };
-      const result = await gasRun("uploadVideoReport", payload);
-
-      if (result && result.success) {
-        LAST_REPORT_DATA = { ...payload, ...result };
-        drawReceiptCanvas(LAST_REPORT_DATA);
-        switchTab("tab-receipt");
-        resetForm();
-      } else {
-        statusEl.innerText = "❌ เกิดข้อผิดพลาด: " + (result.message || "ไม่ทราบสาเหตุ");
-        statusEl.className = "text-center text-xs mt-2 text-red-500";
-      }
-    } catch (err) {
-      statusEl.innerText = "❌ เกิดข้อผิดพลาด: " + err.message;
-      statusEl.className = "text-center text-xs mt-2 text-red-500";
-    } finally {
-      btn.disabled = false;
-      document.getElementById("btnSubmitText").innerText = "📤 ยืนยันส่งข้อมูล";
-    }
+    showConfirmModal(
+      "ยืนยันการส่งรายงาน",
+      `ทะเบียน ${plateChar} ${plateNumber} ${plateProvince} — ต้องการส่งข้อมูลนี้เข้าระบบใช่หรือไม่?`,
+      () => doUploadReport({ plateChar, plateNumber, plateProvince })
+    );
   });
 
   document.getElementById("btnBackToForm").addEventListener("click", () => switchTab("tab-send"));
+}
+
+async function doUploadReport({ plateChar, plateNumber, plateProvince }) {
+  const btn = document.getElementById("btnSubmit");
+  btn.disabled = true;
+  showLoadingModal("กำลังอัปโหลดวิดีโอและบันทึกข้อมูล อาจใช้เวลาสักครู่ตามขนาดไฟล์...");
+
+  try {
+    const payload = {
+      lineUserId: CURRENT_USER.userId,
+      lineName: CURRENT_USER.displayName,
+      plateChar, plateNumber, plateProvince,
+      fileName: SELECTED_FILE_OBJ.name,
+      mimeType: SELECTED_FILE_OBJ.type || "video/mp4",
+      base64Data: SELECTED_FILE_BASE64
+    };
+    const result = await gasPost("uploadVideoReport", payload);
+
+    if (result && result.success) {
+      LAST_REPORT_DATA = { ...payload, ...result };
+      hideModal();
+      await drawReceiptCanvas(LAST_REPORT_DATA);
+      switchTab("tab-receipt");
+      resetForm();
+    } else {
+      showErrorModal("อัปโหลดไม่สำเร็จ", result && result.message ? result.message : "ไม่ทราบสาเหตุ กรุณาลองใหม่อีกครั้ง");
+    }
+  } catch (err) {
+    showErrorModal("เกิดข้อผิดพลาด", err.message);
+  } finally {
+    btn.disabled = false;
+  }
 }
 
 function resetForm() {
@@ -790,12 +829,21 @@ function resetForm() {
 }
 
 /* ============================================================
-   CANVAS: วาดใบหลักฐานภาพ (Retina / High-DPI)
+   CANVAS: เอกสารยืนยันการรายงาน — ดีไซน์ทางการแบบเอกสารราชการ
    ============================================================ */
-function drawReceiptCanvas(data) {
+async function drawReceiptCanvas(data) {
+  // รอให้ฟอนต์ Prompt โหลดเสร็จก่อน เพื่อให้ canvas เรนเดอร์ตัวอักษรถูกต้อง
+  try {
+    await Promise.all([
+      document.fonts.load("700 20px 'Prompt'"),
+      document.fonts.load("400 13px 'Prompt'"),
+      document.fonts.ready
+    ]);
+  } catch (e) { /* เบราว์เซอร์บางตัวไม่รองรับ document.fonts — ข้ามได้ */ }
+
   const canvas = document.getElementById("receiptCanvas");
   const dpr = window.devicePixelRatio || 1;
-  const W = 500, H = 620;
+  const W = 520, H = 700;
 
   canvas.width = W * dpr;
   canvas.height = H * dpr;
@@ -805,96 +853,178 @@ function drawReceiptCanvas(data) {
   const ctx = canvas.getContext("2d");
   ctx.scale(dpr, dpr);
 
-  ctx.fillStyle = "#ffffff";
+  // พื้นหลังกระดาษ
+  ctx.fillStyle = "#fdfdfb";
   ctx.fillRect(0, 0, W, H);
 
-  ctx.strokeStyle = "#047857";
-  ctx.lineWidth = 6;
-  ctx.strokeRect(8, 8, W-16, H-16);
-  ctx.strokeStyle = "#10b981";
-  ctx.lineWidth = 1.5;
-  ctx.strokeRect(16, 16, W-32, H-32);
+  // กรอบเอกสารทางการ (เส้นคู่)
+  ctx.strokeStyle = "#0f3d2e";
+  ctx.lineWidth = 2.5;
+  ctx.strokeRect(18, 18, W - 36, H - 36);
+  ctx.strokeStyle = "#c9a227";
+  ctx.lineWidth = 1;
+  ctx.strokeRect(24, 24, W - 48, H - 48);
 
+  // ลายน้ำจาง ๆ กลางหน้า
   ctx.save();
-  ctx.globalAlpha = 0.07;
-  ctx.fillStyle = "#047857";
-  ctx.font = "bold 80px Arial";
+  ctx.globalAlpha = 0.05;
+  ctx.fillStyle = "#0f3d2e";
+  ctx.font = "bold 46px 'Prompt', Arial";
   ctx.translate(W/2, H/2);
-  ctx.rotate(-Math.PI/8);
+  ctx.rotate(-Math.PI/9);
   ctx.textAlign = "center";
-  ctx.fillText("UPLOADED", 0, 0);
+  ctx.fillText("เอกสารยืนยันการรายงาน", 0, 0);
   ctx.restore();
 
-  const grad = ctx.createLinearGradient(0,0,W,0);
-  grad.addColorStop(0, "#047857");
-  grad.addColorStop(1, "#065f46");
-  ctx.fillStyle = grad;
-  ctx.fillRect(20, 30, W-40, 64);
-
-  ctx.fillStyle = "#ffffff";
-  ctx.textAlign = "center";
-  ctx.font = "bold 20px Arial";
-  ctx.fillText("ใบรับรองหลักฐานการรายงาน", W/2, 60);
-  ctx.font = "13px Arial";
-  ctx.fillText("ระบบฐานข้อมูลรถวิทยุในสังกัด", W/2, 80);
-
-  ctx.fillStyle = "#374151";
-  ctx.font = "13px Arial";
-  ctx.textAlign = "left";
-  ctx.fillText("🕒 เวลาที่รายงาน: " + (data.timestamp || ""), 32, 128);
-
-  ctx.font = "bold 14px Arial";
-  ctx.fillStyle = "#047857";
-  ctx.fillText("👤 ข้อมูลผู้รายงาน", 32, 160);
-  ctx.font = "13px Arial";
-  ctx.fillStyle = "#111827";
-  ctx.fillText("ชื่อ: " + (data.lineName || "-"), 32, 182);
-  ctx.fillStyle = "#6b7280";
-  ctx.font = "11px Arial";
-  ctx.fillText("LINE ID: " + (data.lineUserId || "-"), 32, 200);
-
-  ctx.fillStyle = "#ecfdf5";
-  roundRect(ctx, 32, 224, W-64, 140, 14);
+  // ---------- หัวเอกสารแบบครุฑ/ตราหน่วยงาน (สัญลักษณ์ทั่วไป ไม่ใช้ตราราชการจริง) ----------
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(W/2, 78, 30, 0, Math.PI * 2);
+  ctx.fillStyle = "#0f3d2e";
   ctx.fill();
-  ctx.strokeStyle = "#10b981";
+  ctx.strokeStyle = "#c9a227";
+  ctx.lineWidth = 2;
+  ctx.stroke();
+  ctx.fillStyle = "#c9a227";
+  ctx.font = "bold 22px 'Prompt', Arial";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText("🚓", W/2, 80);
+  ctx.restore();
+
+  ctx.textAlign = "center";
+  ctx.fillStyle = "#0f3d2e";
+  ctx.font = "bold 17px 'Prompt', Arial";
+  ctx.fillText("กองบังคับการตำรวจทางหลวง", W/2, 130);
+  ctx.font = "600 13px 'Prompt', Arial";
+  ctx.fillStyle = "#374151";
+  ctx.fillText("ระบบฐานข้อมูลรถวิทยุในสังกัด", W/2, 150);
+
+  // เส้นคั่นลายทอง
+  const dividerGrad = ctx.createLinearGradient(60, 0, W-60, 0);
+  dividerGrad.addColorStop(0, "rgba(201,162,39,0)");
+  dividerGrad.addColorStop(0.5, "rgba(201,162,39,0.9)");
+  dividerGrad.addColorStop(1, "rgba(201,162,39,0)");
+  ctx.strokeStyle = dividerGrad;
   ctx.lineWidth = 1.5;
-  roundRect(ctx, 32, 224, W-64, 140, 14);
+  ctx.beginPath(); ctx.moveTo(60, 168); ctx.lineTo(W-60, 168); ctx.stroke();
+
+  ctx.font = "bold 19px 'Prompt', Arial";
+  ctx.fillStyle = "#0f3d2e";
+  ctx.fillText("เอกสารยืนยันการรายงานหลักฐาน", W/2, 196);
+
+  // เลขที่เอกสาร + วันเวลา
+  if (!DOC_SEQ) DOC_SEQ = Math.floor(100000 + Math.random() * 899999);
+  const docNo = "HWPD-" + (data.dateThai || "").replace(/-/g, "") + "-" + DOC_SEQ;
+  ctx.font = "12px 'Prompt', Arial";
+  ctx.fillStyle = "#6b7280";
+  ctx.fillText("เลขที่เอกสาร " + docNo, W/2, 216);
+
+  // ---------- กล่องข้อมูลผู้รายงาน ----------
+  let y = 250;
+  drawSectionLabel(ctx, "ข้อมูลผู้รายงาน", 40, y);
+  y += 22;
+  drawFieldRow(ctx, "ชื่อผู้รายงาน", data.lineName || "-", 40, y, W - 80);
+  y += 26;
+  drawFieldRow(ctx, "รหัสประจำตัว LINE", data.lineUserId || "-", 40, y, W - 80);
+  y += 26;
+  drawFieldRow(ctx, "เวลาที่บันทึก", data.timestamp || "-", 40, y, W - 80);
+  y += 36;
+
+  // ---------- กล่องทะเบียนรถ (กล่องเด่น) ----------
+  const plateBoxY = y;
+  const plateBoxH = 130;
+  ctx.fillStyle = "#f4faf7";
+  roundRect(ctx, 40, plateBoxY, W - 80, plateBoxH, 12);
+  ctx.fill();
+  ctx.strokeStyle = "#0f3d2e";
+  ctx.lineWidth = 1.5;
+  roundRect(ctx, 40, plateBoxY, W - 80, plateBoxH, 12);
   ctx.stroke();
 
-  ctx.fillStyle = "#047857";
-  ctx.font = "bold 13px Arial";
   ctx.textAlign = "center";
-  ctx.fillText("🚗 ข้อมูลป้ายทะเบียนรถ", W/2, 250);
+  ctx.font = "600 12px 'Prompt', Arial";
+  ctx.fillStyle = "#0f3d2e";
+  ctx.fillText("ข้อมูลป้ายทะเบียนรถที่รายงาน", W/2, plateBoxY + 26);
 
-  ctx.font = "bold 30px Arial";
-  ctx.fillStyle = "#065f46";
-  ctx.fillText((data.plateChar || "") + "  " + (data.plateNumber || ""), W/2, 300);
+  ctx.font = "bold 40px 'Prompt', Arial";
+  ctx.fillStyle = "#0f3d2e";
+  ctx.fillText((data.plateChar || "") + "  " + (data.plateNumber || ""), W/2, plateBoxY + 74);
 
-  ctx.font = "bold 18px Arial";
-  ctx.fillStyle = "#047857";
-  ctx.fillText(data.plateProvince || "-", W/2, 335);
+  ctx.font = "600 17px 'Prompt', Arial";
+  ctx.fillStyle = "#4b5563";
+  ctx.fillText(data.plateProvince || "-", W/2, plateBoxY + 104);
 
+  y = plateBoxY + plateBoxH + 34;
+
+  // ---------- ไฟล์หลักฐาน ----------
+  drawSectionLabel(ctx, "ไฟล์หลักฐาน", 40, y);
+  y += 22;
   ctx.textAlign = "left";
-  ctx.font = "bold 13px Arial";
-  ctx.fillStyle = "#047857";
-  ctx.fillText("📁 ไฟล์หลักฐาน", 32, 400);
-  ctx.font = "12px Arial";
+  ctx.font = "13px 'Prompt', Arial";
   ctx.fillStyle = "#374151";
-  wrapText(ctx, data.fileName || "-", 32, 420, W-64, 16);
+  wrapText(ctx, data.fileName || "-", 40, y, W - 80, 18);
+  y += 46;
 
+  // ---------- เส้นคั่นล่าง + ท้ายเอกสาร ----------
   ctx.strokeStyle = "#e5e7eb";
   ctx.beginPath();
-  ctx.moveTo(32, 470);
-  ctx.lineTo(W-32, 470);
+  ctx.moveTo(40, y);
+  ctx.lineTo(W - 40, y);
   ctx.stroke();
+  y += 24;
+
+  // ตราประทับ "บันทึกสำเร็จ" มุมขวา
+  ctx.save();
+  ctx.translate(W - 96, y + 18);
+  ctx.rotate(-Math.PI / 16);
+  ctx.strokeStyle = "#0f3d2e";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.arc(0, 0, 40, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.fillStyle = "#0f3d2e";
+  ctx.font = "bold 12px 'Prompt', Arial";
+  ctx.textAlign = "center";
+  ctx.fillText("บันทึกข้อมูล", 0, -4);
+  ctx.fillText("สำเร็จแล้ว", 0, 11);
+  ctx.restore();
+
+  ctx.textAlign = "left";
+  ctx.font = "11px 'Prompt', Arial";
+  ctx.fillStyle = "#9ca3af";
+  ctx.fillText("เอกสารนี้สร้างขึ้นโดยระบบอัตโนมัติ ไม่ต้องลงลายมือชื่อ", 40, y + 30);
+  ctx.fillText("ตรวจสอบข้อมูลย้อนหลังได้ที่หน้า “ค้นหา” ของระบบ", 40, y + 48);
 
   ctx.textAlign = "center";
-  ctx.font = "11px Arial";
+  ctx.font = "600 11px 'Prompt', Arial";
+  ctx.fillStyle = "#0f3d2e";
+  ctx.fillText("— กองบังคับการตำรวจทางหลวง —", W/2, H - 34);
+}
+
+function drawSectionLabel(ctx, text, x, y) {
+  ctx.textAlign = "left";
+  ctx.font = "bold 12.5px 'Prompt', Arial";
+  ctx.fillStyle = "#0f3d2e";
+  ctx.fillText(text.toUpperCase(), x, y);
+  ctx.strokeStyle = "#c9a227";
+  ctx.lineWidth = 1;
+  const textW = ctx.measureText(text.toUpperCase()).width;
+  ctx.beginPath();
+  ctx.moveTo(x + textW + 8, y - 4);
+  ctx.lineTo(x + 200, y - 4);
+  ctx.stroke();
+}
+
+function drawFieldRow(ctx, label, value, x, y, maxWidth) {
+  ctx.textAlign = "left";
+  ctx.font = "12px 'Prompt', Arial";
   ctx.fillStyle = "#9ca3af";
-  ctx.fillText("เอกสารนี้สร้างขึ้นโดยอัตโนมัติจากระบบฐานข้อมูลรถวิทยุในสังกัด", W/2, H-40);
-  ctx.font = "bold 12px Arial";
-  ctx.fillStyle = "#10b981";
-  ctx.fillText("✔ บันทึกข้อมูลสำเร็จ", W/2, H-20);
+  ctx.fillText(label, x, y);
+  ctx.font = "600 13.5px 'Prompt', Arial";
+  ctx.fillStyle = "#111827";
+  ctx.textAlign = "right";
+  ctx.fillText(String(value), x + maxWidth, y);
 }
 
 function roundRect(ctx, x, y, w, h, r) {
@@ -933,12 +1063,16 @@ document.getElementById("btnDownloadImg")?.addEventListener("click", () => {
 });
 
 /* ============================================================
-   แดชบอร์ดวันนี้ / ค้นหา (มือถือ) — รายการคลิกได้เพื่อพรีวิวคลิปในตัว
+   แดชบอร์ดวันนี้ / ค้นหา (มือถือ)
    ============================================================ */
 async function loadTodayData() {
   const container = document.getElementById("todayList");
-  container.innerHTML = '<div class="text-center text-gray-400 text-sm py-6"><span class="spinner inline-block"></span> กำลังโหลด...</div>';
-  const { data } = await gasFetchUrl("fetchToday", {});
+  container.innerHTML = '<div class="text-center text-gray-400 text-sm py-6"><span class="spinner inline-block"></span> กำลังโหลดข้อมูล...</div>';
+  const { data, ok } = await gasFetchUrl("fetchToday", {});
+  if (!ok) {
+    container.innerHTML = '<div class="text-center text-red-400 text-sm py-6">⚠ โหลดข้อมูลไม่สำเร็จ: ' + (data.message || "ตรวจสอบการตั้งค่า SCRIPT_URL") + '</div>';
+    return;
+  }
   renderItemCards(container, data.items || []);
 }
 
@@ -947,7 +1081,12 @@ document.getElementById("btnRefreshToday")?.addEventListener("click", loadTodayD
 document.getElementById("searchInput")?.addEventListener("input", debounce(async (e) => {
   const kw = e.target.value;
   const container = document.getElementById("searchList");
-  const { data } = await gasFetchUrl("searchPlate", { keyword: kw });
+  container.innerHTML = '<div class="text-center text-gray-400 text-sm py-6"><span class="spinner inline-block"></span> กำลังค้นหา...</div>';
+  const { data, ok } = await gasFetchUrl("searchPlate", { keyword: kw });
+  if (!ok) {
+    container.innerHTML = '<div class="text-center text-red-400 text-sm py-6">⚠ ค้นหาไม่สำเร็จ: ' + (data.message || "") + '</div>';
+    return;
+  }
   renderItemCards(container, data.items || []);
 }, 400));
 
@@ -1007,7 +1146,13 @@ function setupDesktop() {
     const dateTo = document.getElementById("pcDateTo").value;
     const province = document.getElementById("pcProvinceFilter").value;
     const officer = document.getElementById("pcOfficerFilter").value;
-    const { data } = await gasFetchUrl("searchPlate", { keyword, dateFrom, dateTo, province, officer });
+    const container = document.getElementById("pcSearchResults");
+    container.innerHTML = '<div class="col-span-2 text-center text-gray-400 text-sm py-8"><span class="spinner inline-block"></span> กำลังค้นหา...</div>';
+    const { data, ok } = await gasFetchUrl("searchPlate", { keyword, dateFrom, dateTo, province, officer });
+    if (!ok) {
+      container.innerHTML = '<div class="col-span-2 text-center text-red-400 text-sm py-8">⚠ ค้นหาไม่สำเร็จ: ' + (data.message || "") + '</div>';
+      return;
+    }
     renderPcSearchResults(data.items || []);
   }, 350);
 
@@ -1049,7 +1194,6 @@ function setupDesktop() {
   });
 }
 
-// เติม dropdown กรองจังหวัด/เจ้าหน้าที่จากข้อมูลจริงที่มาพร้อม getStatsData
 function populateFilterOptions(stats) {
   const provinceSel = document.getElementById("pcProvinceFilter");
   const officerSel = document.getElementById("pcOfficerFilter");
@@ -1064,7 +1208,6 @@ function populateFilterOptions(stats) {
   officerSel.innerHTML = '<option value="">เจ้าหน้าที่ทั้งหมด</option>' +
     (stats.officerList || []).map(o => `<option value="${o.userId}">${o.name}</option>`).join("");
 
-  // คงค่าที่เคยเลือกไว้ (ถ้ายังอยู่ในลิสต์ใหม่)
   if (prevProvince) provinceSel.value = prevProvince;
   if (prevOfficer) officerSel.value = prevOfficer;
 }
@@ -1078,22 +1221,23 @@ async function loadStats() {
 
   const { data: stats, ok } = await gasFetchUrl("getStats", {});
 
+  if (!ok) {
+    syncRateEl.innerText = "⚠";
+    syncBadge.classList.remove("kpi-trend-flat");
+    syncBadge.classList.add("kpi-trend-down");
+    syncBadge.innerText = "เชื่อมต่อขัดข้อง";
+    showErrorModal("โหลดสถิติไม่สำเร็จ", stats.message || "ตรวจสอบว่าตั้งค่า SCRIPT_URL และ Deploy เว็บแอปแล้วหรือยัง");
+    return;
+  }
+
   document.getElementById("kpiToday").innerText = stats.todayCount || 0;
   document.getElementById("kpiOfficers").innerText = stats.activeOfficers || 0;
   document.getElementById("kpiTotal").innerText = stats.totalCount || 0;
 
-  // Cloud Sync Status: สะท้อนผลจริงว่าเชื่อมต่อ/อ่านชีตได้สำเร็จหรือไม่ (ไม่ใช่ค่าคงที่ 100% อีกต่อไป)
-  const reallyOk = ok && stats.syncOk !== false && !stats.error;
-  syncBadge.classList.remove("kpi-trend-up","kpi-trend-down","kpi-trend-flat");
-  if (reallyOk) {
-    syncRateEl.innerText = "100%";
-    syncBadge.classList.add("kpi-trend-up");
-    syncBadge.innerText = "✔ เชื่อมต่อ Sheet สำเร็จ";
-  } else {
-    syncRateEl.innerText = "⚠";
-    syncBadge.classList.add("kpi-trend-down");
-    syncBadge.innerText = "เชื่อมต่อขัดข้อง / ใช้ข้อมูลสำรอง";
-  }
+  syncRateEl.innerText = "100%";
+  syncBadge.classList.remove("kpi-trend-down","kpi-trend-flat");
+  syncBadge.classList.add("kpi-trend-up");
+  syncBadge.innerText = "✔ เชื่อมต่อ Sheet สำเร็จ";
 
   const trendBadge = document.getElementById("kpiTrendBadge");
   const gp = stats.growthPercent || 0;
@@ -1227,10 +1371,16 @@ function closeVideoModal() {
    INIT
    ============================================================ */
 window.addEventListener("DOMContentLoaded", () => {
+  if (!isScriptUrlConfigured()) {
+    showModal({
+      type: "warning",
+      title: "ยังไม่ได้ตั้งค่า SCRIPT_URL",
+      message: "กรุณาแก้ค่า SCRIPT_URL ในไฟล์ index.html ให้เป็น URL เว็บแอปที่ Deploy จาก Apps Script (ลงท้าย /exec) มิฉะนั้นระบบจะยังใช้งานจริงไม่ได้"
+    });
+  }
   initLiffOrSimulate();
   setupProvinceDropdown();
   setupBottomNav();
-  setupAdminLock();
   setupUploadForm();
   setupDesktop();
 });
