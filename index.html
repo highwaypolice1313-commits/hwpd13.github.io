@@ -2,7 +2,7 @@
 <html lang="th">
 <head>
 <meta charset="UTF-8" />
-<title>ระบบฐานข้อมูลหลักฐานวิดีโอรถวิ่งขวา</title>
+<title>ระบบฐานข้อมูลรถวิทยุในสังกัด</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
 <script src="https://cdn.tailwindcss.com"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -363,7 +363,7 @@
 <div id="desktopApp">
   <aside class="pc-sidebar w-64 p-6 flex-shrink-0">
     <div class="text-xl font-bold mb-1">🚓 ศูนย์ควบคุมหลัก</div>
-    <div class="text-xs opacity-70 mb-8">ระบบฐานข้อมูลหลักฐานวิดีโอรถวิ่งขวา</div>
+    <div class="text-xs opacity-70 mb-8">ระบบฐานข้อมูลรถวิทยุในสังกัด</div>
     <nav class="space-y-2">
       <button class="pc-nav-btn w-full text-left px-4 py-3 rounded-lg bg-white/10 font-semibold" data-pc="overview">📊 ภาพรวม / สถิติ</button>
       <button class="pc-nav-btn w-full text-left px-4 py-3 rounded-lg hover:bg-white/10" data-pc="search">🔍 ค้นหาวิดีโอ</button>
@@ -898,7 +898,7 @@ async function drawReceiptCanvas(data) {
   ctx.fillText("กองบังคับการตำรวจทางหลวง", W/2, 130);
   ctx.font = "600 13px 'Prompt', Arial";
   ctx.fillStyle = "#374151";
-  ctx.fillText("ระบบฐานข้อมูลหลักฐานวิดีโอรถวิ่งขวา", W/2, 150);
+  ctx.fillText("ระบบฐานข้อมูลรถวิทยุในสังกัด", W/2, 150);
 
   // เส้นคั่นลายทอง
   const dividerGrad = ctx.createLinearGradient(60, 0, W-60, 0);
@@ -1246,24 +1246,59 @@ async function loadStats() {
   else if (gp < 0) { trendBadge.classList.add("kpi-trend-down"); trendBadge.innerText = `▼ ${gp}% เทียบเมื่อวาน`; }
   else { trendBadge.classList.add("kpi-trend-flat"); trendBadge.innerText = `– เท่าเมื่อวาน`; }
 
-  renderHourlyChart(stats.hourlyToday || new Array(24).fill(0));
-  renderProvinceChart(stats.byProvince || {});
-  renderTrendChart(stats.trend7days || []);
-  populateFilterOptions(stats);
+  // ตาราง "รายการล่าสุด" และตัวกรอง (dropdown) ต้องขึ้นก่อนเสมอ ไม่ว่ากราฟจะพังหรือไม่
+  // (เดิมโค้ดวาดกราฟก่อน ถ้ากราฟ error ทั้งตารางและ dropdown จะไม่ขึ้นเลยเพราะโค้ดหยุดทำงานกลางคัน)
+  try {
+    populateFilterOptions(stats);
+  } catch (err) {
+    console.error("populateFilterOptions error:", err);
+  }
 
-  const tbody = document.getElementById("pcRecentTable");
-  tbody.innerHTML = (stats.recent || []).map((it, idx) => `
-    <tr class="border-b last:border-0 row-clickable" data-idx="${idx}">
-      <td class="py-2 text-gray-500">${formatTimeShort(it.timestamp)}</td>
-      <td class="py-2">${it.lineName || "-"}</td>
-      <td class="py-2 font-semibold text-emerald-700">${it.plateChar} ${it.plateNumber} ${it.plateProvince}</td>
-      <td class="py-2"><span class="text-emerald-600 text-xs font-semibold">▶ พรีวิว</span></td>
-    </tr>
-  `).join("");
+  try {
+    const tbody = document.getElementById("pcRecentTable");
+    const recent = stats.recent || [];
+    if (!recent.length) {
+      tbody.innerHTML = '<tr><td colspan="4" class="py-6 text-center text-gray-400">ยังไม่มีรายการอัปโหลด</td></tr>';
+    } else {
+      tbody.innerHTML = recent.map((it, idx) => `
+        <tr class="border-b last:border-0 row-clickable" data-idx="${idx}">
+          <td class="py-2 text-gray-500">${formatTimeShort(it.timestamp)}</td>
+          <td class="py-2">${it.lineName || "-"}</td>
+          <td class="py-2 font-semibold text-emerald-700">${it.plateChar} ${it.plateNumber} ${it.plateProvince}</td>
+          <td class="py-2"><span class="text-emerald-600 text-xs font-semibold">▶ พรีวิว</span></td>
+        </tr>
+      `).join("");
+      tbody.querySelectorAll(".row-clickable").forEach((tr, idx) => {
+        tr.addEventListener("click", () => openVideoModal(recent[idx]));
+      });
+    }
+  } catch (err) {
+    console.error("recent table render error:", err);
+  }
 
-  tbody.querySelectorAll(".row-clickable").forEach((tr, idx) => {
-    tr.addEventListener("click", () => openVideoModal((stats.recent || [])[idx]));
-  });
+  // กราฟทั้ง 3 ตัว แยก try/catch เป็นรายตัว เพื่อไม่ให้กราฟหนึ่งพังแล้วลากกราฟอื่นพังไปด้วย
+  renderChartSafely(() => renderHourlyChart(stats.hourlyToday || new Array(24).fill(0)), "hourlyChart");
+  renderChartSafely(() => renderProvinceChart(stats.byProvince || {}), "provinceChart");
+  renderChartSafely(() => renderTrendChart(stats.trend7days || []), "trendChart");
+}
+
+function renderChartSafely(renderFn, canvasId) {
+  try {
+    if (typeof Chart === "undefined") {
+      throw new Error("ไลบรารี Chart.js โหลดไม่สำเร็จ (ตรวจสอบการเชื่อมต่ออินเทอร์เน็ต หรือ CDN ถูกบล็อก)");
+    }
+    renderFn();
+  } catch (err) {
+    console.error("Chart render error (" + canvasId + "):", err);
+    const canvas = document.getElementById(canvasId);
+    if (canvas && canvas.parentElement) {
+      const msg = document.createElement("div");
+      msg.className = "text-center text-xs text-gray-400 py-8";
+      msg.innerText = "⚠ ไม่สามารถแสดงกราฟนี้ได้ (" + err.message + ")";
+      canvas.style.display = "none";
+      canvas.parentElement.appendChild(msg);
+    }
+  }
 }
 
 function renderHourlyChart(hourlyToday) {
