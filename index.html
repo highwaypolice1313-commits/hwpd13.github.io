@@ -860,7 +860,7 @@ async function gasFetchUrl(action, params) {
   }
 }
 
-// สำหรับ action ที่ "เขียนข้อมูล" (POST)
+// สำหรับ action ที่ "เขียนข้อมูล" (POST) — ใช้กับ payload JSON เล็กๆ เท่านั้น (ไม่ใช่สำหรับไฟล์)
 async function gasPost(action, data) {
   if (!isScriptUrlConfigured()) {
     return { success: false, message: "ยังไม่ได้ตั้งค่า SCRIPT_URL ในไฟล์ index.html" };
@@ -878,7 +878,7 @@ async function gasPost(action, data) {
   }
 }
 
-// gasPost พร้อม retry อัตโนมัติ ใช้กับการส่งชิ้นไฟล์ (chunk) ที่อาจเจอเน็ตสะดุดได้บ่อย
+// gasPost พร้อม retry อัตโนมัติ ใช้กับ action ที่เป็น JSON เล็กๆ
 async function gasPostWithRetry(action, data, retries) {
   retries = typeof retries === "number" ? retries : 2;
   let lastResult = null;
@@ -1010,19 +1010,46 @@ function renderFileList(listId, arrRef) {
 }
 
 /* ============================================================
-   อัปโหลดไฟล์แบบแบ่งชิ้น (Chunked Resumable Upload) — แก้ปัญหาไฟล์ใหญ่อัปโหลดไม่ได้
-   แบ่งไฟล์เป็นชิ้นละ 4MB (เป็นจำนวนเท่าของ 256KiB ตามที่ Google Drive กำหนด)
-   ทำให้แต่ละ request มีขนาดเล็กเสมอ ไม่ว่าไฟล์ต้นทางจะใหญ่แค่ไหน
+   อัปโหลดไฟล์แบบแบ่งชิ้น (Chunked Resumable Upload) — เวอร์ชันเร็วสุดๆ
+   - ส่งชิ้นไฟล์เป็น "binary ดิบ" ตรงๆ (ไม่ผ่าน base64/JSON) เพื่อลดขนาดข้อมูล ~25%
+     และลดภาระ encode/decode ทั้งสองฝั่ง
+   - ขนาดชิ้นไฟล์ใหญ่ขึ้น (16MB ต่อชิ้น) เพื่อลดจำนวนรอบการเรียก Apps Script
+     ซึ่งแต่ละครั้งมี overhead คงที่ (ต้องเป็นจำนวนเท่าของ 256KiB ตามที่ Google Drive กำหนด)
+   - อัปโหลดหลายไฟล์ "พร้อมกัน" (ดู uploadAllFilesConcurrent ด้านล่าง) แทนที่จะรอทีละไฟล์
    ============================================================ */
-const CHUNK_SIZE = 4 * 1024 * 1024; // 4MB
+const CHUNK_SIZE = 16 * 1024 * 1024; // 16MB ต่อชิ้น (เดิม 4MB) — ลดจำนวน round-trip ไปเซิร์ฟเวอร์
+const UPLOAD_CONCURRENCY = 3; // จำนวนไฟล์ที่อัปโหลดพร้อมกันสูงสุด
 
-function blobToBase64(blob) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result.split(",")[1]);
-    reader.onerror = () => reject(new Error("อ่านไฟล์ไม่สำเร็จ"));
-    reader.readAsDataURL(blob);
-  });
+// ส่งชิ้นไฟล์แบบ binary ดิบ ผ่าน query string (metadata) + body (ไฟล์จริง)
+async function uploadChunkRaw(uploadUrl, chunkBlob, start, end, total, mimeType, retries) {
+  retries = typeof retries === "number" ? retries : 2;
+  const qs = new URLSearchParams({
+    action: "uploadFileChunk",
+    uploadUrl: uploadUrl,
+    start: String(start),
+    end: String(end),
+    total: String(total),
+    mimeType: mimeType || "application/octet-stream"
+  }).toString();
+
+  let lastErr = null;
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      const res = await fetch(SCRIPT_URL + "?" + qs, {
+        method: "POST",
+        headers: { "Content-Type": "application/octet-stream" },
+        body: chunkBlob
+      });
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      const data = await res.json();
+      if (data && data.success) return data;
+      lastErr = new Error((data && data.message) || "อัปโหลดชิ้นไฟล์ล้มเหลว");
+    } catch (err) {
+      lastErr = err;
+    }
+    if (attempt < retries) await new Promise(r => setTimeout(r, 800 * (attempt + 1)));
+  }
+  throw lastErr || new Error("อัปโหลดชิ้นไฟล์ล้มเหลว");
 }
 
 async function uploadFileChunked(file, folderId, onProgress) {
@@ -1043,20 +1070,11 @@ async function uploadFileChunked(file, folderId, onProgress) {
   while (start < file.size) {
     const end = Math.min(start + CHUNK_SIZE, file.size) - 1;
     const chunkBlob = file.slice(start, end + 1);
-    const base64Chunk = await blobToBase64(chunkBlob);
 
-    const chunkRes = await gasPostWithRetry("uploadFileChunk", {
-      uploadUrl: uploadUrl,
-      base64: base64Chunk,
-      start: start,
-      end: end,
-      total: file.size,
-      mimeType: file.type || "application/octet-stream"
-    }, 2);
+    const chunkRes = await uploadChunkRaw(
+      uploadUrl, chunkBlob, start, end, file.size, file.type || "application/octet-stream", 2
+    );
 
-    if (!chunkRes || !chunkRes.success) {
-      throw new Error((chunkRes && chunkRes.message) || ("อัปโหลดไฟล์ล้มเหลว: " + file.name));
-    }
     if (chunkRes.status === "complete") {
       fileId = chunkRes.fileId;
       fileUrl = chunkRes.fileUrl;
@@ -1067,6 +1085,55 @@ async function uploadFileChunked(file, folderId, onProgress) {
   }
 
   return { fileId, fileUrl, fileName: file.name };
+}
+
+// อัปโหลดไฟล์หลายไฟล์ "พร้อมกัน" ด้วย worker pool (จำกัดจำนวนพร้อมกันไม่ให้ชนโควต้า)
+// fileGroups: [{ file, category }] — category คือ "video" | "ticket" | "driver"
+// คืนค่า { video: [...], ticket: [...], driver: [...] } ตามลำดับที่อัปโหลดสำเร็จ (ไม่ใช่ลำดับเดิม)
+// จึงต้องเก็บ index กำกับไว้เพื่อ sort กลับ
+async function uploadAllFilesConcurrent(fileGroups, folderId, onOverallProgress) {
+  const total = fileGroups.length;
+  const progressByIndex = new Array(total).fill(0);
+  const resultByIndex = new Array(total).fill(null);
+  let nextIndex = 0;
+  let firstError = null;
+
+  function recalcOverall() {
+    if (!onOverallProgress) return;
+    const sum = progressByIndex.reduce((a, b) => a + b, 0);
+    onOverallProgress(sum / (total * 100), progressByIndex);
+  }
+
+  async function worker() {
+    while (true) {
+      const idx = nextIndex++;
+      if (idx >= total) return;
+      const { file, category } = fileGroups[idx];
+      try {
+        const uploaded = await uploadFileChunked(file, folderId, (pct) => {
+          progressByIndex[idx] = pct;
+          recalcOverall();
+        });
+        resultByIndex[idx] = { category, uploaded };
+        progressByIndex[idx] = 100;
+        recalcOverall();
+      } catch (err) {
+        if (!firstError) firstError = err;
+        // หยุด worker ตัวนี้ แต่ไม่ throw ทันที ปล่อยให้ตัวอื่นทำงานต่อจนครบ แล้วค่อย throw รวม
+        progressByIndex[idx] = 100;
+        recalcOverall();
+      }
+    }
+  }
+
+  const workerCount = Math.min(UPLOAD_CONCURRENCY, total);
+  await Promise.all(Array.from({ length: workerCount }, worker));
+
+  if (firstError) throw firstError;
+
+  const grouped = { video: [], ticket: [], driver: [] };
+  resultByIndex.forEach(r => { if (r) grouped[r.category].push(r.uploaded); });
+  return grouped;
 }
 
 /* ============================================================
@@ -1124,31 +1191,22 @@ async function doUploadReport({ plateChar, plateNumber, plateProvince, unit }) {
     const folderId = folderRes.folderId;
     const folderUrl = folderRes.folderUrl;
 
-    const totalFiles = SELECTED_VIDEOS.length + SELECTED_TICKET_PHOTOS.length + SELECTED_DRIVER_PHOTOS.length;
-    let doneFiles = 0;
+    // รวมไฟล์ทุกหมวดเป็นรายการเดียว แล้วอัปโหลด "พร้อมกัน" (สูงสุด UPLOAD_CONCURRENCY ไฟล์ในเวลาเดียวกัน)
+    const fileGroups = [
+      ...SELECTED_VIDEOS.map(file => ({ file, category: "video" })),
+      ...SELECTED_TICKET_PHOTOS.map(file => ({ file, category: "ticket" })),
+      ...SELECTED_DRIVER_PHOTOS.map(file => ({ file, category: "driver" }))
+    ];
+    const totalFiles = fileGroups.length;
 
-    async function uploadList(list, categoryLabel) {
-      const results = [];
-      for (const file of list) {
-        updateLoadingProgress(
-          `กำลังอัปโหลด ${categoryLabel} (${doneFiles + 1}/${totalFiles}): ${file.name}`,
-          doneFiles / totalFiles
-        );
-        const uploaded = await uploadFileChunked(file, folderId, (pct) => {
-          updateLoadingProgress(
-            `กำลังอัปโหลด ${categoryLabel} (${doneFiles + 1}/${totalFiles}): ${file.name} — ${pct}%`,
-            (doneFiles + pct / 100) / totalFiles
-          );
-        });
-        results.push(uploaded);
-        doneFiles++;
-      }
-      return results;
-    }
+    updateLoadingProgress(`กำลังอัปโหลดไฟล์ทั้งหมด ${totalFiles} ไฟล์ (พร้อมกันสูงสุด ${UPLOAD_CONCURRENCY} ไฟล์)...`, 0);
 
-    const videos = await uploadList(SELECTED_VIDEOS, "วิดีโอ");
-    const ticketCopies = await uploadList(SELECTED_TICKET_PHOTOS, "รูปสำเนาใบสั่ง");
-    const driverPhotos = await uploadList(SELECTED_DRIVER_PHOTOS, "รูปหลักฐานผู้ขับขี่");
+    const grouped = await uploadAllFilesConcurrent(fileGroups, folderId, (fraction) => {
+      updateLoadingProgress(
+        `กำลังอัปโหลดไฟล์ทั้งหมด ${totalFiles} ไฟล์ (พร้อมกันสูงสุด ${UPLOAD_CONCURRENCY} ไฟล์)...`,
+        fraction
+      );
+    });
 
     updateLoadingProgress("กำลังบันทึกข้อมูลรายงาน...", 1);
 
@@ -1157,7 +1215,9 @@ async function doUploadReport({ plateChar, plateNumber, plateProvince, unit }) {
       lineName: CURRENT_USER.displayName,
       plateChar, plateNumber, plateProvince, unit,
       folderId, folderUrl,
-      videos, ticketCopies, driverPhotos
+      videos: grouped.video,
+      ticketCopies: grouped.ticket,
+      driverPhotos: grouped.driver
     };
 
     const result = await gasPostWithRetry("finalizeReport", finalizePayload, 2);
