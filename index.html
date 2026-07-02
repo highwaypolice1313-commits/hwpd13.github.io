@@ -201,20 +201,34 @@
     width: 100%;
   }
 
-  /* บนมือถือ (จอแคบกว่า 1024px) ให้ modal วิดีโอขยายเต็มจอแทนที่จะบีบอยู่ในกล่อง 16:9
-     เพราะคลิปที่อัปโหลดจากมือถือส่วนใหญ่เป็นแนวตั้ง ถ้าบังคับ 16:9 จะเห็นวิดีโอเล็กมากมีขอบดำหนา */
+  /* บนมือถือ (จอแคบกว่า 1024px) ให้ modal วิดีโอขยายเต็มจอ แต่ "กรอบวิดีโอจริง" ต้องพอดีกับตัวคลิป
+     (สมมติแนวตั้ง 9:16 เพราะคลิปส่วนใหญ่ถ่ายจากมือถือ) ไม่ใช่ยืดเต็มพื้นที่แบบไม่จำกัด
+     เพราะถ้าปล่อยให้กรอบสูงเกินตัววิดีโอจริงมาก ตัวเล่นของ Google Drive (คนละ origin ควบคุมไม่ได้)
+     จะเห็นพื้นที่ว่างด้านล่างวิดีโอเยอะ แล้วแสดงแถบควบคุมของมันซ้ำสองชุด
+     (ชุดกลางวิดีโอ + แถบเมนูด้านล่างที่ลอยห่างออกไปเพราะพื้นที่ว่างเหลือเยอะ) ดูเหมือนปุ่มเล่นซ้อนกัน
+     การจำกัดกรอบให้พอดีตัวคลิปช่วยให้ Drive วางแถบควบคุมติดกับวิดีโอตามปกติ ไม่มีช่องว่างจนดูซ้ำซ้อน */
   @media (max-width: 1023px){
     #videoModalOverlay{ padding: 0; }
     .video-modal{
       max-width: 100%; width: 100%; height: 100%; max-height: 100%;
       border-radius: 0; display: flex; flex-direction: column;
     }
-    .video-frame-wrap{
-      aspect-ratio: unset;
+    .video-stage{
       flex: 1 1 auto;
-      width: 100%;
-      height: auto;
       min-height: 0;
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #000;
+      overflow: hidden;
+    }
+    .video-frame-wrap{
+      aspect-ratio: 9 / 16;
+      width: auto;
+      height: 100%;
+      max-width: 100%;
+      max-height: 100%;
     }
   }
 
