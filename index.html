@@ -199,14 +199,18 @@
   .video-frame-wrap{
     aspect-ratio: 16 / 9;
     width: 100%;
+    position: relative;
   }
 
-  /* บนมือถือ (จอแคบกว่า 1024px) ให้ modal วิดีโอขยายเต็มจอ แต่ "กรอบวิดีโอจริง" ต้องพอดีกับตัวคลิป
-     (สมมติแนวตั้ง 9:16 เพราะคลิปส่วนใหญ่ถ่ายจากมือถือ) ไม่ใช่ยืดเต็มพื้นที่แบบไม่จำกัด
-     เพราะถ้าปล่อยให้กรอบสูงเกินตัววิดีโอจริงมาก ตัวเล่นของ Google Drive (คนละ origin ควบคุมไม่ได้)
-     จะเห็นพื้นที่ว่างด้านล่างวิดีโอเยอะ แล้วแสดงแถบควบคุมของมันซ้ำสองชุด
-     (ชุดกลางวิดีโอ + แถบเมนูด้านล่างที่ลอยห่างออกไปเพราะพื้นที่ว่างเหลือเยอะ) ดูเหมือนปุ่มเล่นซ้อนกัน
-     การจำกัดกรอบให้พอดีตัวคลิปช่วยให้ Drive วางแถบควบคุมติดกับวิดีโอตามปกติ ไม่มีช่องว่างจนดูซ้ำซ้อน */
+  /* บนมือถือ (จอแคบกว่า 1024px) ให้ modal วิดีโอขยายเต็มจอ
+     เดิมเคย fix .video-frame-wrap เป็นสัดส่วน 9:16 ตายตัว (สมมติว่าคลิปทุกคลิปเป็นแนวตั้ง)
+     ปัญหาคือถ้าคลิปจริงเป็นแนวนอน (16:9) กรอบ 9:16 จะสูงกว่าตัววิดีโอจริงมาก
+     ตัวเล่นของ Google Drive (คนละ origin ควบคุมไม่ได้) จะวาง "แถบควบคุม/ปุ่มเล่น" ของมันไว้กึ่งกลาง
+     ของพื้นที่ว่างที่เหลือ ทำให้ดูเหมือนมีปุ่มเล่นซ้อนกันสองชุด (ชุดจริงติดกับวิดีโอ + ชุดที่ลอยอยู่กลางกรอบเปล่า)
+     ทางแก้ที่ถูกต้องคือ "ไม่บังคับสัดส่วนกรอบ" อีกต่อไป แต่ปล่อยให้กรอบ (video-frame-wrap) ขยายเต็มพื้นที่
+     ของเวที (video-stage) ทั้งกว้างและสูง แล้วให้ iframe ของ Google Drive จัดการ letterbox/จัดกึ่งกลาง
+     วิดีโอจริงภายในตัวเอง ไม่ว่าไฟล์จะเป็นแนวตั้งหรือแนวนอนก็ตาม วิธีนี้ทำให้แถบควบคุมของ Drive
+     อยู่ติดกับตัววิดีโอเสมอ ไม่มีพื้นที่ว่างส่วนเกินให้เกิดปุ่มซ้อนอีก */
   @media (max-width: 1023px){
     #videoModalOverlay{ padding: 0; }
     .video-modal{
@@ -218,14 +222,14 @@
       min-height: 0;
       width: 100%;
       display: flex;
-      align-items: center;
-      justify-content: center;
+      align-items: stretch;
+      justify-content: stretch;
       background: #000;
       overflow: hidden;
     }
     .video-frame-wrap{
-      aspect-ratio: 9 / 16;
-      width: auto;
+      aspect-ratio: auto;
+      width: 100%;
       height: 100%;
       max-width: 100%;
       max-height: 100%;
@@ -241,6 +245,15 @@
     border-radius:50%; width:42px; height:42px; animation:spin 0.8s linear infinite;
   }
   @keyframes spin{ to{ transform:rotate(360deg);} }
+
+  /* Overlay สปินเนอร์ระหว่างรอ iframe วิดีโอโหลด เพื่อไม่ให้จอดำว่างเปล่า */
+  .video-loading-overlay{
+    position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+    flex-direction:column; gap:10px; background:#000; z-index:2;
+    transition: opacity .25s ease; pointer-events:none;
+  }
+  .video-loading-overlay.hidden-loading{ opacity:0; visibility:hidden; }
+  .video-loading-overlay span.label{ color:#a7f3d0; font-size:12px; font-weight:600; }
 
   ::-webkit-scrollbar{ width:6px; height:6px; }
   ::-webkit-scrollbar-thumb{ background:#a7f3d0; border-radius:8px; }
@@ -550,7 +563,11 @@
         <button id="btnCloseVideoModal" class="text-gray-400 hover:text-gray-700 text-xl leading-none">✕</button>
       </div>
     </div>
-    <div class="bg-black flex items-center justify-center video-frame-wrap" id="videoFrameWrap">
+    <div class="bg-black flex items-center justify-center video-frame-wrap video-stage" id="videoFrameWrap">
+      <div id="videoLoadingOverlay" class="video-loading-overlay">
+        <span class="spinner-lg"></span>
+        <span class="label">กำลังโหลดวิดีโอ...</span>
+      </div>
       <iframe id="videoModalFrame" class="w-full h-full" src="" frameborder="0" allow="autoplay; fullscreen" allowfullscreen></iframe>
     </div>
     <div class="p-4 flex justify-end flex-shrink-0">
@@ -1628,12 +1645,65 @@ function driveEmbedUrl(it) {
   return "";
 }
 
+/* ------------------------------------------------------------
+   ตรวจว่าเบราว์เซอร์ที่เปิดอยู่รองรับ Fullscreen API จริงหรือไม่
+   (LINE in-app browser และเบราว์เซอร์ในแอปอื่น ๆ ส่วนใหญ่ "ไม่รองรับ"
+    หรือรองรับแบบมีข้อจำกัดมาก กดแล้วมักไม่มีอะไรเกิดขึ้น/ค้าง)
+   ------------------------------------------------------------ */
+function isLineInAppBrowser() {
+  const ua = navigator.userAgent || "";
+  return /Line\//i.test(ua) || !!CURRENT_USER.isInClient;
+}
+
+function isFullscreenApiUsable() {
+  const el = document.getElementById("videoFrameWrap");
+  if (!el) return false;
+  const hasRequestFn = !!(el.requestFullscreen || el.webkitRequestFullscreen);
+  const enabled = document.fullscreenEnabled ?? document.webkitFullscreenEnabled ?? true;
+  return hasRequestFn && enabled && !isLineInAppBrowser();
+}
+
+// ปรับปุ่ม "เต็มจอ" ให้เหมาะกับเบราว์เซอร์ที่เปิดอยู่ทุกครั้งที่เปิด modal วิดีโอ
+// - ถ้าใช้ Fullscreen API ได้จริง: แสดงปุ่มปกติ
+// - ถ้าใช้ไม่ได้ (เช่นเปิดจากแอป LINE): ซ่อนปุ่ม แล้วเน้นลิงก์ "เปิดไฟล์เต็มจอบน Drive" แทน
+//   เพราะเปิดผ่านแอป/เบราว์เซอร์ Drive จริงจะดูเต็มจอได้แน่นอนกว่า
+function refreshFullscreenButtonState() {
+  const btn = document.getElementById("btnFullscreenVideo");
+  const openLink = document.getElementById("videoModalOpenLink");
+  if (!btn) return;
+
+  if (isFullscreenApiUsable()) {
+    btn.style.display = "";
+    btn.innerText = "⛶";
+    btn.title = "ดูแบบเต็มจอ";
+    if (openLink) openLink.classList.remove("btn-primary", "!inline-block", "!text-center");
+  } else {
+    btn.style.display = "none";
+    // เน้นลิงก์เปิดบน Drive ให้เห็นชัดขึ้น เพราะเป็นทางเลือกเต็มจอทางเดียวที่ใช้ได้จริงในเบราว์เซอร์นี้
+    if (openLink) {
+      openLink.classList.add("btn-primary", "!inline-block", "!text-center");
+      openLink.innerText = "⛶ เปิดเต็มจอบน Drive ↗";
+    }
+  }
+}
+
 function openVideoModal(it) {
   if (!it) return;
   document.getElementById("videoModalTitle").innerText = `${it.plateChar} ${it.plateNumber} ${it.plateProvince}`;
   document.getElementById("videoModalSub").innerText = `👤 ${it.lineName || "-"} | 🏢 ${it.unit || "-"} | 📁 ${it.fileName || "-"}`;
-  document.getElementById("videoModalFrame").src = driveEmbedUrl(it) || "about:blank";
+
+  // แสดงสปินเนอร์รอโหลดวิดีโอ ซ่อนไว้เมื่อ iframe โหลดเนื้อหาเสร็จ (event "load")
+  const loadingOverlay = document.getElementById("videoLoadingOverlay");
+  const frame = document.getElementById("videoModalFrame");
+  if (loadingOverlay) loadingOverlay.classList.remove("hidden-loading");
+
+  frame.onload = () => {
+    if (loadingOverlay) loadingOverlay.classList.add("hidden-loading");
+  };
+  frame.src = driveEmbedUrl(it) || "about:blank";
+
   document.getElementById("videoModalOpenLink").href = it.fileUrl || "#";
+  refreshFullscreenButtonState();
   document.getElementById("videoModalOverlay").classList.add("open");
 }
 
@@ -1641,10 +1711,13 @@ function closeVideoModal() {
   exitFullscreenIfActive();
   document.getElementById("videoModalOverlay").classList.remove("open");
   document.getElementById("videoModalFrame").src = "";
+  const loadingOverlay = document.getElementById("videoLoadingOverlay");
+  if (loadingOverlay) loadingOverlay.classList.remove("hidden-loading");
 }
 
 // ปุ่ม "ดูแบบเต็มจอ" — ขยาย wrapper ของวิดีโอให้เต็มหน้าจอจริง ๆ ผ่าน Fullscreen API
-// (รองรับ vendor prefix ของ iOS Safari / เบราว์เซอร์เก่า และมี fallback แจ้งเตือนถ้าใช้ไม่ได้)
+// ปุ่มนี้จะถูกซ่อนไปแล้วถ้าตรวจพบว่าเบราว์เซอร์ใช้ Fullscreen API ไม่ได้ (ดู refreshFullscreenButtonState)
+// จึงไม่ต้องมี fallback เป็น showModal อีกต่อไป เพราะกรณีนั้นปุ่มจะไม่แสดงตั้งแต่แรก
 function exitFullscreenIfActive() {
   try {
     if (document.fullscreenElement) document.exitFullscreen?.();
@@ -1652,28 +1725,45 @@ function exitFullscreenIfActive() {
   } catch (err) { /* เบราว์เซอร์บางตัวไม่รองรับ ข้ามได้ */ }
 }
 
-document.getElementById("btnFullscreenVideo")?.addEventListener("click", () => {
+function toggleFullscreenVideo() {
   const wrap = document.getElementById("videoFrameWrap");
   if (!wrap) return;
+
+  const isCurrentlyFullscreen = !!(document.fullscreenElement || document.webkitFullscreenElement);
+  const btn = document.getElementById("btnFullscreenVideo");
+
   try {
+    if (isCurrentlyFullscreen) {
+      exitFullscreenIfActive();
+      return;
+    }
     if (wrap.requestFullscreen) {
       wrap.requestFullscreen();
     } else if (wrap.webkitRequestFullscreen) {
       wrap.webkitRequestFullscreen();
-    } else {
-      showModal({
-        type: "info",
-        title: "เบราว์เซอร์นี้ไม่รองรับโหมดเต็มจอ",
-        message: "กรุณาใช้ปุ่มเต็มจอที่มุมของตัวเล่นวิดีโอโดยตรง หรือกด \"เปิดไฟล์เต็มจอบน Drive\" ด้านล่างแทน"
-      });
     }
   } catch (err) {
+    // ปุ่มนี้ถูกซ่อนไปแล้วในเบราว์เซอร์ที่ใช้ Fullscreen API ไม่ได้ แต่กันเหนียวไว้เผื่อ error อื่น ๆ
     showModal({
       type: "info",
-      title: "ไม่สามารถเปิดโหมดเต็มจอได้",
-      message: "กรุณาใช้ปุ่มเต็มจอที่มุมของตัวเล่นวิดีโอโดยตรง หรือกด \"เปิดไฟล์เต็มจอบน Drive\" ด้านล่างแทน"
+      title: "ไม่สามารถเปิดโหมดเต็มจอได้ในขณะนี้",
+      message: "กรุณากด \"เปิดไฟล์เต็มจอบน Drive\" ด้านล่างแทน"
     });
   }
+  if (btn) btn.innerText = isCurrentlyFullscreen ? "⛶" : "⤢";
+}
+
+document.getElementById("btnFullscreenVideo")?.addEventListener("click", toggleFullscreenVideo);
+
+// อัปเดตไอคอนปุ่มเต็มจอให้ตรงสถานะจริงเสมอ (รวมถึงตอนผู้ใช้กด Esc เพื่อออกจากเต็มจอเอง)
+["fullscreenchange", "webkitfullscreenchange"].forEach(evt => {
+  document.addEventListener(evt, () => {
+    const btn = document.getElementById("btnFullscreenVideo");
+    if (!btn) return;
+    const isFs = !!(document.fullscreenElement || document.webkitFullscreenElement);
+    btn.innerText = isFs ? "⤢" : "⛶";
+    btn.title = isFs ? "ออกจากเต็มจอ" : "ดูแบบเต็มจอ";
+  });
 });
 
 /* ============================================================
