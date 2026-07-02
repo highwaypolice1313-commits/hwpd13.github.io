@@ -202,38 +202,16 @@
     position: relative;
   }
 
-  /* บนมือถือ (จอแคบกว่า 1024px) ให้ modal วิดีโอขยายเต็มจอ
-     เดิมเคย fix .video-frame-wrap เป็นสัดส่วน 9:16 ตายตัว (สมมติว่าคลิปทุกคลิปเป็นแนวตั้ง)
-     ปัญหาคือถ้าคลิปจริงเป็นแนวนอน (16:9) กรอบ 9:16 จะสูงกว่าตัววิดีโอจริงมาก
-     ตัวเล่นของ Google Drive (คนละ origin ควบคุมไม่ได้) จะวาง "แถบควบคุม/ปุ่มเล่น" ของมันไว้กึ่งกลาง
-     ของพื้นที่ว่างที่เหลือ ทำให้ดูเหมือนมีปุ่มเล่นซ้อนกันสองชุด (ชุดจริงติดกับวิดีโอ + ชุดที่ลอยอยู่กลางกรอบเปล่า)
-     ทางแก้ที่ถูกต้องคือ "ไม่บังคับสัดส่วนกรอบ" อีกต่อไป แต่ปล่อยให้กรอบ (video-frame-wrap) ขยายเต็มพื้นที่
-     ของเวที (video-stage) ทั้งกว้างและสูง แล้วให้ iframe ของ Google Drive จัดการ letterbox/จัดกึ่งกลาง
-     วิดีโอจริงภายในตัวเอง ไม่ว่าไฟล์จะเป็นแนวตั้งหรือแนวนอนก็ตาม วิธีนี้ทำให้แถบควบคุมของ Drive
-     อยู่ติดกับตัววิดีโอเสมอ ไม่มีพื้นที่ว่างส่วนเกินให้เกิดปุ่มซ้อนอีก */
-  @media (max-width: 1023px){
-    #videoModalOverlay{ padding: 0; }
-    .video-modal{
-      max-width: 100%; width: 100%; height: 100%; max-height: 100%;
-      border-radius: 0; display: flex; flex-direction: column;
-    }
-    .video-stage{
-      flex: 1 1 auto;
-      min-height: 0;
-      width: 100%;
-      display: flex;
-      align-items: stretch;
-      justify-content: stretch;
-      background: #000;
-      overflow: hidden;
-    }
-    .video-frame-wrap{
-      aspect-ratio: auto;
-      width: 100%;
-      height: 100%;
-      max-width: 100%;
-      max-height: 100%;
-    }
+  /* กลับมาใช้ modal วิดีโอ "ขนาดปกติ ไม่เต็มจอ" เหมือนกันทุกอุปกรณ์ (ทั้งมือถือและ PC)
+     เดิมเคยพยายามขยาย modal ให้เต็มจอบนมือถือ + บังคับสัดส่วนกรอบต่าง ๆ กัน (9:16, เต็มความสูง ฯลฯ)
+     ปัญหาคือทุกครั้งที่กรอบ (video-frame-wrap) มีสัดส่วนไม่ตรงกับตัวคลิปจริง ตัวเล่นของ Google Drive
+     (คนละ origin ควบคุมไม่ได้) จะวางปุ่มเล่น/แถบควบคุมของมันคลาดเคลื่อนไปกลางพื้นที่ว่างที่เหลือ
+     ทำให้ดูเหมือนมีปุ่มเล่นซ้อนกัน การคงสัดส่วนกรอบไว้ที่ 16:9 คงที่เสมอ (ไม่ยืด ไม่บีบ ไม่เต็มจอ)
+     เหมือนกันทุกอุปกรณ์ ทำให้ Google Drive จัดวางตัวเล่นได้สม่ำเสมอ ไม่มีพื้นที่ว่างส่วนเกินอีก
+     ผู้ที่ต้องการดูเต็มจอจริง ๆ ยังกดปุ่ม ⛶ (ถ้าเบราว์เซอร์รองรับ) หรือกด "เปิดไฟล์เต็มจอบน Drive" ได้ */
+  @media (max-width: 640px){
+    #videoModalOverlay{ padding: 14px; }
+    .video-modal{ max-width: 100%; }
   }
 
   .spinner{
@@ -563,7 +541,7 @@
         <button id="btnCloseVideoModal" class="text-gray-400 hover:text-gray-700 text-xl leading-none">✕</button>
       </div>
     </div>
-    <div class="bg-black flex items-center justify-center video-frame-wrap video-stage" id="videoFrameWrap">
+    <div class="bg-black flex items-center justify-center video-frame-wrap" id="videoFrameWrap">
       <div id="videoLoadingOverlay" class="video-loading-overlay">
         <span class="spinner-lg"></span>
         <span class="label">กำลังโหลดวิดีโอ...</span>
@@ -985,13 +963,21 @@ function resetForm() {
    ============================================================ */
 async function drawReceiptCanvas(data) {
   // รอให้ฟอนต์ Prompt โหลดเสร็จก่อน เพื่อให้ canvas เรนเดอร์ตัวอักษรถูกต้อง
+  // สาเหตุที่ "บางเครื่องเปิดแล้วตัวหนังสือพัง": ถ้าเครื่อง/เครือข่ายนั้นโหลดฟอนต์ Prompt จาก
+  // Google Fonts ไม่สำเร็จ (ถูกบล็อก/เน็ตช้า) canvas จะ fallback ไปใช้ font ถัดไปที่ระบุไว้
+  // เดิม fallback เป็น "Arial" ซึ่ง "ไม่มีชุดตัวอักษรภาษาไทย" ทำให้ตัวหนังสือกลายเป็นกล่อง/สัญลักษณ์แปลก ๆ
+  // จึงเปลี่ยน fallback ทั้งหมดเป็น Tahoma / Leelawadee UI / sans-serif ซึ่งรองรับภาษาไทยบนแทบทุกอุปกรณ์
+  // และเพิ่ม timeout กันไว้ ไม่ให้ค้างรอฟอนต์นานเกินไปถ้าเน็ตช้ามาก (จะวาดด้วย fallback แทนหลัง 3 วิ)
   try {
-    await Promise.all([
-      document.fonts.load("700 20px 'Prompt'"),
+    const fontsReadyPromise = Promise.all([
       document.fonts.load("400 13px 'Prompt'"),
+      document.fonts.load("600 13px 'Prompt'"),
+      document.fonts.load("700 20px 'Prompt'"),
       document.fonts.ready
     ]);
-  } catch (e) { /* เบราว์เซอร์บางตัวไม่รองรับ document.fonts — ข้ามได้ */ }
+    const timeoutPromise = new Promise((resolve) => setTimeout(resolve, 3000));
+    await Promise.race([fontsReadyPromise, timeoutPromise]);
+  } catch (e) { /* เบราว์เซอร์บางตัวไม่รองรับ document.fonts — ข้ามได้ ใช้ fallback font แทน */ }
 
   const canvas = document.getElementById("receiptCanvas");
   const dpr = window.devicePixelRatio || 1;
@@ -1021,7 +1007,7 @@ async function drawReceiptCanvas(data) {
   ctx.save();
   ctx.globalAlpha = 0.05;
   ctx.fillStyle = "#0f3d2e";
-  ctx.font = "bold 46px 'Prompt', Arial";
+  ctx.font = "bold 46px 'Prompt','Tahoma','Leelawadee UI',sans-serif";
   ctx.translate(W/2, H/2);
   ctx.rotate(-Math.PI/9);
   ctx.textAlign = "center";
@@ -1038,7 +1024,7 @@ async function drawReceiptCanvas(data) {
   ctx.lineWidth = 2;
   ctx.stroke();
   ctx.fillStyle = "#c9a227";
-  ctx.font = "bold 22px 'Prompt', Arial";
+  ctx.font = "bold 22px 'Prompt','Tahoma','Leelawadee UI',sans-serif";
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.fillText("🚓", W/2, 80);
@@ -1046,9 +1032,9 @@ async function drawReceiptCanvas(data) {
 
   ctx.textAlign = "center";
   ctx.fillStyle = "#0f3d2e";
-  ctx.font = "bold 17px 'Prompt', Arial";
+  ctx.font = "bold 17px 'Prompt','Tahoma','Leelawadee UI',sans-serif";
   ctx.fillText("กองบังคับการตำรวจทางหลวง", W/2, 130);
-  ctx.font = "600 13px 'Prompt', Arial";
+  ctx.font = "600 13px 'Prompt','Tahoma','Leelawadee UI',sans-serif";
   ctx.fillStyle = "#374151";
   ctx.fillText("ระบบฐานข้อมูลหลักฐานวิดีโอรถวิ่งขวา", W/2, 150);
 
@@ -1061,14 +1047,14 @@ async function drawReceiptCanvas(data) {
   ctx.lineWidth = 1.5;
   ctx.beginPath(); ctx.moveTo(60, 168); ctx.lineTo(W-60, 168); ctx.stroke();
 
-  ctx.font = "bold 19px 'Prompt', Arial";
+  ctx.font = "bold 19px 'Prompt','Tahoma','Leelawadee UI',sans-serif";
   ctx.fillStyle = "#0f3d2e";
   ctx.fillText("เอกสารยืนยันการรายงานหลักฐาน", W/2, 196);
 
   // เลขที่เอกสาร + วันเวลา
   if (!DOC_SEQ) DOC_SEQ = Math.floor(100000 + Math.random() * 899999);
   const docNo = "HWPD-" + (data.dateThai || "").replace(/-/g, "") + "-" + DOC_SEQ;
-  ctx.font = "12px 'Prompt', Arial";
+  ctx.font = "12px 'Prompt','Tahoma','Leelawadee UI',sans-serif";
   ctx.fillStyle = "#6b7280";
   ctx.fillText("เลขที่เอกสาร " + docNo, W/2, 216);
 
@@ -1097,15 +1083,15 @@ async function drawReceiptCanvas(data) {
   ctx.stroke();
 
   ctx.textAlign = "center";
-  ctx.font = "600 12px 'Prompt', Arial";
+  ctx.font = "600 12px 'Prompt','Tahoma','Leelawadee UI',sans-serif";
   ctx.fillStyle = "#0f3d2e";
   ctx.fillText("ข้อมูลป้ายทะเบียนรถที่รายงาน", W/2, plateBoxY + 26);
 
-  ctx.font = "bold 40px 'Prompt', Arial";
+  ctx.font = "bold 40px 'Prompt','Tahoma','Leelawadee UI',sans-serif";
   ctx.fillStyle = "#0f3d2e";
   ctx.fillText((data.plateChar || "") + "  " + (data.plateNumber || ""), W/2, plateBoxY + 74);
 
-  ctx.font = "600 17px 'Prompt', Arial";
+  ctx.font = "600 17px 'Prompt','Tahoma','Leelawadee UI',sans-serif";
   ctx.fillStyle = "#4b5563";
   ctx.fillText(data.plateProvince || "-", W/2, plateBoxY + 104);
 
@@ -1115,7 +1101,7 @@ async function drawReceiptCanvas(data) {
   drawSectionLabel(ctx, "ไฟล์หลักฐาน", 40, y);
   y += 22;
   ctx.textAlign = "left";
-  ctx.font = "13px 'Prompt', Arial";
+  ctx.font = "13px 'Prompt','Tahoma','Leelawadee UI',sans-serif";
   ctx.fillStyle = "#374151";
   wrapText(ctx, data.fileName || "-", 40, y, W - 80, 18);
   y += 46;
@@ -1138,20 +1124,20 @@ async function drawReceiptCanvas(data) {
   ctx.arc(0, 0, 40, 0, Math.PI * 2);
   ctx.stroke();
   ctx.fillStyle = "#0f3d2e";
-  ctx.font = "bold 12px 'Prompt', Arial";
+  ctx.font = "bold 12px 'Prompt','Tahoma','Leelawadee UI',sans-serif";
   ctx.textAlign = "center";
   ctx.fillText("บันทึกข้อมูล", 0, -4);
   ctx.fillText("สำเร็จแล้ว", 0, 11);
   ctx.restore();
 
   ctx.textAlign = "left";
-  ctx.font = "11px 'Prompt', Arial";
+  ctx.font = "11px 'Prompt','Tahoma','Leelawadee UI',sans-serif";
   ctx.fillStyle = "#9ca3af";
   ctx.fillText("เอกสารนี้สร้างขึ้นโดยระบบอัตโนมัติ ไม่ต้องลงลายมือชื่อ", 40, y + 30);
   ctx.fillText("ตรวจสอบข้อมูลย้อนหลังได้ที่หน้า “ค้นหา” ของระบบ", 40, y + 48);
 
   ctx.textAlign = "center";
-  ctx.font = "600 11px 'Prompt', Arial";
+  ctx.font = "600 11px 'Prompt','Tahoma','Leelawadee UI',sans-serif";
   ctx.fillStyle = "#0f3d2e";
   ctx.fillText("— กองบังคับการตำรวจทางหลวง —", W/2, H - 34);
 
@@ -1163,7 +1149,7 @@ async function drawReceiptCanvas(data) {
 
 function drawSectionLabel(ctx, text, x, y) {
   ctx.textAlign = "left";
-  ctx.font = "bold 12.5px 'Prompt', Arial";
+  ctx.font = "bold 12.5px 'Prompt','Tahoma','Leelawadee UI',sans-serif";
   ctx.fillStyle = "#0f3d2e";
   ctx.fillText(text.toUpperCase(), x, y);
   ctx.strokeStyle = "#c9a227";
@@ -1177,10 +1163,10 @@ function drawSectionLabel(ctx, text, x, y) {
 
 function drawFieldRow(ctx, label, value, x, y, maxWidth) {
   ctx.textAlign = "left";
-  ctx.font = "12px 'Prompt', Arial";
+  ctx.font = "12px 'Prompt','Tahoma','Leelawadee UI',sans-serif";
   ctx.fillStyle = "#9ca3af";
   ctx.fillText(label, x, y);
-  ctx.font = "600 13.5px 'Prompt', Arial";
+  ctx.font = "600 13.5px 'Prompt','Tahoma','Leelawadee UI',sans-serif";
   ctx.fillStyle = "#111827";
   ctx.textAlign = "right";
   ctx.fillText(String(value), x + maxWidth, y);
