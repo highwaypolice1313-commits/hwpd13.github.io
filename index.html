@@ -195,20 +195,16 @@
   .video-modal{
     background:#fff; border-radius:20px; max-width:560px; width:100%;
     box-shadow:0 30px 80px -20px rgba(0,0,0,.5); overflow:hidden;
+    max-height: 92vh; display:flex; flex-direction:column;
   }
+  .video-modal-scroll{ overflow-y:auto; }
   .video-frame-wrap{
     aspect-ratio: 16 / 9;
     width: 100%;
     position: relative;
+    flex-shrink:0;
   }
 
-  /* กลับมาใช้ modal วิดีโอ "ขนาดปกติ ไม่เต็มจอ" เหมือนกันทุกอุปกรณ์ (ทั้งมือถือและ PC)
-     เดิมเคยพยายามขยาย modal ให้เต็มจอบนมือถือ + บังคับสัดส่วนกรอบต่าง ๆ กัน (9:16, เต็มความสูง ฯลฯ)
-     ปัญหาคือทุกครั้งที่กรอบ (video-frame-wrap) มีสัดส่วนไม่ตรงกับตัวคลิปจริง ตัวเล่นของ Google Drive
-     (คนละ origin ควบคุมไม่ได้) จะวางปุ่มเล่น/แถบควบคุมของมันคลาดเคลื่อนไปกลางพื้นที่ว่างที่เหลือ
-     ทำให้ดูเหมือนมีปุ่มเล่นซ้อนกัน การคงสัดส่วนกรอบไว้ที่ 16:9 คงที่เสมอ (ไม่ยืด ไม่บีบ ไม่เต็มจอ)
-     เหมือนกันทุกอุปกรณ์ ทำให้ Google Drive จัดวางตัวเล่นได้สม่ำเสมอ ไม่มีพื้นที่ว่างส่วนเกินอีก
-     ผู้ที่ต้องการดูเต็มจอจริง ๆ ยังกดปุ่ม ⛶ (ถ้าเบราว์เซอร์รองรับ) หรือกด "เปิดไฟล์เต็มจอบน Drive" ได้ */
   @media (max-width: 640px){
     #videoModalOverlay{ padding: 14px; }
     .video-modal{ max-width: 100%; }
@@ -224,7 +220,6 @@
   }
   @keyframes spin{ to{ transform:rotate(360deg);} }
 
-  /* Overlay สปินเนอร์ระหว่างรอ iframe วิดีโอโหลด เพื่อไม่ให้จอดำว่างเปล่า */
   .video-loading-overlay{
     position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
     flex-direction:column; gap:10px; background:#000; z-index:2;
@@ -269,17 +264,27 @@
   .app-modal-title{ font-weight:700; font-size:16px; color:#0f172a; margin-bottom:6px; }
   .app-modal-msg{ font-size:13.5px; color:#64748b; line-height:1.6; margin-bottom:18px; }
   .app-modal-actions{ display:flex; gap:10px; }
+  .app-modal-progress-wrap{ width:100%; background:#f1f5f9; border-radius:999px; height:8px; margin-bottom:14px; overflow:hidden; }
+  .app-modal-progress-bar{ height:8px; border-radius:999px; width:0%; background:linear-gradient(90deg,var(--emerald-light),var(--emerald)); transition: width .2s ease; }
+
+  /* ================= FILE PICKER LISTS ================= */
+  .file-pick-item{ display:flex; align-items:center; justify-content:between; gap:8px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; padding:9px 12px; }
+  .search-mode-btn{ transition: all .15s ease; }
+  .video-tab-btn{ transition: all .15s ease; }
 </style>
 </head>
 <body>
 
 <!-- ============================================================ -->
-<!-- UNIVERSAL MODAL (แจ้งเตือน / ยืนยัน / กำลังโหลด)               -->
+<!-- UNIVERSAL MODAL (แจ้งเตือน / ยืนยัน / กำลังโหลด / ความคืบหน้า) -->
 <!-- ============================================================ -->
 <div id="appModalOverlay">
   <div class="app-modal-box">
     <div id="appModalIcon" class="app-modal-icon info">ℹ</div>
     <div id="appModalTitle" class="app-modal-title">แจ้งเตือน</div>
+    <div id="appModalProgressWrap" class="app-modal-progress-wrap hidden">
+      <div id="appModalProgressBar" class="app-modal-progress-bar"></div>
+    </div>
     <div id="appModalMsg" class="app-modal-msg">-</div>
     <div id="appModalActions" class="app-modal-actions">
       <button id="appModalConfirmBtn" class="btn-primary">ตกลง</button>
@@ -302,7 +307,7 @@
     </div>
   </div>
 
-  <!-- TAB: ส่งคลิป -->
+  <!-- TAB: ส่งหลักฐาน -->
   <div id="tab-send" class="tab-panel active">
     <div class="card mb-3">
       <div class="flex items-center gap-3">
@@ -340,9 +345,24 @@
     </div>
 
     <div class="card mb-3">
-      <h2 class="font-bold text-emerald-800 mb-3 text-sm">🎥 ไฟล์วิดีโอหลักฐาน</h2>
-      <input type="file" id="videoFile" accept="video/*" class="text-sm w-full" />
-      <div id="fileNameLabel" class="text-xs text-gray-400 mt-2"></div>
+      <h2 class="font-bold text-emerald-800 mb-3 text-sm">🎥 ไฟล์วิดีโอหลักฐาน <span class="text-xs font-normal text-gray-400">(เพิ่มได้หลายไฟล์ ไม่จำกัดขนาด)</span></h2>
+      <input type="file" id="videoFileInput" accept="video/*" multiple class="hidden" />
+      <button type="button" id="btnAddVideo" class="btn-secondary mb-2">➕ เพิ่มไฟล์วิดีโอ</button>
+      <div id="videoFileList" class="space-y-2"></div>
+    </div>
+
+    <div class="card mb-3">
+      <h2 class="font-bold text-emerald-800 mb-3 text-sm">🧾 รูปสำเนาใบสั่ง <span class="text-xs font-normal text-gray-400">(เพิ่มได้หลายรูป)</span></h2>
+      <input type="file" id="ticketCopyInput" accept="image/*" multiple class="hidden" />
+      <button type="button" id="btnAddTicketCopy" class="btn-secondary mb-2">➕ เพิ่มรูปสำเนาใบสั่ง</button>
+      <div id="ticketCopyList" class="space-y-2"></div>
+    </div>
+
+    <div class="card mb-3">
+      <h2 class="font-bold text-emerald-800 mb-3 text-sm">📸 รูปหลักฐานผู้ขับขี่ <span class="text-xs font-normal text-gray-400">(ถือใบสั่ง ยืนหน้ารถ เห็นป้ายทะเบียน — เพิ่มได้หลายรูป)</span></h2>
+      <input type="file" id="driverPhotoInput" accept="image/*" multiple class="hidden" />
+      <button type="button" id="btnAddDriverPhoto" class="btn-secondary mb-2">➕ เพิ่มรูปหลักฐาน</button>
+      <div id="driverPhotoList" class="space-y-2"></div>
     </div>
 
     <button id="btnSubmit" class="btn-primary flex items-center justify-center gap-2">
@@ -375,14 +395,39 @@
 
   <!-- TAB: ค้นหา -->
   <div id="tab-search" class="tab-panel">
-    <h2 class="font-bold text-emerald-800 mb-3 text-sm">🔍 ค้นหาป้ายทะเบียนย้อนหลัง</h2>
-    <input type="text" id="searchInput" placeholder="พิมพ์ อักษร / เลข / จังหวัด..." class="mb-3" />
+    <h2 class="font-bold text-emerald-800 mb-3 text-sm">🔍 ค้นหาหลักฐานย้อนหลัง</h2>
+
+    <div class="flex gap-2 mb-3">
+      <button id="searchModeGeneral" class="search-mode-btn flex-1 text-xs font-semibold py-2 rounded-lg bg-emerald-600 text-white">คำค้นทั่วไป</button>
+      <button id="searchModePlate" class="search-mode-btn flex-1 text-xs font-semibold py-2 rounded-lg bg-gray-100 text-gray-500">ค้นหาป้ายทะเบียน</button>
+    </div>
+
+    <div id="searchGeneralBox">
+      <input type="text" id="searchInput" placeholder="พิมพ์ อักษร / เลข / จังหวัด / ชื่อผู้รายงาน..." class="mb-3" />
+    </div>
+
+    <div id="searchPlateBox" class="hidden">
+      <div class="grid grid-cols-2 gap-2 mb-2">
+        <div>
+          <label class="text-xs text-gray-500 font-semibold">หมวดอักษร</label>
+          <input type="text" id="searchPlateChar" class="mt-1" placeholder="เช่น กข" />
+        </div>
+        <div>
+          <label class="text-xs text-gray-500 font-semibold">หมวดตัวเลข</label>
+          <input type="text" id="searchPlateNumber" class="mt-1" placeholder="เช่น 1234" />
+        </div>
+      </div>
+      <label class="text-xs text-gray-500 font-semibold">หมวดจังหวัด</label>
+      <input type="text" id="searchPlateProvince" class="mt-1 mb-3" placeholder="เช่น ลพบุรี" />
+      <p class="text-xs text-gray-400 mb-3">* กรอกช่องใดช่องหนึ่งหรือหลายช่องก็ได้ ไม่จำเป็นต้องครบทุกช่อง</p>
+    </div>
+
     <div id="searchList" class="space-y-3"></div>
   </div>
 
   <div class="bottom-nav">
     <button class="nav-btn active" data-tab="tab-send">
-      <span class="ic">🚗</span><span>ส่งคลิป</span>
+      <span class="ic">🚗</span><span>ส่งหลักฐาน</span>
     </button>
     <button class="nav-btn" data-tab="tab-today">
       <span class="ic">📊</span><span>รายงานวันนี้</span>
@@ -463,10 +508,10 @@
       </div>
 
       <div class="pc-card p-5">
-        <h2 class="font-bold text-gray-700 mb-4">รายการล่าสุด <span class="text-xs font-normal text-gray-400">(คลิกแถวเพื่อพรีวิวคลิป)</span></h2>
+        <h2 class="font-bold text-gray-700 mb-4">รายการล่าสุด <span class="text-xs font-normal text-gray-400">(คลิกแถวเพื่อพรีวิวหลักฐาน)</span></h2>
         <table class="w-full text-sm">
           <thead><tr class="text-left text-gray-400 border-b">
-            <th class="pb-2">เวลา</th><th class="pb-2">ผู้ส่ง</th><th class="pb-2">หน่วย</th><th class="pb-2">ทะเบียน</th><th class="pb-2">ไฟล์</th>
+            <th class="pb-2">เวลา</th><th class="pb-2">ผู้ส่ง</th><th class="pb-2">หน่วย</th><th class="pb-2">ทะเบียน</th><th class="pb-2">หลักฐาน</th>
           </tr></thead>
           <tbody id="pcRecentTable"></tbody>
         </table>
@@ -475,14 +520,33 @@
 
     <!-- ============== ค้นหาวิดีโอ ============== -->
     <div id="pc-search" class="pc-panel hidden">
-      <h1 class="text-2xl font-bold text-gray-800 mb-1">ค้นหาวิดีโอ</h1>
+      <h1 class="text-2xl font-bold text-gray-800 mb-1">ค้นหาหลักฐาน</h1>
       <p class="text-gray-400 text-sm mb-6">ค้นหาตามอักษร, เลขทะเบียน, จังหวัด, เจ้าหน้าที่ หรือกรองตามช่วงวันที่</p>
 
       <div class="pc-card p-5 mb-5">
+        <div class="flex gap-2 mb-4">
+          <button id="pcSearchModeGeneral" class="search-mode-btn text-xs font-semibold px-4 py-2 rounded-lg bg-emerald-600 text-white">คำค้นทั่วไป</button>
+          <button id="pcSearchModePlate" class="search-mode-btn text-xs font-semibold px-4 py-2 rounded-lg bg-gray-100 text-gray-500">ค้นหาป้ายทะเบียน (แยกช่อง)</button>
+        </div>
+
         <div class="grid grid-cols-4 gap-4 items-end">
-          <div class="col-span-2">
-            <label class="text-xs text-gray-500 font-semibold">คำค้นหา (อักษร / เลข / จังหวัด)</label>
+          <div class="col-span-2" id="pcGeneralSearchBox">
+            <label class="text-xs text-gray-500 font-semibold">คำค้นหา (อักษร / เลข / จังหวัด / ชื่อ)</label>
             <input type="text" id="pcSearchInput" placeholder="พิมพ์เพื่อค้นหา..." class="mt-1" />
+          </div>
+          <div class="col-span-2 hidden grid grid-cols-3 gap-2" id="pcPlateSearchBox">
+            <div>
+              <label class="text-xs text-gray-500 font-semibold">หมวดอักษร</label>
+              <input type="text" id="pcSearchPlateChar" class="mt-1" placeholder="กข" />
+            </div>
+            <div>
+              <label class="text-xs text-gray-500 font-semibold">หมวดตัวเลข</label>
+              <input type="text" id="pcSearchPlateNumber" class="mt-1" placeholder="1234" />
+            </div>
+            <div>
+              <label class="text-xs text-gray-500 font-semibold">หมวดจังหวัด</label>
+              <input type="text" id="pcSearchPlateProvince" class="mt-1" placeholder="ลพบุรี" />
+            </div>
           </div>
           <div>
             <label class="text-xs text-gray-500 font-semibold">ตั้งแต่วันที่</label>
@@ -528,7 +592,7 @@
   </main>
 </div>
 
-<!-- Embedded Video Previewer Modal -->
+<!-- Embedded Evidence Previewer Modal (วิดีโอหลายไฟล์ + รูปภาพ) -->
 <div id="videoModalOverlay">
   <div class="video-modal">
     <div class="p-4 flex items-center justify-between border-b flex-shrink-0">
@@ -541,15 +605,28 @@
         <button id="btnCloseVideoModal" class="text-gray-400 hover:text-gray-700 text-xl leading-none">✕</button>
       </div>
     </div>
-    <div class="bg-black flex items-center justify-center video-frame-wrap" id="videoFrameWrap">
-      <div id="videoLoadingOverlay" class="video-loading-overlay">
-        <span class="spinner-lg"></span>
-        <span class="label">กำลังโหลดวิดีโอ...</span>
+
+    <div class="video-modal-scroll">
+      <div id="videoTabsRow" class="flex gap-2 px-4 pt-3 flex-wrap"></div>
+
+      <div class="bg-black flex items-center justify-center video-frame-wrap" id="videoFrameWrap">
+        <div id="videoLoadingOverlay" class="video-loading-overlay">
+          <span class="spinner-lg"></span>
+          <span class="label">กำลังโหลดวิดีโอ...</span>
+        </div>
+        <iframe id="videoModalFrame" class="w-full h-full" src="" frameborder="0" allow="autoplay; fullscreen" allowfullscreen></iframe>
       </div>
-      <iframe id="videoModalFrame" class="w-full h-full" src="" frameborder="0" allow="autoplay; fullscreen" allowfullscreen></iframe>
+
+      <div class="p-4">
+        <div class="text-xs font-bold text-gray-500 mb-2">🧾 รูปสำเนาใบสั่ง</div>
+        <div id="ticketCopyThumbs" class="flex gap-2 flex-wrap mb-4"></div>
+        <div class="text-xs font-bold text-gray-500 mb-2">📸 รูปหลักฐานผู้ขับขี่</div>
+        <div id="driverPhotoThumbs" class="flex gap-2 flex-wrap"></div>
+      </div>
     </div>
-    <div class="p-4 flex justify-end flex-shrink-0">
-      <a id="videoModalOpenLink" href="#" target="_blank" class="text-xs font-semibold text-emerald-600">เปิดไฟล์เต็มจอบน Drive ↗</a>
+
+    <div class="p-4 flex justify-end flex-shrink-0 border-t">
+      <a id="videoModalOpenLink" href="#" target="_blank" class="text-xs font-semibold text-emerald-600">เปิดโฟลเดอร์หลักฐานทั้งหมดบน Drive ↗</a>
     </div>
   </div>
 </div>
@@ -558,12 +635,6 @@
 
 /* ============================================================
    ⚠️ ตั้งค่าสำคัญที่ต้องแก้ก่อนใช้งานจริง
-   ============================================================
-   1) วาง URL ของ Apps Script เว็บแอปที่ Deploy แล้ว (ลงท้ายด้วย /exec)
-      วิธีหา: เปิดโปรเจกต์ Apps Script > Deploy > Manage deployments
-      ต้องตั้งค่า "Execute as: Me" และ "Who has access: Anyone"
-      ทุกครั้งที่แก้ code.gs ต้องกด Deploy > Manage deployments > แก้ไข (ไอคอนดินสอ)
-      แล้วเลือกเวอร์ชันใหม่ + Deploy อีกครั้ง ไม่เช่นนั้น URL เดิมจะยังใช้โค้ดเก่าอยู่
    ============================================================ */
 const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzAqh8rDC2sGdOn4o4wop4kuOSXI4XpA6vGqwpxkQSFjkiF_MpNyn5O44w-d61X-jo/exec"; // <-- แก้ตรงนี้
 
@@ -640,10 +711,13 @@ const PROVINCES = ["ลพบุรี","กรุงเทพฯ","สระบ
 
 let CURRENT_USER = { userId: "SIMULATE-UID", displayName: "ผู้ใช้ทดสอบ (Simulation)", pictureUrl: "", isInClient: false };
 let LAST_REPORT_DATA = null;
-let SELECTED_FILE_BASE64 = null;
-let SELECTED_FILE_OBJ = null;
 let DOC_SEQ = null;
 let UNITS = [];
+
+// ไฟล์ที่เลือกไว้ในฟอร์ม (ก่อนอัปโหลด) — เก็บเป็น array คงที่ (ไม่ reassign) เพื่อให้ closure อ้างอิงถูกต้องเสมอ
+const SELECTED_VIDEOS = [];
+const SELECTED_TICKET_PHOTOS = [];
+const SELECTED_DRIVER_PHOTOS = [];
 
 let hourlyChartInstance = null;
 let provinceChartInstance = null;
@@ -651,8 +725,6 @@ let trendChartInstance = null;
 
 /* ============================================================
    โหลด Chart.js แบบไดนามิก พร้อม CDN สำรอง
-   (บางเครือข่ายองค์กร/รัฐบาลบล็อก cdnjs.cloudflare.com เฉพาะบางไฟล์
-    จึงลองหลายแหล่งเรียงกันจนกว่าจะโหลดสำเร็จ)
    ============================================================ */
 const CHART_JS_SOURCES = [
   "./chart.umd.js",
@@ -697,6 +769,8 @@ const modalIcon = () => document.getElementById("appModalIcon");
 const modalTitle = () => document.getElementById("appModalTitle");
 const modalMsg = () => document.getElementById("appModalMsg");
 const modalActions = () => document.getElementById("appModalActions");
+const modalProgressWrap = () => document.getElementById("appModalProgressWrap");
+const modalProgressBar = () => document.getElementById("appModalProgressBar");
 
 const MODAL_ICONS = { success: "✔", error: "✕", warning: "!", info: "ℹ", loading: "" };
 
@@ -710,6 +784,8 @@ function showModal({ type = "info", title = "แจ้งเตือน", messa
   }
   modalTitle().innerText = title;
   modalMsg().innerText = message;
+  modalProgressWrap().classList.add("hidden");
+  modalProgressBar().style.width = "0%";
 
   const actions = modalActions();
   actions.innerHTML = "";
@@ -736,6 +812,14 @@ function showLoadingModal(message) {
   showModal({ type: "loading", title: "กำลังดำเนินการ", message: message || "กรุณารอสักครู่..." });
 }
 
+// อัปเดตข้อความ + แถบความคืบหน้า ระหว่างกำลังอัปโหลดไฟล์หลายไฟล์
+function updateLoadingProgress(message, fraction) {
+  modalMsg().innerText = message;
+  modalProgressWrap().classList.remove("hidden");
+  const pct = Math.min(100, Math.max(0, Math.round((fraction || 0) * 100)));
+  modalProgressBar().style.width = pct + "%";
+}
+
 function hideModal() {
   modalOverlay().classList.remove("open");
 }
@@ -754,14 +838,12 @@ function showConfirmModal(title, message, onConfirm, onCancel) {
 
 /* ============================================================
    เรียก Apps Script Web App จริงผ่าน fetch()
-   (index.html นี้ถูกโฮสต์แยกจาก code.gs เช่นบน GitHub Pages
-    จึงเรียกใช้ google.script.run ไม่ได้ ต้องยิง fetch ไปที่ URL /exec)
    ============================================================ */
 function isScriptUrlConfigured() {
   return typeof SCRIPT_URL === "string" && SCRIPT_URL.startsWith("https://script.google.com/") && !SCRIPT_URL.includes("YOUR_DEPLOYMENT_ID");
 }
 
-// สำหรับ action ที่ "อ่านข้อมูล" (GET) — fetchToday / searchPlate / getStats / getUnits
+// สำหรับ action ที่ "อ่านข้อมูล" (GET)
 async function gasFetchUrl(action, params) {
   if (!isScriptUrlConfigured()) {
     return { data: { error: true, message: "ยังไม่ได้ตั้งค่า SCRIPT_URL ในไฟล์ index.html" }, ok: false };
@@ -778,8 +860,7 @@ async function gasFetchUrl(action, params) {
   }
 }
 
-// สำหรับ action ที่ "เขียนข้อมูล" (POST) — uploadVideoReport
-// ใช้ Content-Type: text/plain เพื่อเลี่ยง CORS preflight ที่ Apps Script ไม่รองรับ
+// สำหรับ action ที่ "เขียนข้อมูล" (POST)
 async function gasPost(action, data) {
   if (!isScriptUrlConfigured()) {
     return { success: false, message: "ยังไม่ได้ตั้งค่า SCRIPT_URL ในไฟล์ index.html" };
@@ -795,6 +876,18 @@ async function gasPost(action, data) {
   } catch (err) {
     return { success: false, message: err.message };
   }
+}
+
+// gasPost พร้อม retry อัตโนมัติ ใช้กับการส่งชิ้นไฟล์ (chunk) ที่อาจเจอเน็ตสะดุดได้บ่อย
+async function gasPostWithRetry(action, data, retries) {
+  retries = typeof retries === "number" ? retries : 2;
+  let lastResult = null;
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    lastResult = await gasPost(action, data);
+    if (lastResult && lastResult.success) return lastResult;
+    if (attempt < retries) await new Promise(r => setTimeout(r, 800 * (attempt + 1)));
+  }
+  return lastResult;
 }
 
 /* ============================================================
@@ -826,7 +919,7 @@ function setupProvinceDropdown() {
 }
 
 /* ============================================================
-   UNIT DROPDOWN (ฟอร์มส่งคลิป) — โหลดรายชื่อจากชีต "หน่วย" มาใส่ใน <select>
+   UNIT DROPDOWN (ฟอร์มส่งคลิป)
    ============================================================ */
 async function loadUnitList() {
   const statusEl = document.getElementById("unitLoadStatus");
@@ -838,9 +931,7 @@ async function loadUnitList() {
   if (!ok) {
     if (statusEl) statusEl.innerText = "⚠ โหลดรายชื่อหน่วยไม่สำเร็จ: " + (data.message || "") + " กด 🔄 เพื่อลองใหม่";
     UNITS = [];
-    if (selectEl) {
-      selectEl.innerHTML = '<option value="">-- โหลดรายชื่อหน่วยไม่สำเร็จ --</option>';
-    }
+    if (selectEl) selectEl.innerHTML = '<option value="">-- โหลดรายชื่อหน่วยไม่สำเร็จ --</option>';
     return;
   }
 
@@ -855,7 +946,7 @@ async function loadUnitList() {
 }
 
 /* ============================================================
-   TAB NAVIGATION (มือถือ) — ไม่มีการล็อกอินแล้ว ทุกแท็บเข้าได้ทันที
+   TAB NAVIGATION (มือถือ)
    ============================================================ */
 function setupBottomNav() {
   document.querySelectorAll(".nav-btn").forEach(btn => {
@@ -873,19 +964,115 @@ function switchTab(tabId) {
 }
 
 /* ============================================================
-   ฟอร์มส่งคลิป
+   ตัวเลือกไฟล์ (วิดีโอ / รูปสำเนาใบสั่ง / รูปหลักฐานผู้ขับขี่) — เพิ่มได้หลายไฟล์
+   ============================================================ */
+function setupFilePickers() {
+  setupFilePicker("btnAddVideo", "videoFileInput", "videoFileList", SELECTED_VIDEOS);
+  setupFilePicker("btnAddTicketCopy", "ticketCopyInput", "ticketCopyList", SELECTED_TICKET_PHOTOS);
+  setupFilePicker("btnAddDriverPhoto", "driverPhotoInput", "driverPhotoList", SELECTED_DRIVER_PHOTOS);
+  renderFileList("videoFileList", SELECTED_VIDEOS);
+  renderFileList("ticketCopyList", SELECTED_TICKET_PHOTOS);
+  renderFileList("driverPhotoList", SELECTED_DRIVER_PHOTOS);
+}
+
+function setupFilePicker(btnId, inputId, listId, arrRef) {
+  const btn = document.getElementById(btnId);
+  const input = document.getElementById(inputId);
+  if (!btn || !input) return;
+  btn.addEventListener("click", () => input.click());
+  input.addEventListener("change", (e) => {
+    Array.from(e.target.files || []).forEach(f => arrRef.push(f));
+    input.value = "";
+    renderFileList(listId, arrRef);
+  });
+}
+
+function renderFileList(listId, arrRef) {
+  const el = document.getElementById(listId);
+  if (!el) return;
+  if (!arrRef.length) {
+    el.innerHTML = '<div class="text-xs text-gray-300">ยังไม่ได้เลือกไฟล์</div>';
+    return;
+  }
+  el.innerHTML = arrRef.map((f, idx) => `
+    <div class="file-pick-item">
+      <div class="text-xs text-gray-600 truncate flex-1">📎 ${f.name} <span class="text-gray-400">(${(f.size/1024/1024).toFixed(2)} MB)</span></div>
+      <button type="button" class="text-red-400 text-xs font-bold remove-file-btn flex-shrink-0" data-list="${listId}" data-idx="${idx}">✕</button>
+    </div>
+  `).join("");
+  el.querySelectorAll(".remove-file-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const idx = parseInt(btn.dataset.idx, 10);
+      arrRef.splice(idx, 1);
+      renderFileList(listId, arrRef);
+    });
+  });
+}
+
+/* ============================================================
+   อัปโหลดไฟล์แบบแบ่งชิ้น (Chunked Resumable Upload) — แก้ปัญหาไฟล์ใหญ่อัปโหลดไม่ได้
+   แบ่งไฟล์เป็นชิ้นละ 4MB (เป็นจำนวนเท่าของ 256KiB ตามที่ Google Drive กำหนด)
+   ทำให้แต่ละ request มีขนาดเล็กเสมอ ไม่ว่าไฟล์ต้นทางจะใหญ่แค่ไหน
+   ============================================================ */
+const CHUNK_SIZE = 4 * 1024 * 1024; // 4MB
+
+function blobToBase64(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result.split(",")[1]);
+    reader.onerror = () => reject(new Error("อ่านไฟล์ไม่สำเร็จ"));
+    reader.readAsDataURL(blob);
+  });
+}
+
+async function uploadFileChunked(file, folderId, onProgress) {
+  const startRes = await gasPostWithRetry("startFileUpload", {
+    fileName: file.name,
+    mimeType: file.type || "application/octet-stream",
+    fileSize: file.size,
+    folderId: folderId
+  }, 2);
+  if (!startRes || !startRes.success) {
+    throw new Error((startRes && startRes.message) || ("เริ่มอัปโหลดไม่สำเร็จ: " + file.name));
+  }
+  const uploadUrl = startRes.uploadUrl;
+
+  let start = 0;
+  let fileId = null, fileUrl = null;
+
+  while (start < file.size) {
+    const end = Math.min(start + CHUNK_SIZE, file.size) - 1;
+    const chunkBlob = file.slice(start, end + 1);
+    const base64Chunk = await blobToBase64(chunkBlob);
+
+    const chunkRes = await gasPostWithRetry("uploadFileChunk", {
+      uploadUrl: uploadUrl,
+      base64: base64Chunk,
+      start: start,
+      end: end,
+      total: file.size,
+      mimeType: file.type || "application/octet-stream"
+    }, 2);
+
+    if (!chunkRes || !chunkRes.success) {
+      throw new Error((chunkRes && chunkRes.message) || ("อัปโหลดไฟล์ล้มเหลว: " + file.name));
+    }
+    if (chunkRes.status === "complete") {
+      fileId = chunkRes.fileId;
+      fileUrl = chunkRes.fileUrl;
+    }
+
+    start = end + 1;
+    if (onProgress) onProgress(Math.round((start / file.size) * 100));
+  }
+
+  return { fileId, fileUrl, fileName: file.name };
+}
+
+/* ============================================================
+   ฟอร์มส่งหลักฐาน (วิดีโอหลายไฟล์ + รูป 2 ประเภท)
    ============================================================ */
 function setupUploadForm() {
-  document.getElementById("videoFile").addEventListener("change", (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    SELECTED_FILE_OBJ = file;
-    document.getElementById("fileNameLabel").innerText = "📎 " + file.name + " (" + (file.size/1024/1024).toFixed(2) + " MB)";
-    const reader = new FileReader();
-    reader.onload = () => { SELECTED_FILE_BASE64 = reader.result.split(",")[1]; };
-    reader.readAsDataURL(file);
-  });
-
   document.getElementById("btnSubmit").addEventListener("click", async () => {
     const plateChar = document.getElementById("plateChar").value.trim();
     const plateNumber = document.getElementById("plateNumber").value.trim();
@@ -900,14 +1087,23 @@ function setupUploadForm() {
       showModal({ type: "warning", title: "ยังไม่ได้ระบุหน่วยรายงาน", message: "กรุณาเลือกหรือพิมพ์ชื่อหน่วยรายงานก่อนส่งข้อมูล" });
       return;
     }
-    if (!SELECTED_FILE_OBJ || !SELECTED_FILE_BASE64) {
-      showModal({ type: "warning", title: "ยังไม่ได้เลือกไฟล์", message: "กรุณาเลือกไฟล์วิดีโอหลักฐานก่อนส่งข้อมูล" });
+    if (!SELECTED_VIDEOS.length) {
+      showModal({ type: "warning", title: "ยังไม่ได้เลือกวิดีโอ", message: "กรุณาเพิ่มไฟล์วิดีโอหลักฐานอย่างน้อย 1 ไฟล์" });
+      return;
+    }
+    if (!SELECTED_TICKET_PHOTOS.length) {
+      showModal({ type: "warning", title: "ยังไม่ได้เพิ่มรูปสำเนาใบสั่ง", message: "กรุณาเพิ่มรูปสำเนาใบสั่งอย่างน้อย 1 รูป" });
+      return;
+    }
+    if (!SELECTED_DRIVER_PHOTOS.length) {
+      showModal({ type: "warning", title: "ยังไม่ได้เพิ่มรูปหลักฐานผู้ขับขี่", message: "กรุณาเพิ่มรูปผู้ขับขี่ถือใบสั่งยืนหน้ารถอย่างน้อย 1 รูป" });
       return;
     }
 
+    const totalFiles = SELECTED_VIDEOS.length + SELECTED_TICKET_PHOTOS.length + SELECTED_DRIVER_PHOTOS.length;
     showConfirmModal(
       "ยืนยันการส่งรายงาน",
-      `ทะเบียน ${plateChar} ${plateNumber} ${plateProvince} (หน่วย: ${unit}) — ต้องการส่งข้อมูลนี้เข้าระบบใช่หรือไม่?`,
+      `ทะเบียน ${plateChar} ${plateNumber} ${plateProvince} (หน่วย: ${unit})\nวิดีโอ ${SELECTED_VIDEOS.length} ไฟล์ · รูปสำเนาใบสั่ง ${SELECTED_TICKET_PHOTOS.length} รูป · รูปผู้ขับขี่ ${SELECTED_DRIVER_PHOTOS.length} รูป (รวม ${totalFiles} ไฟล์)\nต้องการส่งข้อมูลนี้เข้าระบบใช่หรือไม่?`,
       () => doUploadReport({ plateChar, plateNumber, plateProvince, unit })
     );
   });
@@ -918,30 +1114,65 @@ function setupUploadForm() {
 async function doUploadReport({ plateChar, plateNumber, plateProvince, unit }) {
   const btn = document.getElementById("btnSubmit");
   btn.disabled = true;
-  showLoadingModal("กำลังอัปโหลดวิดีโอและบันทึกข้อมูล อาจใช้เวลาสักครู่ตามขนาดไฟล์...");
+  showLoadingModal("กำลังเตรียมโฟลเดอร์สำหรับรายงานนี้...");
 
   try {
-    const payload = {
+    const folderRes = await gasPostWithRetry("createReportFolder", { plateChar, plateNumber, plateProvince }, 2);
+    if (!folderRes || !folderRes.success) {
+      throw new Error((folderRes && folderRes.message) || "สร้างโฟลเดอร์ไม่สำเร็จ");
+    }
+    const folderId = folderRes.folderId;
+    const folderUrl = folderRes.folderUrl;
+
+    const totalFiles = SELECTED_VIDEOS.length + SELECTED_TICKET_PHOTOS.length + SELECTED_DRIVER_PHOTOS.length;
+    let doneFiles = 0;
+
+    async function uploadList(list, categoryLabel) {
+      const results = [];
+      for (const file of list) {
+        updateLoadingProgress(
+          `กำลังอัปโหลด ${categoryLabel} (${doneFiles + 1}/${totalFiles}): ${file.name}`,
+          doneFiles / totalFiles
+        );
+        const uploaded = await uploadFileChunked(file, folderId, (pct) => {
+          updateLoadingProgress(
+            `กำลังอัปโหลด ${categoryLabel} (${doneFiles + 1}/${totalFiles}): ${file.name} — ${pct}%`,
+            (doneFiles + pct / 100) / totalFiles
+          );
+        });
+        results.push(uploaded);
+        doneFiles++;
+      }
+      return results;
+    }
+
+    const videos = await uploadList(SELECTED_VIDEOS, "วิดีโอ");
+    const ticketCopies = await uploadList(SELECTED_TICKET_PHOTOS, "รูปสำเนาใบสั่ง");
+    const driverPhotos = await uploadList(SELECTED_DRIVER_PHOTOS, "รูปหลักฐานผู้ขับขี่");
+
+    updateLoadingProgress("กำลังบันทึกข้อมูลรายงาน...", 1);
+
+    const finalizePayload = {
       lineUserId: CURRENT_USER.userId,
       lineName: CURRENT_USER.displayName,
       plateChar, plateNumber, plateProvince, unit,
-      fileName: SELECTED_FILE_OBJ.name,
-      mimeType: SELECTED_FILE_OBJ.type || "video/mp4",
-      base64Data: SELECTED_FILE_BASE64
+      folderId, folderUrl,
+      videos, ticketCopies, driverPhotos
     };
-    const result = await gasPost("uploadVideoReport", payload);
+
+    const result = await gasPostWithRetry("finalizeReport", finalizePayload, 2);
 
     if (result && result.success) {
-      LAST_REPORT_DATA = { ...payload, ...result };
+      LAST_REPORT_DATA = { ...finalizePayload, ...result };
       hideModal();
       await drawReceiptCanvas(LAST_REPORT_DATA);
       switchTab("tab-receipt");
       resetForm();
     } else {
-      showErrorModal("อัปโหลดไม่สำเร็จ", result && result.message ? result.message : "ไม่ทราบสาเหตุ กรุณาลองใหม่อีกครั้ง");
+      showErrorModal("บันทึกข้อมูลไม่สำเร็จ", (result && result.message) || "ไม่ทราบสาเหตุ กรุณาลองใหม่อีกครั้ง");
     }
   } catch (err) {
-    showErrorModal("เกิดข้อผิดพลาด", err.message);
+    showErrorModal("เกิดข้อผิดพลาดระหว่างอัปโหลด", err.message);
   } finally {
     btn.disabled = false;
   }
@@ -952,22 +1183,19 @@ function resetForm() {
   document.getElementById("plateNumber").value = "";
   document.getElementById("plateProvince").value = "";
   document.getElementById("plateUnit").value = "";
-  document.getElementById("videoFile").value = "";
-  document.getElementById("fileNameLabel").innerText = "";
-  SELECTED_FILE_BASE64 = null;
-  SELECTED_FILE_OBJ = null;
+
+  SELECTED_VIDEOS.length = 0;
+  SELECTED_TICKET_PHOTOS.length = 0;
+  SELECTED_DRIVER_PHOTOS.length = 0;
+  renderFileList("videoFileList", SELECTED_VIDEOS);
+  renderFileList("ticketCopyList", SELECTED_TICKET_PHOTOS);
+  renderFileList("driverPhotoList", SELECTED_DRIVER_PHOTOS);
 }
 
 /* ============================================================
    CANVAS: เอกสารยืนยันการรายงาน — ดีไซน์ทางการแบบเอกสารราชการ
    ============================================================ */
 async function drawReceiptCanvas(data) {
-  // รอให้ฟอนต์ Prompt โหลดเสร็จก่อน เพื่อให้ canvas เรนเดอร์ตัวอักษรถูกต้อง
-  // สาเหตุที่ "บางเครื่องเปิดแล้วตัวหนังสือพัง": ถ้าเครื่อง/เครือข่ายนั้นโหลดฟอนต์ Prompt จาก
-  // Google Fonts ไม่สำเร็จ (ถูกบล็อก/เน็ตช้า) canvas จะ fallback ไปใช้ font ถัดไปที่ระบุไว้
-  // เดิม fallback เป็น "Arial" ซึ่ง "ไม่มีชุดตัวอักษรภาษาไทย" ทำให้ตัวหนังสือกลายเป็นกล่อง/สัญลักษณ์แปลก ๆ
-  // จึงเปลี่ยน fallback ทั้งหมดเป็น Tahoma / Leelawadee UI / sans-serif ซึ่งรองรับภาษาไทยบนแทบทุกอุปกรณ์
-  // และเพิ่ม timeout กันไว้ ไม่ให้ค้างรอฟอนต์นานเกินไปถ้าเน็ตช้ามาก (จะวาดด้วย fallback แทนหลัง 3 วิ)
   try {
     const fontsReadyPromise = Promise.all([
       document.fonts.load("400 13px 'Prompt'"),
@@ -991,11 +1219,9 @@ async function drawReceiptCanvas(data) {
   const ctx = canvas.getContext("2d");
   ctx.scale(dpr, dpr);
 
-  // พื้นหลังกระดาษ
   ctx.fillStyle = "#fdfdfb";
   ctx.fillRect(0, 0, W, H);
 
-  // กรอบเอกสารทางการ (เส้นคู่)
   ctx.strokeStyle = "#0f3d2e";
   ctx.lineWidth = 2.5;
   ctx.strokeRect(18, 18, W - 36, H - 36);
@@ -1003,7 +1229,6 @@ async function drawReceiptCanvas(data) {
   ctx.lineWidth = 1;
   ctx.strokeRect(24, 24, W - 48, H - 48);
 
-  // ลายน้ำจาง ๆ กลางหน้า
   ctx.save();
   ctx.globalAlpha = 0.05;
   ctx.fillStyle = "#0f3d2e";
@@ -1014,7 +1239,6 @@ async function drawReceiptCanvas(data) {
   ctx.fillText("เอกสารยืนยันการรายงาน", 0, 0);
   ctx.restore();
 
-  // ---------- หัวเอกสารแบบครุฑ/ตราหน่วยงาน (สัญลักษณ์ทั่วไป ไม่ใช้ตราราชการจริง) ----------
   ctx.save();
   ctx.beginPath();
   ctx.arc(W/2, 78, 30, 0, Math.PI * 2);
@@ -1038,7 +1262,6 @@ async function drawReceiptCanvas(data) {
   ctx.fillStyle = "#374151";
   ctx.fillText("ระบบฐานข้อมูลหลักฐานวิดีโอรถวิ่งขวา", W/2, 150);
 
-  // เส้นคั่นลายทอง
   const dividerGrad = ctx.createLinearGradient(60, 0, W-60, 0);
   dividerGrad.addColorStop(0, "rgba(201,162,39,0)");
   dividerGrad.addColorStop(0.5, "rgba(201,162,39,0.9)");
@@ -1051,14 +1274,12 @@ async function drawReceiptCanvas(data) {
   ctx.fillStyle = "#0f3d2e";
   ctx.fillText("เอกสารยืนยันการรายงานหลักฐาน", W/2, 196);
 
-  // เลขที่เอกสาร + วันเวลา
   if (!DOC_SEQ) DOC_SEQ = Math.floor(100000 + Math.random() * 899999);
   const docNo = "HWPD-" + (data.dateThai || "").replace(/-/g, "") + "-" + DOC_SEQ;
   ctx.font = "12px 'Prompt','Tahoma','Leelawadee UI',sans-serif";
   ctx.fillStyle = "#6b7280";
   ctx.fillText("เลขที่เอกสาร " + docNo, W/2, 216);
 
-  // ---------- กล่องข้อมูลผู้รายงาน ----------
   let y = 250;
   drawSectionLabel(ctx, "ข้อมูลผู้รายงาน", 40, y);
   y += 22;
@@ -1071,7 +1292,6 @@ async function drawReceiptCanvas(data) {
   drawFieldRow(ctx, "เวลาที่บันทึก", data.timestamp || "-", 40, y, W - 80);
   y += 36;
 
-  // ---------- กล่องทะเบียนรถ (กล่องเด่น) ----------
   const plateBoxY = y;
   const plateBoxH = 130;
   ctx.fillStyle = "#f4faf7";
@@ -1097,16 +1317,17 @@ async function drawReceiptCanvas(data) {
 
   y = plateBoxY + plateBoxH + 34;
 
-  // ---------- ไฟล์หลักฐาน ----------
   drawSectionLabel(ctx, "ไฟล์หลักฐาน", 40, y);
   y += 22;
   ctx.textAlign = "left";
   ctx.font = "13px 'Prompt','Tahoma','Leelawadee UI',sans-serif";
   ctx.fillStyle = "#374151";
-  wrapText(ctx, data.fileName || "-", 40, y, W - 80, 18);
+  const videoCount = (data.videos || []).length;
+  const ticketCount = (data.ticketCopies || []).length;
+  const driverCount = (data.driverPhotos || []).length;
+  wrapText(ctx, `วิดีโอ ${videoCount} ไฟล์ · รูปสำเนาใบสั่ง ${ticketCount} รูป · รูปผู้ขับขี่ ${driverCount} รูป`, 40, y, W - 80, 18);
   y += 46;
 
-  // ---------- เส้นคั่นล่าง + ท้ายเอกสาร ----------
   ctx.strokeStyle = "#e5e7eb";
   ctx.beginPath();
   ctx.moveTo(40, y);
@@ -1114,7 +1335,6 @@ async function drawReceiptCanvas(data) {
   ctx.stroke();
   y += 24;
 
-  // ตราประทับ "บันทึกสำเร็จ" มุมขวา
   ctx.save();
   ctx.translate(W - 96, y + 18);
   ctx.rotate(-Math.PI / 16);
@@ -1141,8 +1361,6 @@ async function drawReceiptCanvas(data) {
   ctx.fillStyle = "#0f3d2e";
   ctx.fillText("— กองบังคับการตำรวจทางหลวง —", W/2, H - 34);
 
-  // แปลง canvas เป็นรูปภาพจริง (<img>) เพื่อให้แตะค้างบันทึกรูปได้เสมอ
-  // (เบราว์เซอร์ในแอป เช่น LINE in-app มักบันทึกจาก <canvas> โดยตรงไม่ได้)
   const receiptImg = document.getElementById("receiptImg");
   if (receiptImg) receiptImg.src = canvas.toDataURL("image/png");
 }
@@ -1199,9 +1417,6 @@ function wrapText(ctx, text, x, y, maxWidth, lineHeight) {
   ctx.fillText(line, x, curY);
 }
 
-// ดาวน์โหลดรูปภาพหลักฐาน
-// หมายเหตุ: <a download> ไม่ทำงานในหลายเบราว์เซอร์แบบ in-app (เช่น LINE in-app browser)
-// จึงพยายามดาวน์โหลดอัตโนมัติก่อน แล้วเสริมด้วยคำแนะนำให้ "แตะค้างที่รูป" เป็นทางเลือกสำรองเสมอ
 document.getElementById("btnDownloadImg")?.addEventListener("click", () => {
   const canvas = document.getElementById("receiptCanvas");
   if (!canvas) return;
@@ -1232,8 +1447,6 @@ document.getElementById("btnDownloadImg")?.addEventListener("click", () => {
       setTimeout(() => URL.revokeObjectURL(url), 4000);
     }
 
-    // ในเบราว์เซอร์แบบ in-app (เช่นเปิดจากแอป LINE) การดาวน์โหลดอัตโนมัติมักไม่เกิดขึ้นจริง
-    // แม้โค้ดข้างบนจะไม่ error ก็ตาม จึงแจ้งผู้ใช้ให้ใช้วิธีแตะค้างที่รูปเป็นทางเลือกสำรองเสมอ
     if (CURRENT_USER.isInClient || !downloadTriggered) {
       showModal({
         type: "info",
@@ -1260,17 +1473,60 @@ async function loadTodayData() {
 
 document.getElementById("btnRefreshToday")?.addEventListener("click", loadTodayData);
 
-document.getElementById("searchInput")?.addEventListener("input", debounce(async (e) => {
-  const kw = e.target.value;
+/* ---------- โหมดค้นหา (ทั่วไป vs ป้ายทะเบียนแยกช่อง) — มือถือ ---------- */
+function setupSearchModeToggle() {
+  const btnGeneral = document.getElementById("searchModeGeneral");
+  const btnPlate = document.getElementById("searchModePlate");
+  const boxGeneral = document.getElementById("searchGeneralBox");
+  const boxPlate = document.getElementById("searchPlateBox");
+  if (!btnGeneral || !btnPlate) return;
+
+  btnGeneral.addEventListener("click", () => {
+    btnGeneral.classList.add("bg-emerald-600","text-white"); btnGeneral.classList.remove("bg-gray-100","text-gray-500");
+    btnPlate.classList.remove("bg-emerald-600","text-white"); btnPlate.classList.add("bg-gray-100","text-gray-500");
+    boxGeneral.classList.remove("hidden"); boxPlate.classList.add("hidden");
+    document.getElementById("searchList").innerHTML = "";
+  });
+  btnPlate.addEventListener("click", () => {
+    btnPlate.classList.add("bg-emerald-600","text-white"); btnPlate.classList.remove("bg-gray-100","text-gray-500");
+    btnGeneral.classList.remove("bg-emerald-600","text-white"); btnGeneral.classList.add("bg-gray-100","text-gray-500");
+    boxPlate.classList.remove("hidden"); boxGeneral.classList.add("hidden");
+    document.getElementById("searchList").innerHTML = "";
+  });
+}
+
+async function runMobileSearch() {
   const container = document.getElementById("searchList");
+  const isPlateMode = !document.getElementById("searchPlateBox").classList.contains("hidden");
+
+  let params;
+  if (isPlateMode) {
+    params = {
+      plateChar: document.getElementById("searchPlateChar").value.trim(),
+      plateNumber: document.getElementById("searchPlateNumber").value.trim(),
+      plateProvince: document.getElementById("searchPlateProvince").value.trim()
+    };
+    if (!params.plateChar && !params.plateNumber && !params.plateProvince) { container.innerHTML = ""; return; }
+  } else {
+    const kw = document.getElementById("searchInput").value.trim();
+    if (!kw) { container.innerHTML = ""; return; }
+    params = { keyword: kw };
+  }
+
   container.innerHTML = '<div class="text-center text-gray-400 text-sm py-6"><span class="spinner inline-block"></span> กำลังค้นหา...</div>';
-  const { data, ok } = await gasFetchUrl("searchPlate", { keyword: kw });
+  const { data, ok } = await gasFetchUrl("searchPlate", params);
   if (!ok) {
     container.innerHTML = '<div class="text-center text-red-400 text-sm py-6">⚠ ค้นหาไม่สำเร็จ: ' + (data.message || "") + '</div>';
     return;
   }
   renderItemCards(container, data.items || []);
-}, 400));
+}
+
+const debouncedMobileSearch = debounce(runMobileSearch, 400);
+document.getElementById("searchInput")?.addEventListener("input", debouncedMobileSearch);
+document.getElementById("searchPlateChar")?.addEventListener("input", debouncedMobileSearch);
+document.getElementById("searchPlateNumber")?.addEventListener("input", debouncedMobileSearch);
+document.getElementById("searchPlateProvince")?.addEventListener("input", debouncedMobileSearch);
 
 function renderItemCards(container, items) {
   if (!items.length) {
@@ -1288,8 +1544,8 @@ function renderItemCards(container, items) {
       </div>
       <div class="text-sm text-gray-700">👤 ${it.lineName || "-"}</div>
       <div class="text-xs text-gray-400">🏢 ${it.unit || "-"}</div>
-      <div class="text-xs text-gray-400 mb-2">📁 ${it.fileName || "-"}</div>
-      <div class="text-xs font-semibold text-emerald-600">▶ แตะเพื่อดูตัวอย่างวิดีโอ</div>
+      <div class="text-xs text-gray-400 mb-2">🎥 ${(it.videos||[]).length} วิดีโอ · 🧾 ${(it.ticketCopies||[]).length} ใบสั่ง · 📸 ${(it.driverPhotos||[]).length} รูปผู้ขับ</div>
+      <div class="text-xs font-semibold text-emerald-600">▶ แตะเพื่อดูหลักฐาน</div>
     </div>
   `).join("");
 
@@ -1323,16 +1579,29 @@ function setupDesktop() {
   loadStats();
   document.getElementById("btnRefreshOverview")?.addEventListener("click", loadStats);
 
+  setupPcSearchModeToggle();
+
   const runPcSearch = debounce(async () => {
-    const keyword = document.getElementById("pcSearchInput").value;
+    const container = document.getElementById("pcSearchResults");
+    const isPlateMode = !document.getElementById("pcPlateSearchBox").classList.contains("hidden");
+
     const dateFrom = document.getElementById("pcDateFrom").value;
     const dateTo = document.getElementById("pcDateTo").value;
     const province = document.getElementById("pcProvinceFilter").value;
     const officer = document.getElementById("pcOfficerFilter").value;
     const unit = document.getElementById("pcUnitFilter").value;
-    const container = document.getElementById("pcSearchResults");
+
+    let params = { dateFrom, dateTo, province, officer, unit };
+    if (isPlateMode) {
+      params.plateChar = document.getElementById("pcSearchPlateChar").value.trim();
+      params.plateNumber = document.getElementById("pcSearchPlateNumber").value.trim();
+      params.plateProvince = document.getElementById("pcSearchPlateProvince").value.trim();
+    } else {
+      params.keyword = document.getElementById("pcSearchInput").value.trim();
+    }
+
     container.innerHTML = '<div class="col-span-2 text-center text-gray-400 text-sm py-8"><span class="spinner inline-block"></span> กำลังค้นหา...</div>';
-    const { data, ok } = await gasFetchUrl("searchPlate", { keyword, dateFrom, dateTo, province, officer, unit });
+    const { data, ok } = await gasFetchUrl("searchPlate", params);
     if (!ok) {
       container.innerHTML = '<div class="col-span-2 text-center text-red-400 text-sm py-8">⚠ ค้นหาไม่สำเร็จ: ' + (data.message || "") + '</div>';
       return;
@@ -1341,6 +1610,9 @@ function setupDesktop() {
   }, 350);
 
   document.getElementById("pcSearchInput")?.addEventListener("input", runPcSearch);
+  document.getElementById("pcSearchPlateChar")?.addEventListener("input", runPcSearch);
+  document.getElementById("pcSearchPlateNumber")?.addEventListener("input", runPcSearch);
+  document.getElementById("pcSearchPlateProvince")?.addEventListener("input", runPcSearch);
   document.getElementById("pcDateFrom")?.addEventListener("change", runPcSearch);
   document.getElementById("pcDateTo")?.addEventListener("change", runPcSearch);
   document.getElementById("pcProvinceFilter")?.addEventListener("change", runPcSearch);
@@ -1361,6 +1633,9 @@ function setupDesktop() {
         document.getElementById("pcOfficerFilter").value = "";
         document.getElementById("pcUnitFilter").value = "";
         document.getElementById("pcSearchInput").value = "";
+        document.getElementById("pcSearchPlateChar").value = "";
+        document.getElementById("pcSearchPlateNumber").value = "";
+        document.getElementById("pcSearchPlateProvince").value = "";
       } else if (range === "today") {
         fromEl.value = toStr; toEl.value = toStr;
       } else if (range === "7d") {
@@ -1377,6 +1652,25 @@ function setupDesktop() {
   document.getElementById("btnCloseVideoModal")?.addEventListener("click", closeVideoModal);
   document.getElementById("videoModalOverlay")?.addEventListener("click", (e) => {
     if (e.target.id === "videoModalOverlay") closeVideoModal();
+  });
+}
+
+function setupPcSearchModeToggle() {
+  const btnGeneral = document.getElementById("pcSearchModeGeneral");
+  const btnPlate = document.getElementById("pcSearchModePlate");
+  const boxGeneral = document.getElementById("pcGeneralSearchBox");
+  const boxPlate = document.getElementById("pcPlateSearchBox");
+  if (!btnGeneral || !btnPlate) return;
+
+  btnGeneral.addEventListener("click", () => {
+    btnGeneral.classList.add("bg-emerald-600","text-white"); btnGeneral.classList.remove("bg-gray-100","text-gray-500");
+    btnPlate.classList.remove("bg-emerald-600","text-white"); btnPlate.classList.add("bg-gray-100","text-gray-500");
+    boxGeneral.classList.remove("hidden"); boxPlate.classList.add("hidden");
+  });
+  btnPlate.addEventListener("click", () => {
+    btnPlate.classList.add("bg-emerald-600","text-white"); btnPlate.classList.remove("bg-gray-100","text-gray-500");
+    btnGeneral.classList.remove("bg-emerald-600","text-white"); btnGeneral.classList.add("bg-gray-100","text-gray-500");
+    boxPlate.classList.remove("hidden"); boxGeneral.classList.add("hidden");
   });
 }
 
@@ -1440,8 +1734,6 @@ async function loadStats() {
   else if (gp < 0) { trendBadge.classList.add("kpi-trend-down"); trendBadge.innerText = `▼ ${gp}% เทียบเมื่อวาน`; }
   else { trendBadge.classList.add("kpi-trend-flat"); trendBadge.innerText = `– เท่าเมื่อวาน`; }
 
-  // ตาราง "รายการล่าสุด" และตัวกรอง (dropdown) ต้องขึ้นก่อนเสมอ ไม่ว่ากราฟจะพังหรือไม่
-  // (เดิมโค้ดวาดกราฟก่อน ถ้ากราฟ error ทั้งตารางและ dropdown จะไม่ขึ้นเลยเพราะโค้ดหยุดทำงานกลางคัน)
   try {
     populateFilterOptions(stats);
   } catch (err) {
@@ -1466,7 +1758,7 @@ async function loadStats() {
           <td class="py-2">${it.lineName || "-"}</td>
           <td class="py-2 text-gray-500">${it.unit || "-"}</td>
           <td class="py-2 font-semibold text-emerald-700">${it.plateChar} ${it.plateNumber} ${it.plateProvince}</td>
-          <td class="py-2"><span class="text-emerald-600 text-xs font-semibold">▶ พรีวิว</span></td>
+          <td class="py-2"><span class="text-emerald-600 text-xs font-semibold">▶ ${(it.videos||[]).length} วิดีโอ / ${(it.ticketCopies||[]).length + (it.driverPhotos||[]).length} รูป</span></td>
         </tr>
       `).join("");
       tbody.querySelectorAll(".row-clickable").forEach((tr, idx) => {
@@ -1477,7 +1769,6 @@ async function loadStats() {
     console.error("recent table render error:", err);
   }
 
-  // กราฟทั้ง 3 ตัว แยก try/catch เป็นรายตัว เพื่อไม่ให้กราฟหนึ่งพังแล้วลากกราฟอื่นพังไปด้วย
   const chartJsOk = await ensureChartJsLoaded();
   if (!chartJsOk) {
     ["hourlyChart", "provinceChart", "trendChart"].forEach(id => showChartLoadError(id, "โหลดไลบรารีกราฟ (Chart.js) ไม่สำเร็จจากทุกแหล่งสำรอง อาจถูกเครือข่ายบล็อก"));
@@ -1570,7 +1861,6 @@ function renderTrendChart(trend7days) {
   });
 }
 
-// แสดงสถิติแยกตามหน่วยรายงาน เป็นแถบเปรียบเทียบ (bar list) เรียงจากหน่วยที่ส่งรายงานมากสุดไปน้อยสุด
 function renderUnitStats(byUnit) {
   const container = document.getElementById("unitStatsList");
   if (!container) return;
@@ -1609,8 +1899,8 @@ function renderPcSearchResults(items) {
       <div class="font-bold text-emerald-700">${it.plateChar} ${it.plateNumber} ${it.plateProvince}</div>
       <div class="text-xs text-gray-500 mt-1">👤 ${it.lineName || "-"} | 🏢 ${it.unit || "-"}</div>
       <div class="text-xs text-gray-400">🕒 ${formatTimeShort(it.timestamp)}</div>
-      <div class="text-xs text-gray-400">📁 ${it.fileName || "-"}</div>
-      <span class="text-xs font-semibold text-emerald-600">▶ พรีวิวคลิป</span>
+      <div class="text-xs text-gray-400">🎥 ${(it.videos||[]).length} วิดีโอ · 🧾 ${(it.ticketCopies||[]).length} ใบสั่ง · 📸 ${(it.driverPhotos||[]).length} รูปผู้ขับ</div>
+      <span class="text-xs font-semibold text-emerald-600">▶ พรีวิวหลักฐาน</span>
     </div>
   `).join("");
 
@@ -1620,9 +1910,12 @@ function renderPcSearchResults(items) {
 }
 
 /* ============================================================
-   EMBEDDED VIDEO PREVIEWER (ใช้ร่วมกันทั้งมือถือและ PC)
+   EMBEDDED EVIDENCE PREVIEWER (วิดีโอหลายไฟล์ + รูปภาพ) — ใช้ร่วมกันทั้งมือถือและ PC
    ============================================================ */
+let CURRENT_MODAL_VIDEOS = [];
+
 function driveEmbedUrl(it) {
+  if (!it) return "";
   if (it.fileId) return `https://drive.google.com/file/d/${it.fileId}/preview`;
   if (it.fileUrl && it.fileUrl.includes("/d/")) {
     const id = it.fileUrl.split("/d/")[1]?.split("/")[0];
@@ -1631,11 +1924,6 @@ function driveEmbedUrl(it) {
   return "";
 }
 
-/* ------------------------------------------------------------
-   ตรวจว่าเบราว์เซอร์ที่เปิดอยู่รองรับ Fullscreen API จริงหรือไม่
-   (LINE in-app browser และเบราว์เซอร์ในแอปอื่น ๆ ส่วนใหญ่ "ไม่รองรับ"
-    หรือรองรับแบบมีข้อจำกัดมาก กดแล้วมักไม่มีอะไรเกิดขึ้น/ค้าง)
-   ------------------------------------------------------------ */
 function isLineInAppBrowser() {
   const ua = navigator.userAgent || "";
   return /Line\//i.test(ua) || !!CURRENT_USER.isInClient;
@@ -1649,10 +1937,6 @@ function isFullscreenApiUsable() {
   return hasRequestFn && enabled && !isLineInAppBrowser();
 }
 
-// ปรับปุ่ม "เต็มจอ" ให้เหมาะกับเบราว์เซอร์ที่เปิดอยู่ทุกครั้งที่เปิด modal วิดีโอ
-// - ถ้าใช้ Fullscreen API ได้จริง: แสดงปุ่มปกติ
-// - ถ้าใช้ไม่ได้ (เช่นเปิดจากแอป LINE): ซ่อนปุ่ม แล้วเน้นลิงก์ "เปิดไฟล์เต็มจอบน Drive" แทน
-//   เพราะเปิดผ่านแอป/เบราว์เซอร์ Drive จริงจะดูเต็มจอได้แน่นอนกว่า
 function refreshFullscreenButtonState() {
   const btn = document.getElementById("btnFullscreenVideo");
   const openLink = document.getElementById("videoModalOpenLink");
@@ -1665,32 +1949,75 @@ function refreshFullscreenButtonState() {
     if (openLink) openLink.classList.remove("btn-primary", "!inline-block", "!text-center");
   } else {
     btn.style.display = "none";
-    // เน้นลิงก์เปิดบน Drive ให้เห็นชัดขึ้น เพราะเป็นทางเลือกเต็มจอทางเดียวที่ใช้ได้จริงในเบราว์เซอร์นี้
     if (openLink) {
       openLink.classList.add("btn-primary", "!inline-block", "!text-center");
-      openLink.innerText = "⛶ เปิดเต็มจอบน Drive ↗";
+      openLink.innerText = "⛶ เปิดโฟลเดอร์บน Drive ↗";
     }
   }
 }
 
 function openVideoModal(it) {
   if (!it) return;
+  CURRENT_MODAL_VIDEOS = it.videos || [];
+
   document.getElementById("videoModalTitle").innerText = `${it.plateChar} ${it.plateNumber} ${it.plateProvince}`;
-  document.getElementById("videoModalSub").innerText = `👤 ${it.lineName || "-"} | 🏢 ${it.unit || "-"} | 📁 ${it.fileName || "-"}`;
+  document.getElementById("videoModalSub").innerText = `👤 ${it.lineName || "-"} | 🏢 ${it.unit || "-"} | 🎥 ${CURRENT_MODAL_VIDEOS.length} วิดีโอ`;
 
-  // แสดงสปินเนอร์รอโหลดวิดีโอ ซ่อนไว้เมื่อ iframe โหลดเนื้อหาเสร็จ (event "load")
-  const loadingOverlay = document.getElementById("videoLoadingOverlay");
-  const frame = document.getElementById("videoModalFrame");
-  if (loadingOverlay) loadingOverlay.classList.remove("hidden-loading");
+  renderVideoTabs();
+  loadModalVideo(0);
 
-  frame.onload = () => {
-    if (loadingOverlay) loadingOverlay.classList.add("hidden-loading");
-  };
-  frame.src = driveEmbedUrl(it) || "about:blank";
+  renderPhotoThumbs("ticketCopyThumbs", it.ticketCopies || []);
+  renderPhotoThumbs("driverPhotoThumbs", it.driverPhotos || []);
 
-  document.getElementById("videoModalOpenLink").href = it.fileUrl || "#";
+  document.getElementById("videoModalOpenLink").href = it.folderUrl || "#";
   refreshFullscreenButtonState();
   document.getElementById("videoModalOverlay").classList.add("open");
+}
+
+function renderVideoTabs() {
+  const row = document.getElementById("videoTabsRow");
+  if (!row) return;
+  if (CURRENT_MODAL_VIDEOS.length <= 1) { row.innerHTML = ""; return; }
+  row.innerHTML = CURRENT_MODAL_VIDEOS.map((v, idx) =>
+    `<button class="text-xs font-semibold px-3 py-1.5 rounded-full video-tab-btn ${idx===0?'bg-emerald-600 text-white':'bg-emerald-50 text-emerald-700'}" data-idx="${idx}">วิดีโอ ${idx+1}</button>`
+  ).join("");
+  row.querySelectorAll(".video-tab-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const idx = parseInt(btn.dataset.idx, 10);
+      loadModalVideo(idx);
+      row.querySelectorAll(".video-tab-btn").forEach(b => {
+        b.classList.remove("bg-emerald-600","text-white");
+        b.classList.add("bg-emerald-50","text-emerald-700");
+      });
+      btn.classList.add("bg-emerald-600","text-white");
+      btn.classList.remove("bg-emerald-50","text-emerald-700");
+    });
+  });
+}
+
+function loadModalVideo(idx) {
+  const v = CURRENT_MODAL_VIDEOS[idx];
+  const loadingOverlay = document.getElementById("videoLoadingOverlay");
+  const frame = document.getElementById("videoModalFrame");
+  if (!v) {
+    if (loadingOverlay) loadingOverlay.classList.add("hidden-loading");
+    frame.src = "about:blank";
+    return;
+  }
+  if (loadingOverlay) loadingOverlay.classList.remove("hidden-loading");
+  frame.onload = () => { if (loadingOverlay) loadingOverlay.classList.add("hidden-loading"); };
+  frame.src = driveEmbedUrl(v);
+}
+
+function renderPhotoThumbs(containerId, photos) {
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  if (!photos.length) { el.innerHTML = '<div class="text-xs text-gray-300">ไม่มีรูป</div>'; return; }
+  el.innerHTML = photos.map(p => `
+    <a href="${p.fileUrl}" target="_blank" class="block w-16 h-16 rounded-lg overflow-hidden border border-gray-200 flex-shrink-0">
+      <img src="https://drive.google.com/thumbnail?id=${p.fileId}&sz=w200" class="w-full h-full object-cover" />
+    </a>
+  `).join("");
 }
 
 function closeVideoModal() {
@@ -1701,9 +2028,6 @@ function closeVideoModal() {
   if (loadingOverlay) loadingOverlay.classList.remove("hidden-loading");
 }
 
-// ปุ่ม "ดูแบบเต็มจอ" — ขยาย wrapper ของวิดีโอให้เต็มหน้าจอจริง ๆ ผ่าน Fullscreen API
-// ปุ่มนี้จะถูกซ่อนไปแล้วถ้าตรวจพบว่าเบราว์เซอร์ใช้ Fullscreen API ไม่ได้ (ดู refreshFullscreenButtonState)
-// จึงไม่ต้องมี fallback เป็น showModal อีกต่อไป เพราะกรณีนั้นปุ่มจะไม่แสดงตั้งแต่แรก
 function exitFullscreenIfActive() {
   try {
     if (document.fullscreenElement) document.exitFullscreen?.();
@@ -1729,11 +2053,10 @@ function toggleFullscreenVideo() {
       wrap.webkitRequestFullscreen();
     }
   } catch (err) {
-    // ปุ่มนี้ถูกซ่อนไปแล้วในเบราว์เซอร์ที่ใช้ Fullscreen API ไม่ได้ แต่กันเหนียวไว้เผื่อ error อื่น ๆ
     showModal({
       type: "info",
       title: "ไม่สามารถเปิดโหมดเต็มจอได้ในขณะนี้",
-      message: "กรุณากด \"เปิดไฟล์เต็มจอบน Drive\" ด้านล่างแทน"
+      message: "กรุณากด \"เปิดโฟลเดอร์บน Drive\" ด้านล่างแทน"
     });
   }
   if (btn) btn.innerText = isCurrentlyFullscreen ? "⛶" : "⤢";
@@ -1741,7 +2064,6 @@ function toggleFullscreenVideo() {
 
 document.getElementById("btnFullscreenVideo")?.addEventListener("click", toggleFullscreenVideo);
 
-// อัปเดตไอคอนปุ่มเต็มจอให้ตรงสถานะจริงเสมอ (รวมถึงตอนผู้ใช้กด Esc เพื่อออกจากเต็มจอเอง)
 ["fullscreenchange", "webkitfullscreenchange"].forEach(evt => {
   document.addEventListener(evt, () => {
     const btn = document.getElementById("btnFullscreenVideo");
@@ -1767,9 +2089,11 @@ window.addEventListener("DOMContentLoaded", () => {
   setupProvinceDropdown();
   loadUnitList();
   setupBottomNav();
+  setupFilePickers();
   setupUploadForm();
+  setupSearchModeToggle();
   setupDesktop();
-  ensureChartJsLoaded(); // เริ่มโหลด Chart.js ล่วงหน้าตั้งแต่เปิดหน้า ไม่ต้องรอถึงตอนวาดกราฟ
+  ensureChartJsLoaded();
 });
 </script>
 </body>
