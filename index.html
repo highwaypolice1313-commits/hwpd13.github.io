@@ -307,10 +307,9 @@
     <div class="card mb-3">
       <h2 class="font-bold text-emerald-800 mb-3 text-sm">🏢 หน่วยรายงาน</h2>
       <label class="text-xs text-gray-500 font-semibold">สังกัดหน่วย</label>
-      <div class="relative mt-1 mb-1">
-        <input type="text" id="plateUnit" class="dropdown-input" placeholder="พิมพ์เพื่อค้นหาหน่วย..." autocomplete="off" />
-        <div id="unitDropdown" class="dropdown-list"></div>
-      </div>
+      <select id="plateUnit" class="mt-1">
+        <option value="">-- เลือกหน่วยรายงาน --</option>
+      </select>
       <div id="unitLoadStatus" class="text-xs text-gray-400 mt-1"></div>
     </div>
 
@@ -430,6 +429,11 @@
       <div class="chart-card mb-6">
         <h2 class="font-bold text-gray-700 mb-3 text-sm">📈 แนวโน้มย้อนหลัง 7 วัน</h2>
         <canvas id="trendChart" height="70"></canvas>
+      </div>
+
+      <div class="pc-card p-5 mb-6">
+        <h2 class="font-bold text-gray-700 mb-4">🏢 สถิติแยกตามหน่วยรายงาน <span class="text-xs font-normal text-gray-400">(สะสมทั้งหมด)</span></h2>
+        <div id="unitStatsList" class="space-y-3"></div>
       </div>
 
       <div class="pc-card p-5">
@@ -789,44 +793,32 @@ function setupProvinceDropdown() {
 }
 
 /* ============================================================
-   UNIT SEARCHABLE DROPDOWN (ฟอร์มส่งคลิป) — โหลดรายชื่อจากชีต "หน่วย"
+   UNIT DROPDOWN (ฟอร์มส่งคลิป) — โหลดรายชื่อจากชีต "หน่วย" มาใส่ใน <select>
    ============================================================ */
-function setupUnitDropdown() {
-  const input = document.getElementById("plateUnit");
-  const list = document.getElementById("unitDropdown");
-
-  function renderList(filter) {
-    const f = (filter || "").trim();
-    const matched = f ? UNITS.filter(u => u.includes(f)) : UNITS;
-    list.innerHTML = "";
-    if (matched.length === 0) { list.style.display = "none"; return; }
-    matched.slice(0, 30).forEach(u => {
-      const div = document.createElement("div");
-      div.innerText = u;
-      div.onclick = () => { input.value = u; list.style.display = "none"; };
-      list.appendChild(div);
-    });
-    list.style.display = "block";
-  }
-
-  input.addEventListener("focus", () => renderList(input.value));
-  input.addEventListener("input", () => renderList(input.value));
-  document.addEventListener("click", (e) => {
-    if (!list.contains(e.target) && e.target !== input) list.style.display = "none";
-  });
-}
-
 async function loadUnitList() {
   const statusEl = document.getElementById("unitLoadStatus");
+  const selectEl = document.getElementById("plateUnit");
   if (statusEl) statusEl.innerText = "กำลังโหลดรายชื่อหน่วย...";
+
   const { data, ok } = await gasFetchUrl("getUnits", {});
+
   if (!ok) {
-    if (statusEl) statusEl.innerText = "⚠ โหลดรายชื่อหน่วยไม่สำเร็จ: " + (data.message || "") + " (สามารถพิมพ์ชื่อหน่วยเองได้)";
+    if (statusEl) statusEl.innerText = "⚠ โหลดรายชื่อหน่วยไม่สำเร็จ: " + (data.message || "") + " กด 🔄 เพื่อลองใหม่";
     UNITS = [];
+    if (selectEl) {
+      selectEl.innerHTML = '<option value="">-- โหลดรายชื่อหน่วยไม่สำเร็จ --</option>';
+    }
     return;
   }
+
   UNITS = data.units || [];
-  if (statusEl) statusEl.innerText = UNITS.length ? "" : "ยังไม่มีรายชื่อหน่วยในชีต \"หน่วย\" (สามารถพิมพ์ชื่อหน่วยเองได้)";
+
+  if (selectEl) {
+    selectEl.innerHTML = '<option value="">-- เลือกหน่วยรายงาน --</option>' +
+      UNITS.map(u => `<option value="${u}">${u}</option>`).join("");
+  }
+
+  if (statusEl) statusEl.innerText = UNITS.length ? "" : "ยังไม่มีรายชื่อหน่วยในชีต \"หน่วย\" กรุณาเพิ่มรายชื่อในชีตก่อน";
 }
 
 /* ============================================================
@@ -1416,6 +1408,12 @@ async function loadStats() {
   }
 
   try {
+    renderUnitStats(stats.byUnit || {});
+  } catch (err) {
+    console.error("renderUnitStats error:", err);
+  }
+
+  try {
     const tbody = document.getElementById("pcRecentTable");
     const recent = stats.recent || [];
     if (!recent.length) {
@@ -1531,6 +1529,37 @@ function renderTrendChart(trend7days) {
   });
 }
 
+// แสดงสถิติแยกตามหน่วยรายงาน เป็นแถบเปรียบเทียบ (bar list) เรียงจากหน่วยที่ส่งรายงานมากสุดไปน้อยสุด
+function renderUnitStats(byUnit) {
+  const container = document.getElementById("unitStatsList");
+  if (!container) return;
+
+  const entries = Object.entries(byUnit || {}).sort((a, b) => b[1] - a[1]);
+  if (!entries.length) {
+    container.innerHTML = '<div class="text-center text-gray-400 text-sm py-4">ยังไม่มีข้อมูลหน่วยรายงาน</div>';
+    return;
+  }
+
+  const total = entries.reduce((s, e) => s + e[1], 0);
+  const maxCount = entries[0][1];
+
+  container.innerHTML = entries.map(([unit, count], idx) => {
+    const pct = maxCount > 0 ? Math.round((count / maxCount) * 100) : 0;
+    const sharePct = total > 0 ? ((count / total) * 100).toFixed(1) : "0.0";
+    return `
+      <div>
+        <div class="flex justify-between items-center mb-1">
+          <span class="text-sm font-semibold text-gray-700">${idx + 1}. ${unit}</span>
+          <span class="text-xs text-gray-500">${count} รายการ <span class="text-gray-400">(${sharePct}%)</span></span>
+        </div>
+        <div class="w-full bg-gray-100 rounded-full h-2.5">
+          <div class="h-2.5 rounded-full" style="width:${pct}%; background:linear-gradient(90deg,var(--emerald-light),var(--emerald));"></div>
+        </div>
+      </div>
+    `;
+  }).join("");
+}
+
 function renderPcSearchResults(items) {
   const container = document.getElementById("pcSearchResults");
   if (!items.length) { container.innerHTML = '<div class="text-gray-400 text-sm">ไม่พบข้อมูล</div>'; return; }
@@ -1588,7 +1617,6 @@ window.addEventListener("DOMContentLoaded", () => {
   }
   initLiffOrSimulate();
   setupProvinceDropdown();
-  setupUnitDropdown();
   loadUnitList();
   setupBottomNav();
   setupUploadForm();
