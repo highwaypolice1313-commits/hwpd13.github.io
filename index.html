@@ -305,6 +305,16 @@
     </div>
 
     <div class="card mb-3">
+      <h2 class="font-bold text-emerald-800 mb-3 text-sm">🏢 หน่วยรายงาน</h2>
+      <label class="text-xs text-gray-500 font-semibold">สังกัดหน่วย</label>
+      <div class="relative mt-1 mb-1">
+        <input type="text" id="plateUnit" class="dropdown-input" placeholder="พิมพ์เพื่อค้นหาหน่วย..." autocomplete="off" />
+        <div id="unitDropdown" class="dropdown-list"></div>
+      </div>
+      <div id="unitLoadStatus" class="text-xs text-gray-400 mt-1"></div>
+    </div>
+
+    <div class="card mb-3">
       <h2 class="font-bold text-emerald-800 mb-3 text-sm">🎥 ไฟล์วิดีโอหลักฐาน</h2>
       <input type="file" id="videoFile" accept="video/*" class="text-sm w-full" />
       <div id="fileNameLabel" class="text-xs text-gray-400 mt-2"></div>
@@ -319,11 +329,12 @@
   <div id="tab-receipt" class="tab-panel">
     <div class="text-center mb-3">
       <h2 class="font-bold text-emerald-800">🧾 เอกสารยืนยันการรายงาน</h2>
-      <p class="text-xs text-gray-400">บันทึกภาพนี้เพื่อส่งต่อในกลุ่ม LINE</p>
+      <p class="text-xs text-gray-400">แตะค้างที่รูปด้านล่างเพื่อบันทึกภาพ หรือกดปุ่มดาวน์โหลด</p>
     </div>
     <div class="flex justify-center">
-      <canvas id="receiptCanvas" style="width:100%; max-width:380px; border-radius:10px;"></canvas>
+      <img id="receiptImg" alt="เอกสารยืนยันการรายงาน" style="width:100%; max-width:380px; border-radius:10px; box-shadow:0 4px 16px -6px rgba(15,23,42,.15);" />
     </div>
+    <canvas id="receiptCanvas" class="hidden"></canvas>
     <button id="btnDownloadImg" class="btn-primary mt-4">📥 ดาวน์โหลดรูปภาพหลักฐานลงเครื่อง</button>
     <button id="btnBackToForm" class="btn-secondary mt-2">⬅ กลับไปส่งรายงานใหม่</button>
   </div>
@@ -425,7 +436,7 @@
         <h2 class="font-bold text-gray-700 mb-4">รายการล่าสุด <span class="text-xs font-normal text-gray-400">(คลิกแถวเพื่อพรีวิวคลิป)</span></h2>
         <table class="w-full text-sm">
           <thead><tr class="text-left text-gray-400 border-b">
-            <th class="pb-2">เวลา</th><th class="pb-2">ผู้ส่ง</th><th class="pb-2">ทะเบียน</th><th class="pb-2">ไฟล์</th>
+            <th class="pb-2">เวลา</th><th class="pb-2">ผู้ส่ง</th><th class="pb-2">หน่วย</th><th class="pb-2">ทะเบียน</th><th class="pb-2">ไฟล์</th>
           </tr></thead>
           <tbody id="pcRecentTable"></tbody>
         </table>
@@ -454,16 +465,22 @@
         </div>
 
         <div class="grid grid-cols-4 gap-4 items-end mt-4">
-          <div class="col-span-2">
+          <div>
             <label class="text-xs text-gray-500 font-semibold">กรองเฉพาะจังหวัด</label>
             <select id="pcProvinceFilter" class="mt-1">
               <option value="">ทุกจังหวัด</option>
             </select>
           </div>
-          <div class="col-span-2">
+          <div>
             <label class="text-xs text-gray-500 font-semibold">กรองเฉพาะเจ้าหน้าที่</label>
             <select id="pcOfficerFilter" class="mt-1">
               <option value="">เจ้าหน้าที่ทั้งหมด</option>
+            </select>
+          </div>
+          <div class="col-span-2">
+            <label class="text-xs text-gray-500 font-semibold">กรองเฉพาะหน่วยรายงาน</label>
+            <select id="pcUnitFilter" class="mt-1">
+              <option value="">หน่วยทั้งหมด</option>
             </select>
           </div>
         </div>
@@ -584,11 +601,12 @@ const PROVINCES = ["ลพบุรี","กรุงเทพฯ","สระบ
 "พิจิตร","กำแพงเพชร","นครสวรรค์","อุทัยธานี","เพชรบูรณ์","ภูเก็ต","สุราษฎร์ธานี","นครศรีธรรมราช","สงขลา",
 "กระบี่","พังงา","ตรัง","สตูล","ยะลา","ปัตตานี","นราธิวาส","ระนอง","ชุมพร","พัทลุง"];
 
-let CURRENT_USER = { userId: "SIMULATE-UID", displayName: "ผู้ใช้ทดสอบ (Simulation)", pictureUrl: "" };
+let CURRENT_USER = { userId: "SIMULATE-UID", displayName: "ผู้ใช้ทดสอบ (Simulation)", pictureUrl: "", isInClient: false };
 let LAST_REPORT_DATA = null;
 let SELECTED_FILE_BASE64 = null;
 let SELECTED_FILE_OBJ = null;
 let DOC_SEQ = null;
+let UNITS = [];
 
 let hourlyChartInstance = null;
 let provinceChartInstance = null;
@@ -706,7 +724,7 @@ function isScriptUrlConfigured() {
   return typeof SCRIPT_URL === "string" && SCRIPT_URL.startsWith("https://script.google.com/") && !SCRIPT_URL.includes("YOUR_DEPLOYMENT_ID");
 }
 
-// สำหรับ action ที่ "อ่านข้อมูล" (GET) — fetchToday / searchPlate / getStats
+// สำหรับ action ที่ "อ่านข้อมูล" (GET) — fetchToday / searchPlate / getStats / getUnits
 async function gasFetchUrl(action, params) {
   if (!isScriptUrlConfigured()) {
     return { data: { error: true, message: "ยังไม่ได้ตั้งค่า SCRIPT_URL ในไฟล์ index.html" }, ok: false };
@@ -771,6 +789,47 @@ function setupProvinceDropdown() {
 }
 
 /* ============================================================
+   UNIT SEARCHABLE DROPDOWN (ฟอร์มส่งคลิป) — โหลดรายชื่อจากชีต "หน่วย"
+   ============================================================ */
+function setupUnitDropdown() {
+  const input = document.getElementById("plateUnit");
+  const list = document.getElementById("unitDropdown");
+
+  function renderList(filter) {
+    const f = (filter || "").trim();
+    const matched = f ? UNITS.filter(u => u.includes(f)) : UNITS;
+    list.innerHTML = "";
+    if (matched.length === 0) { list.style.display = "none"; return; }
+    matched.slice(0, 30).forEach(u => {
+      const div = document.createElement("div");
+      div.innerText = u;
+      div.onclick = () => { input.value = u; list.style.display = "none"; };
+      list.appendChild(div);
+    });
+    list.style.display = "block";
+  }
+
+  input.addEventListener("focus", () => renderList(input.value));
+  input.addEventListener("input", () => renderList(input.value));
+  document.addEventListener("click", (e) => {
+    if (!list.contains(e.target) && e.target !== input) list.style.display = "none";
+  });
+}
+
+async function loadUnitList() {
+  const statusEl = document.getElementById("unitLoadStatus");
+  if (statusEl) statusEl.innerText = "กำลังโหลดรายชื่อหน่วย...";
+  const { data, ok } = await gasFetchUrl("getUnits", {});
+  if (!ok) {
+    if (statusEl) statusEl.innerText = "⚠ โหลดรายชื่อหน่วยไม่สำเร็จ: " + (data.message || "") + " (สามารถพิมพ์ชื่อหน่วยเองได้)";
+    UNITS = [];
+    return;
+  }
+  UNITS = data.units || [];
+  if (statusEl) statusEl.innerText = UNITS.length ? "" : "ยังไม่มีรายชื่อหน่วยในชีต \"หน่วย\" (สามารถพิมพ์ชื่อหน่วยเองได้)";
+}
+
+/* ============================================================
    TAB NAVIGATION (มือถือ) — ไม่มีการล็อกอินแล้ว ทุกแท็บเข้าได้ทันที
    ============================================================ */
 function setupBottomNav() {
@@ -806,9 +865,14 @@ function setupUploadForm() {
     const plateChar = document.getElementById("plateChar").value.trim();
     const plateNumber = document.getElementById("plateNumber").value.trim();
     const plateProvince = document.getElementById("plateProvince").value.trim();
+    const unit = document.getElementById("plateUnit").value.trim();
 
     if (!plateChar || !plateNumber || !plateProvince) {
       showModal({ type: "warning", title: "ข้อมูลไม่ครบถ้วน", message: "กรุณากรอกข้อมูลทะเบียนรถให้ครบทุกช่อง" });
+      return;
+    }
+    if (!unit) {
+      showModal({ type: "warning", title: "ยังไม่ได้ระบุหน่วยรายงาน", message: "กรุณาเลือกหรือพิมพ์ชื่อหน่วยรายงานก่อนส่งข้อมูล" });
       return;
     }
     if (!SELECTED_FILE_OBJ || !SELECTED_FILE_BASE64) {
@@ -818,15 +882,15 @@ function setupUploadForm() {
 
     showConfirmModal(
       "ยืนยันการส่งรายงาน",
-      `ทะเบียน ${plateChar} ${plateNumber} ${plateProvince} — ต้องการส่งข้อมูลนี้เข้าระบบใช่หรือไม่?`,
-      () => doUploadReport({ plateChar, plateNumber, plateProvince })
+      `ทะเบียน ${plateChar} ${plateNumber} ${plateProvince} (หน่วย: ${unit}) — ต้องการส่งข้อมูลนี้เข้าระบบใช่หรือไม่?`,
+      () => doUploadReport({ plateChar, plateNumber, plateProvince, unit })
     );
   });
 
   document.getElementById("btnBackToForm").addEventListener("click", () => switchTab("tab-send"));
 }
 
-async function doUploadReport({ plateChar, plateNumber, plateProvince }) {
+async function doUploadReport({ plateChar, plateNumber, plateProvince, unit }) {
   const btn = document.getElementById("btnSubmit");
   btn.disabled = true;
   showLoadingModal("กำลังอัปโหลดวิดีโอและบันทึกข้อมูล อาจใช้เวลาสักครู่ตามขนาดไฟล์...");
@@ -835,7 +899,7 @@ async function doUploadReport({ plateChar, plateNumber, plateProvince }) {
     const payload = {
       lineUserId: CURRENT_USER.userId,
       lineName: CURRENT_USER.displayName,
-      plateChar, plateNumber, plateProvince,
+      plateChar, plateNumber, plateProvince, unit,
       fileName: SELECTED_FILE_OBJ.name,
       mimeType: SELECTED_FILE_OBJ.type || "video/mp4",
       base64Data: SELECTED_FILE_BASE64
@@ -862,6 +926,7 @@ function resetForm() {
   document.getElementById("plateChar").value = "";
   document.getElementById("plateNumber").value = "";
   document.getElementById("plateProvince").value = "";
+  document.getElementById("plateUnit").value = "";
   document.getElementById("videoFile").value = "";
   document.getElementById("fileNameLabel").innerText = "";
   SELECTED_FILE_BASE64 = null;
@@ -883,7 +948,7 @@ async function drawReceiptCanvas(data) {
 
   const canvas = document.getElementById("receiptCanvas");
   const dpr = window.devicePixelRatio || 1;
-  const W = 520, H = 700;
+  const W = 520, H = 740;
 
   canvas.width = W * dpr;
   canvas.height = H * dpr;
@@ -966,6 +1031,8 @@ async function drawReceiptCanvas(data) {
   y += 22;
   drawFieldRow(ctx, "ชื่อผู้รายงาน", data.lineName || "-", 40, y, W - 80);
   y += 26;
+  drawFieldRow(ctx, "หน่วยรายงาน", data.unit || "-", 40, y, W - 80);
+  y += 26;
   drawFieldRow(ctx, "รหัสประจำตัว LINE", data.lineUserId || "-", 40, y, W - 80);
   y += 26;
   drawFieldRow(ctx, "เวลาที่บันทึก", data.timestamp || "-", 40, y, W - 80);
@@ -1040,6 +1107,11 @@ async function drawReceiptCanvas(data) {
   ctx.font = "600 11px 'Prompt', Arial";
   ctx.fillStyle = "#0f3d2e";
   ctx.fillText("— กองบังคับการตำรวจทางหลวง —", W/2, H - 34);
+
+  // แปลง canvas เป็นรูปภาพจริง (<img>) เพื่อให้แตะค้างบันทึกรูปได้เสมอ
+  // (เบราว์เซอร์ในแอป เช่น LINE in-app มักบันทึกจาก <canvas> โดยตรงไม่ได้)
+  const receiptImg = document.getElementById("receiptImg");
+  if (receiptImg) receiptImg.src = canvas.toDataURL("image/png");
 }
 
 function drawSectionLabel(ctx, text, x, y) {
@@ -1094,12 +1166,49 @@ function wrapText(ctx, text, x, y, maxWidth, lineHeight) {
   ctx.fillText(line, x, curY);
 }
 
+// ดาวน์โหลดรูปภาพหลักฐาน
+// หมายเหตุ: <a download> ไม่ทำงานในหลายเบราว์เซอร์แบบ in-app (เช่น LINE in-app browser)
+// จึงพยายามดาวน์โหลดอัตโนมัติก่อน แล้วเสริมด้วยคำแนะนำให้ "แตะค้างที่รูป" เป็นทางเลือกสำรองเสมอ
 document.getElementById("btnDownloadImg")?.addEventListener("click", () => {
   const canvas = document.getElementById("receiptCanvas");
-  const link = document.createElement("a");
-  link.download = "หลักฐานรายงาน_" + (LAST_REPORT_DATA?.plateChar || "") + (LAST_REPORT_DATA?.plateNumber || "") + ".png";
-  link.href = canvas.toDataURL("image/png");
-  link.click();
+  if (!canvas) return;
+  const fileName = "หลักฐานรายงาน_" + (LAST_REPORT_DATA?.plateChar || "") + (LAST_REPORT_DATA?.plateNumber || "") + ".png";
+
+  canvas.toBlob((blob) => {
+    if (!blob) {
+      showModal({
+        type: "info",
+        title: "บันทึกภาพด้วยตนเอง",
+        message: "ไม่สามารถดาวน์โหลดอัตโนมัติได้ กรุณาแตะค้างที่รูปด้านบนแล้วเลือก \"บันทึกรูปภาพ\""
+      });
+      return;
+    }
+    const url = URL.createObjectURL(blob);
+    let downloadTriggered = false;
+    try {
+      const link = document.createElement("a");
+      link.download = fileName;
+      link.href = url;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      downloadTriggered = true;
+    } catch (err) {
+      downloadTriggered = false;
+    } finally {
+      setTimeout(() => URL.revokeObjectURL(url), 4000);
+    }
+
+    // ในเบราว์เซอร์แบบ in-app (เช่นเปิดจากแอป LINE) การดาวน์โหลดอัตโนมัติมักไม่เกิดขึ้นจริง
+    // แม้โค้ดข้างบนจะไม่ error ก็ตาม จึงแจ้งผู้ใช้ให้ใช้วิธีแตะค้างที่รูปเป็นทางเลือกสำรองเสมอ
+    if (CURRENT_USER.isInClient || !downloadTriggered) {
+      showModal({
+        type: "info",
+        title: "หากไฟล์ยังไม่ถูกบันทึก",
+        message: "กรุณาแตะค้างที่รูปภาพด้านบน แล้วเลือก \"บันทึกรูปภาพ\" หรือ \"Save Image\" จากเมนูที่ปรากฏขึ้น"
+      });
+    }
+  }, "image/png");
 });
 
 /* ============================================================
@@ -1145,6 +1254,7 @@ function renderItemCards(container, items) {
         <div class="text-xs text-gray-400">${formatTimeShort(it.timestamp)}</div>
       </div>
       <div class="text-sm text-gray-700">👤 ${it.lineName || "-"}</div>
+      <div class="text-xs text-gray-400">🏢 ${it.unit || "-"}</div>
       <div class="text-xs text-gray-400 mb-2">📁 ${it.fileName || "-"}</div>
       <div class="text-xs font-semibold text-emerald-600">▶ แตะเพื่อดูตัวอย่างวิดีโอ</div>
     </div>
@@ -1186,9 +1296,10 @@ function setupDesktop() {
     const dateTo = document.getElementById("pcDateTo").value;
     const province = document.getElementById("pcProvinceFilter").value;
     const officer = document.getElementById("pcOfficerFilter").value;
+    const unit = document.getElementById("pcUnitFilter").value;
     const container = document.getElementById("pcSearchResults");
     container.innerHTML = '<div class="col-span-2 text-center text-gray-400 text-sm py-8"><span class="spinner inline-block"></span> กำลังค้นหา...</div>';
-    const { data, ok } = await gasFetchUrl("searchPlate", { keyword, dateFrom, dateTo, province, officer });
+    const { data, ok } = await gasFetchUrl("searchPlate", { keyword, dateFrom, dateTo, province, officer, unit });
     if (!ok) {
       container.innerHTML = '<div class="col-span-2 text-center text-red-400 text-sm py-8">⚠ ค้นหาไม่สำเร็จ: ' + (data.message || "") + '</div>';
       return;
@@ -1201,6 +1312,7 @@ function setupDesktop() {
   document.getElementById("pcDateTo")?.addEventListener("change", runPcSearch);
   document.getElementById("pcProvinceFilter")?.addEventListener("change", runPcSearch);
   document.getElementById("pcOfficerFilter")?.addEventListener("change", runPcSearch);
+  document.getElementById("pcUnitFilter")?.addEventListener("change", runPcSearch);
 
   document.querySelectorAll(".quick-range").forEach(btn => {
     btn.addEventListener("click", () => {
@@ -1214,6 +1326,7 @@ function setupDesktop() {
         fromEl.value = ""; toEl.value = "";
         document.getElementById("pcProvinceFilter").value = "";
         document.getElementById("pcOfficerFilter").value = "";
+        document.getElementById("pcUnitFilter").value = "";
         document.getElementById("pcSearchInput").value = "";
       } else if (range === "today") {
         fromEl.value = toStr; toEl.value = toStr;
@@ -1237,10 +1350,12 @@ function setupDesktop() {
 function populateFilterOptions(stats) {
   const provinceSel = document.getElementById("pcProvinceFilter");
   const officerSel = document.getElementById("pcOfficerFilter");
+  const unitSel = document.getElementById("pcUnitFilter");
   if (!provinceSel || !officerSel) return;
 
   const prevProvince = provinceSel.value;
   const prevOfficer = officerSel.value;
+  const prevUnit = unitSel ? unitSel.value : "";
 
   provinceSel.innerHTML = '<option value="">ทุกจังหวัด</option>' +
     (stats.provinceList || []).map(p => `<option value="${p}">${p}</option>`).join("");
@@ -1248,8 +1363,14 @@ function populateFilterOptions(stats) {
   officerSel.innerHTML = '<option value="">เจ้าหน้าที่ทั้งหมด</option>' +
     (stats.officerList || []).map(o => `<option value="${o.userId}">${o.name}</option>`).join("");
 
+  if (unitSel) {
+    unitSel.innerHTML = '<option value="">หน่วยทั้งหมด</option>' +
+      (stats.unitList || []).map(u => `<option value="${u}">${u}</option>`).join("");
+  }
+
   if (prevProvince) provinceSel.value = prevProvince;
   if (prevOfficer) officerSel.value = prevOfficer;
+  if (unitSel && prevUnit) unitSel.value = prevUnit;
 }
 
 async function loadStats() {
@@ -1298,12 +1419,13 @@ async function loadStats() {
     const tbody = document.getElementById("pcRecentTable");
     const recent = stats.recent || [];
     if (!recent.length) {
-      tbody.innerHTML = '<tr><td colspan="4" class="py-6 text-center text-gray-400">ยังไม่มีรายการอัปโหลด</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="5" class="py-6 text-center text-gray-400">ยังไม่มีรายการอัปโหลด</td></tr>';
     } else {
       tbody.innerHTML = recent.map((it, idx) => `
         <tr class="border-b last:border-0 row-clickable" data-idx="${idx}">
           <td class="py-2 text-gray-500">${formatTimeShort(it.timestamp)}</td>
           <td class="py-2">${it.lineName || "-"}</td>
+          <td class="py-2 text-gray-500">${it.unit || "-"}</td>
           <td class="py-2 font-semibold text-emerald-700">${it.plateChar} ${it.plateNumber} ${it.plateProvince}</td>
           <td class="py-2"><span class="text-emerald-600 text-xs font-semibold">▶ พรีวิว</span></td>
         </tr>
@@ -1415,7 +1537,8 @@ function renderPcSearchResults(items) {
   container.innerHTML = items.map((it, idx) => `
     <div class="pc-card p-4 row-clickable" data-idx="${idx}">
       <div class="font-bold text-emerald-700">${it.plateChar} ${it.plateNumber} ${it.plateProvince}</div>
-      <div class="text-xs text-gray-500 mt-1">👤 ${it.lineName || "-"} | 🕒 ${formatTimeShort(it.timestamp)}</div>
+      <div class="text-xs text-gray-500 mt-1">👤 ${it.lineName || "-"} | 🏢 ${it.unit || "-"}</div>
+      <div class="text-xs text-gray-400">🕒 ${formatTimeShort(it.timestamp)}</div>
       <div class="text-xs text-gray-400">📁 ${it.fileName || "-"}</div>
       <span class="text-xs font-semibold text-emerald-600">▶ พรีวิวคลิป</span>
     </div>
@@ -1441,7 +1564,7 @@ function driveEmbedUrl(it) {
 function openVideoModal(it) {
   if (!it) return;
   document.getElementById("videoModalTitle").innerText = `${it.plateChar} ${it.plateNumber} ${it.plateProvince}`;
-  document.getElementById("videoModalSub").innerText = `👤 ${it.lineName || "-"} | 📁 ${it.fileName || "-"}`;
+  document.getElementById("videoModalSub").innerText = `👤 ${it.lineName || "-"} | 🏢 ${it.unit || "-"} | 📁 ${it.fileName || "-"}`;
   document.getElementById("videoModalFrame").src = driveEmbedUrl(it) || "about:blank";
   document.getElementById("videoModalOpenLink").href = it.fileUrl || "#";
   document.getElementById("videoModalOverlay").classList.add("open");
@@ -1465,6 +1588,8 @@ window.addEventListener("DOMContentLoaded", () => {
   }
   initLiffOrSimulate();
   setupProvinceDropdown();
+  setupUnitDropdown();
+  loadUnitList();
   setupBottomNav();
   setupUploadForm();
   setupDesktop();
