@@ -1010,11 +1010,9 @@ function renderFileList(listId, arrRef) {
 }
 
 /* ============================================================
-   อัปโหลดไฟล์แบบแบ่งชิ้น (Chunked Resumable Upload) — แก้ปัญหาไฟล์ใหญ่อัปโหลดไม่ได้
-   แบ่งไฟล์เป็นชิ้นละ 4MB (เป็นจำนวนเท่าของ 256KiB ตามที่ Google Drive กำหนด)
-   ทำให้แต่ละ request มีขนาดเล็กเสมอ ไม่ว่าไฟล์ต้นทางจะใหญ่แค่ไหน
+   อัปโหลดไฟล์แบบแบ่งชิ้น (Chunked Resumable Upload)
    ============================================================ */
-const CHUNK_SIZE = 4 * 1024 * 1024; // 4MB
+const CHUNK_SIZE = 4 * 1024 * 1024; // 4MB (ใช้กับวิธีสำรอง/relay ผ่าน Apps Script)
 
 function blobToBase64(blob) {
   return new Promise((resolve, reject) => {
@@ -1026,47 +1024,7 @@ function blobToBase64(blob) {
 }
 
 async function uploadFileChunked(file, folderId, onProgress) {
-  const startRes = await gasPostWithRetry("startFileUpload", {
-    fileName: file.name,
-    mimeType: file.type || "application/octet-stream",
-    fileSize: file.size,
-    folderId: folderId
-  }, 2);
-  if (!startRes || !startRes.success) {
-    throw new Error((startRes && startRes.message) || ("เริ่มอัปโหลดไม่สำเร็จ: " + file.name));
-  }
-  const uploadUrl = startRes.uploadUrl;
-
-  let start = 0;
-  let fileId = null, fileUrl = null;
-
-  while (start < file.size) {
-    const end = Math.min(start + CHUNK_SIZE, file.size) - 1;
-    const chunkBlob = file.slice(start, end + 1);
-    const base64Chunk = await blobToBase64(chunkBlob);
-
-    const chunkRes = await gasPostWithRetry("uploadFileChunk", {
-      uploadUrl: uploadUrl,
-      base64: base64Chunk,
-      start: start,
-      end: end,
-      total: file.size,
-      mimeType: file.type || "application/octet-stream"
-    }, 2);
-
-    if (!chunkRes || !chunkRes.success) {
-      throw new Error((chunkRes && chunkRes.message) || ("อัปโหลดไฟล์ล้มเหลว: " + file.name));
-    }
-    if (chunkRes.status === "complete") {
-      fileId = chunkRes.fileId;
-      fileUrl = chunkRes.fileUrl;
-    }
-
-    start = end + 1;
-    if (onProgress) onProgress(Math.round((start / file.size) * 100));
-  }
-
-  return { fileId, fileUrl, fileName: file.name };
+  throw new Error("placeholder");
 }
 
 /* ============================================================
