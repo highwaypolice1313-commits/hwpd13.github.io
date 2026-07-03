@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700;800&family=IBM+Plex+Sans+Thai:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+<script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js" defer></script>
 <!-- Chart.js ถูกโหลดแบบไดนามิกใน <script> ด้านล่าง (ลองหลาย CDN สำรอง เผื่อบางแหล่งถูกบล็อกโดยเครือข่ายองค์กร) -->
 <style>
   /* ==================================================================
@@ -146,6 +146,7 @@
     border-radius: var(--radius-lg);
     padding:17px; box-shadow: var(--shadow-1);
     transition: box-shadow .25s ease, transform .25s ease;
+    position: relative;
   }
   .card:hover{ box-shadow: var(--shadow-2); }
 
@@ -183,7 +184,7 @@
   .btn-secondary:active{ transform: scale(.98); background: rgba(118,118,128,.2); }
 
   .dropdown-list{
-    position:absolute; z-index:50; background: var(--glass-strong);
+    position:absolute; z-index:999; background: var(--glass-strong);
     backdrop-filter: blur(20px) saturate(180%);
     -webkit-backdrop-filter: blur(20px) saturate(180%);
     border:1px solid var(--card-border);
@@ -192,6 +193,11 @@
   }
   .dropdown-list div{ padding:10px 14px; font-size:14px; cursor:pointer; transition: background .15s; }
   .dropdown-list div:hover{ background: rgba(48,209,88,.12); color: var(--green-deep); font-weight:600; }
+
+  /* เมื่อดรอปดาวน์กำลังเปิด ให้การ์ดที่บรรจุมันลอยขึ้นเหนือการ์ดถัดไป
+     (จำเป็นเพราะ backdrop-filter สร้าง stacking context ใหม่ให้ .card แต่ละใบ
+     ทำให้ z-index ภายในการ์ดหนึ่งไม่สามารถทะลุไปอยู่เหนือการ์ดถัดไปได้) */
+  .card.dropdown-open{ z-index: 40; }
 
   .badge{ display:inline-block; padding:4px 12px; border-radius:999px; font-size:11px; font-weight:700; letter-spacing:.01em; }
 
@@ -347,6 +353,9 @@
   .file-pick-item{ display:flex; align-items:center; justify-content:between; gap:8px; background: rgba(118,118,128,.08); border:1px solid var(--card-border); border-radius: 14px; padding:10px 12px; }
   .search-mode-btn{ transition: all .2s cubic-bezier(.2,.8,.3,1); }
   .video-tab-btn{ transition: all .2s cubic-bezier(.2,.8,.3,1); }
+
+  /* ================= MOBILE SEARCH FILTERS ================= */
+  .quick-range{ transition: all .2s cubic-bezier(.2,.8,.3,1); }
 </style>
 </head>
 <body>
@@ -387,7 +396,7 @@
   <div id="tab-send" class="tab-panel active">
     <div class="card mb-3">
       <div class="flex items-center gap-3">
-        <img id="userAvatar" src="https://api.dicebear.com/7.x/initials/svg?seed=U" class="w-12 h-12 rounded-full" style="box-shadow: 0 0 0 3px rgba(48,209,88,.2);" />
+        <img id="userAvatar" src="https://api.dicebear.com/7.x/initials/svg?seed=U" class="w-12 h-12 rounded-full" style="box-shadow: 0 0 0 3px rgba(48,209,88,.2);" loading="lazy" />
         <div>
           <div class="font-bold text-gray-800" id="userNameTxt">ผู้ใช้งาน</div>
           <div class="text-xs" style="color:var(--ink-faint);" id="userIdTxt">LINE ID: -</div>
@@ -395,7 +404,7 @@
       </div>
     </div>
 
-    <div class="card mb-3">
+    <div class="card mb-3" id="plateInfoCard">
       <h2 class="font-bold mb-3 text-sm" style="color:var(--green-ink);">📋 ข้อมูลป้ายทะเบียนรถ</h2>
 
       <label class="text-xs font-semibold">หมวดอักษร</label>
@@ -496,6 +505,45 @@
       <label class="text-xs font-semibold">หมวดจังหวัด</label>
       <input type="text" id="searchPlateProvince" class="mt-1 mb-3" placeholder="เช่น ลพบุรี" />
       <p class="text-xs mb-3" style="color:var(--ink-faint);">* กรอกช่องใดช่องหนึ่งหรือหลายช่องก็ได้ ไม่จำเป็นต้องครบทุกช่อง</p>
+    </div>
+
+    <!-- ตัวกรองเพิ่มเติม (เทียบเท่าฝั่งคอมพิวเตอร์) -->
+    <div class="card mb-3">
+      <h3 class="font-bold mb-2 text-xs" style="color:var(--green-ink);">⚙️ ตัวกรองขั้นสูง</h3>
+      <div class="grid grid-cols-2 gap-2 mb-2">
+        <div>
+          <label class="text-xs font-semibold">ตั้งแต่วันที่</label>
+          <input type="date" id="searchDateFrom" class="mt-1" />
+        </div>
+        <div>
+          <label class="text-xs font-semibold">ถึงวันที่</label>
+          <input type="date" id="searchDateTo" class="mt-1" />
+        </div>
+      </div>
+      <div class="mb-2">
+        <label class="text-xs font-semibold">กรองเฉพาะจังหวัด</label>
+        <select id="searchProvinceFilter" class="mt-1">
+          <option value="">ทุกจังหวัด</option>
+        </select>
+      </div>
+      <div class="mb-2">
+        <label class="text-xs font-semibold">กรองเฉพาะเจ้าหน้าที่</label>
+        <select id="searchOfficerFilter" class="mt-1">
+          <option value="">เจ้าหน้าที่ทั้งหมด</option>
+        </select>
+      </div>
+      <div class="mb-3">
+        <label class="text-xs font-semibold">กรองเฉพาะหน่วยรายงาน</label>
+        <select id="searchUnitFilter" class="mt-1">
+          <option value="">หน่วยทั้งหมด</option>
+        </select>
+      </div>
+      <div class="flex items-center gap-2 flex-wrap" id="searchQuickRanges">
+        <button class="quick-range text-xs font-semibold px-3.5 py-1.5 rounded-full" style="background:rgba(48,209,88,.12); color:var(--green-deep);" data-range="today">วันนี้</button>
+        <button class="quick-range text-xs font-semibold px-3.5 py-1.5 rounded-full" style="background:rgba(48,209,88,.12); color:var(--green-deep);" data-range="7d">7 วันที่ผ่านมา</button>
+        <button class="quick-range text-xs font-semibold px-3.5 py-1.5 rounded-full" style="background:rgba(48,209,88,.12); color:var(--green-deep);" data-range="30d">เดือนนี้</button>
+        <button class="quick-range text-xs font-semibold px-3.5 py-1.5 rounded-full" style="background:rgba(118,118,128,.12); color:var(--ink-soft);" data-range="clear">ล้างตัวกรองทั้งหมด</button>
+      </div>
     </div>
 
     <div id="searchList" class="space-y-3"></div>
@@ -789,6 +837,7 @@ let CURRENT_USER = { userId: "SIMULATE-UID", displayName: "ผู้ใช้ท
 let LAST_REPORT_DATA = null;
 let DOC_SEQ = null;
 let UNITS = [];
+let MOBILE_FILTERS_LOADED = false;
 
 // ไฟล์ที่เลือกไว้ในฟอร์ม (ก่อนอัปโหลด) — เก็บเป็น array คงที่ (ไม่ reassign) เพื่อให้ closure อ้างอิงถูกต้องเสมอ
 const SELECTED_VIDEOS = [];
@@ -798,12 +847,12 @@ const SELECTED_DRIVER_PHOTOS = [];
 let hourlyChartInstance = null;
 let provinceChartInstance = null;
 let trendChartInstance = null;
+let STATS_LOADED = false;
 
 /* ============================================================
    โหลด Chart.js แบบไดนามิก พร้อม CDN สำรอง
    ============================================================ */
 const CHART_JS_SOURCES = [
-  "./chart.umd.js",
   "https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js",
   "https://unpkg.com/chart.js@4.4.4/dist/chart.umd.min.js",
   "https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"
@@ -972,25 +1021,35 @@ async function gasPostWithRetry(action, data, retries) {
 function setupProvinceDropdown() {
   const input = document.getElementById("plateProvince");
   const list = document.getElementById("provinceDropdown");
+  const card = document.getElementById("plateInfoCard");
+
+  function openList() {
+    list.style.display = "block";
+    if (card) card.classList.add("dropdown-open");
+  }
+  function closeList() {
+    list.style.display = "none";
+    if (card) card.classList.remove("dropdown-open");
+  }
 
   function renderList(filter) {
     const f = (filter || "").trim();
     const matched = f ? PROVINCES.filter(p => p.includes(f)) : PROVINCES;
     list.innerHTML = "";
-    if (matched.length === 0) { list.style.display = "none"; return; }
+    if (matched.length === 0) { closeList(); return; }
     matched.slice(0, 20).forEach(p => {
       const div = document.createElement("div");
       div.innerText = p;
-      div.onclick = () => { input.value = p; list.style.display = "none"; };
+      div.onclick = () => { input.value = p; closeList(); };
       list.appendChild(div);
     });
-    list.style.display = "block";
+    openList();
   }
 
   input.addEventListener("focus", () => renderList(input.value));
   input.addEventListener("input", () => renderList(input.value));
   document.addEventListener("click", (e) => {
-    if (!list.contains(e.target) && e.target !== input) list.style.display = "none";
+    if (!list.contains(e.target) && e.target !== input) closeList();
   });
 }
 
@@ -1036,7 +1095,10 @@ function switchTab(tabId) {
   document.querySelectorAll(".nav-btn").forEach(b => b.classList.toggle("active", b.dataset.tab === tabId));
 
   if (tabId === "tab-today") loadTodayData();
-  if (tabId === "tab-search") { document.getElementById("searchList").innerHTML = ""; }
+  if (tabId === "tab-search") {
+    document.getElementById("searchList").innerHTML = "";
+    ensureMobileFiltersLoaded();
+  }
 }
 
 /* ============================================================
@@ -1557,7 +1619,7 @@ function setupSearchModeToggle() {
     btnPlate.style.background = "transparent";
     btnPlate.style.color = "var(--ink-soft)";
     boxGeneral.classList.remove("hidden"); boxPlate.classList.add("hidden");
-    document.getElementById("searchList").innerHTML = "";
+    runMobileSearch();
   }
   function activatePlate() {
     btnPlate.style.background = "linear-gradient(160deg,var(--green),var(--green-deep))";
@@ -1565,29 +1627,98 @@ function setupSearchModeToggle() {
     btnGeneral.style.background = "transparent";
     btnGeneral.style.color = "var(--ink-soft)";
     boxPlate.classList.remove("hidden"); boxGeneral.classList.add("hidden");
-    document.getElementById("searchList").innerHTML = "";
+    runMobileSearch();
   }
 
   btnGeneral.addEventListener("click", activateGeneral);
   btnPlate.addEventListener("click", activatePlate);
 }
 
+/* ---------- ตัวกรองขั้นสูง (วันที่ / จังหวัด / เจ้าหน้าที่ / หน่วย) — มือถือ ---------- */
+async function ensureMobileFiltersLoaded() {
+  if (MOBILE_FILTERS_LOADED) return;
+  const { data, ok } = await gasFetchUrl("getStats", {});
+  if (!ok) return;
+  MOBILE_FILTERS_LOADED = true;
+
+  const provinceSel = document.getElementById("searchProvinceFilter");
+  const officerSel = document.getElementById("searchOfficerFilter");
+  const unitSel = document.getElementById("searchUnitFilter");
+
+  if (provinceSel) {
+    provinceSel.innerHTML = '<option value="">ทุกจังหวัด</option>' +
+      (data.provinceList || []).map(p => `<option value="${p}">${p}</option>`).join("");
+  }
+  if (officerSel) {
+    officerSel.innerHTML = '<option value="">เจ้าหน้าที่ทั้งหมด</option>' +
+      (data.officerList || []).map(o => `<option value="${o.userId}">${o.name}</option>`).join("");
+  }
+  if (unitSel) {
+    unitSel.innerHTML = '<option value="">หน่วยทั้งหมด</option>' +
+      (data.unitList || []).map(u => `<option value="${u}">${u}</option>`).join("");
+  }
+}
+
+function setupMobileSearchFilters() {
+  const runDebounced = debounce(runMobileSearch, 350);
+
+  ["searchDateFrom", "searchDateTo", "searchProvinceFilter", "searchOfficerFilter", "searchUnitFilter"].forEach(id => {
+    document.getElementById(id)?.addEventListener("change", runMobileSearch);
+  });
+
+  document.querySelectorAll("#searchQuickRanges .quick-range").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const range = btn.dataset.range;
+      const fromEl = document.getElementById("searchDateFrom");
+      const toEl = document.getElementById("searchDateTo");
+      const today = new Date();
+      const toStr = today.toISOString().slice(0,10);
+
+      if (range === "clear") {
+        fromEl.value = ""; toEl.value = "";
+        document.getElementById("searchProvinceFilter").value = "";
+        document.getElementById("searchOfficerFilter").value = "";
+        document.getElementById("searchUnitFilter").value = "";
+        document.getElementById("searchInput").value = "";
+        document.getElementById("searchPlateChar").value = "";
+        document.getElementById("searchPlateNumber").value = "";
+        document.getElementById("searchPlateProvince").value = "";
+      } else if (range === "today") {
+        fromEl.value = toStr; toEl.value = toStr;
+      } else if (range === "7d") {
+        const from = new Date(today); from.setDate(from.getDate() - 6);
+        fromEl.value = from.toISOString().slice(0,10); toEl.value = toStr;
+      } else if (range === "30d") {
+        const from = new Date(today.getFullYear(), today.getMonth(), 1);
+        fromEl.value = from.toISOString().slice(0,10); toEl.value = toStr;
+      }
+      runMobileSearch();
+    });
+  });
+}
+
 async function runMobileSearch() {
   const container = document.getElementById("searchList");
   const isPlateMode = !document.getElementById("searchPlateBox").classList.contains("hidden");
 
-  let params;
+  const dateFrom = document.getElementById("searchDateFrom")?.value || "";
+  const dateTo = document.getElementById("searchDateTo")?.value || "";
+  const province = document.getElementById("searchProvinceFilter")?.value || "";
+  const officer = document.getElementById("searchOfficerFilter")?.value || "";
+  const unit = document.getElementById("searchUnitFilter")?.value || "";
+
+  let params = { dateFrom, dateTo, province, officer, unit };
+  const hasAdvancedFilter = dateFrom || dateTo || province || officer || unit;
+
   if (isPlateMode) {
-    params = {
-      plateChar: document.getElementById("searchPlateChar").value.trim(),
-      plateNumber: document.getElementById("searchPlateNumber").value.trim(),
-      plateProvince: document.getElementById("searchPlateProvince").value.trim()
-    };
-    if (!params.plateChar && !params.plateNumber && !params.plateProvince) { container.innerHTML = ""; return; }
+    params.plateChar = document.getElementById("searchPlateChar").value.trim();
+    params.plateNumber = document.getElementById("searchPlateNumber").value.trim();
+    params.plateProvince = document.getElementById("searchPlateProvince").value.trim();
+    if (!params.plateChar && !params.plateNumber && !params.plateProvince && !hasAdvancedFilter) { container.innerHTML = ""; return; }
   } else {
     const kw = document.getElementById("searchInput").value.trim();
-    if (!kw) { container.innerHTML = ""; return; }
-    params = { keyword: kw };
+    if (!kw && !hasAdvancedFilter) { container.innerHTML = ""; return; }
+    params.keyword = kw;
   }
 
   container.innerHTML = '<div class="text-center text-sm py-6" style="color:var(--ink-faint);"><span class="spinner inline-block"></span> กำลังค้นหา...</div>';
@@ -1653,9 +1784,6 @@ function setupDesktop() {
     });
   });
 
-  loadStats();
-  document.getElementById("btnRefreshOverview")?.addEventListener("click", loadStats);
-
   setupPcSearchModeToggle();
 
   const runPcSearch = debounce(async () => {
@@ -1696,7 +1824,7 @@ function setupDesktop() {
   document.getElementById("pcOfficerFilter")?.addEventListener("change", runPcSearch);
   document.getElementById("pcUnitFilter")?.addEventListener("change", runPcSearch);
 
-  document.querySelectorAll(".quick-range").forEach(btn => {
+  document.querySelectorAll("#pcQuickRanges .quick-range").forEach(btn => {
     btn.addEventListener("click", () => {
       const range = btn.dataset.range;
       const fromEl = document.getElementById("pcDateFrom");
@@ -1782,6 +1910,9 @@ function populateFilterOptions(stats) {
 }
 
 async function loadStats() {
+  if (STATS_LOADED) return;
+  STATS_LOADED = true;
+
   const syncRateEl = document.getElementById("kpiSyncRate");
   const syncBadge = document.getElementById("kpiSyncBadge");
   syncBadge.classList.remove("kpi-trend-up","kpi-trend-down","kpi-trend-flat");
@@ -1791,6 +1922,7 @@ async function loadStats() {
   const { data: stats, ok } = await gasFetchUrl("getStats", {});
 
   if (!ok) {
+    STATS_LOADED = false; // อนุญาตให้ลองใหม่ได้เมื่อกดรีเฟรช
     syncRateEl.innerText = "⚠";
     syncBadge.classList.remove("kpi-trend-flat");
     syncBadge.classList.add("kpi-trend-down");
@@ -2097,7 +2229,7 @@ function renderPhotoThumbs(containerId, photos) {
   if (!photos.length) { el.innerHTML = '<div class="text-xs" style="color:var(--ink-faint);">ไม่มีรูป</div>'; return; }
   el.innerHTML = photos.map(p => `
     <a href="${p.fileUrl}" target="_blank" class="block w-16 h-16 rounded-2xl overflow-hidden flex-shrink-0" style="border:1px solid var(--card-border);">
-      <img src="https://drive.google.com/thumbnail?id=${p.fileId}&sz=w200" class="w-full h-full object-cover" />
+      <img src="https://drive.google.com/thumbnail?id=${p.fileId}&sz=w200" class="w-full h-full object-cover" loading="lazy" />
     </a>
   `).join("");
 }
@@ -2159,6 +2291,12 @@ document.getElementById("btnFullscreenVideo")?.addEventListener("click", toggleF
 /* ============================================================
    INIT
    ============================================================ */
+const DESKTOP_MEDIA_QUERY = window.matchMedia("(min-width: 1024px)");
+
+function initDesktopStatsIfVisible() {
+  if (DESKTOP_MEDIA_QUERY.matches) loadStats();
+}
+
 window.addEventListener("DOMContentLoaded", () => {
   if (!isScriptUrlConfigured()) {
     showModal({
@@ -2174,8 +2312,16 @@ window.addEventListener("DOMContentLoaded", () => {
   setupFilePickers();
   setupUploadForm();
   setupSearchModeToggle();
+  setupMobileSearchFilters();
   setupDesktop();
-  ensureChartJsLoaded();
+
+  // โหลดสถิติ + Chart.js เฉพาะตอนที่กำลังแสดงผลฝั่งเดสก์ท็อปจริง ๆ
+  // (ช่วยให้อุปกรณ์มือถือ/LIFF โหลดหน้าได้เร็วขึ้นมาก เพราะไม่ต้องโหลด Chart.js
+  //  และไม่ต้องยิง request สถิติที่ไม่ได้ใช้)
+  initDesktopStatsIfVisible();
+  DESKTOP_MEDIA_QUERY.addEventListener("change", (e) => {
+    if (e.matches) loadStats();
+  });
 });
 </script>
 </body>
