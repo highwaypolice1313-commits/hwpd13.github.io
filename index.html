@@ -1558,18 +1558,20 @@ async function drawReceiptCanvas(data) {
   if (receiptImg) receiptImg.src = canvas.toDataURL("image/png");
 }
 
-// วัดข้อความและลดขนาดฟอนต์ลงอัตโนมัติ (จนถึงขั้นต่ำที่กำหนด) เพื่อให้พอดีกับความกว้างที่จำกัด
-// ป้องกันปัญหาข้อความล้นขอบเอกสารเมื่อค่าที่ได้จาก API ยาวเกินคาด
+// 1. ปรับปรุงการคำนวณและบังคับทิศทางอักษรให้ตรงจุดก่อนพ่นข้อความลง Canvas
 function fitText(ctx, text, centerX, y, maxWidth, baseSize, weight, family) {
   let size = baseSize;
   const minSize = Math.max(10, Math.round(baseSize * 0.55));
-  ctx.textAlign = "center";
+  
   while (size > minSize) {
     ctx.font = `${weight} ${size}px '${family}','Tahoma','Leelawadee UI',sans-serif`;
     if (ctx.measureText(text).width <= maxWidth) break;
     size -= 1;
   }
+  
   ctx.font = `${weight} ${size}px '${family}','Tahoma','Leelawadee UI',sans-serif`;
+  ctx.textAlign = "center"; // บังคับให้เป็นกึ่งกลางก่อนวาดเสมอ ป้องกันการหลุดตำแหน่ง
+  
   if (ctx.measureText(text).width > maxWidth) {
     ctx.fillText(truncateToWidth(ctx, text, maxWidth), centerX, y);
   } else {
@@ -1577,7 +1579,7 @@ function fitText(ctx, text, centerX, y, maxWidth, baseSize, weight, family) {
   }
 }
 
-// ตัดข้อความให้พอดีความกว้างที่กำหนด แล้วเติม "…" ต่อท้าย (ใช้ font ปัจจุบันของ ctx)
+// 2. ปรับปรุงตัวตัดคำให้มีความยืดหยุ่น ป้องกันสระภาษาไทยล้นหรือเพี้ยน
 function truncateToWidth(ctx, text, maxWidth) {
   if (ctx.measureText(text).width <= maxWidth) return text;
   let low = 0, high = text.length;
@@ -1604,20 +1606,22 @@ function drawSectionLabel(ctx, text, x, y, maxWidth) {
   ctx.stroke();
 }
 
-// วาดแถว label/value โดยจำกัดความกว้างของทั้งสองฝั่งไม่ให้ชนหรือล้นขอบ
+// 3. จัดตำแหน่งระยะเยื้องฝั่งขวาใหม่ให้ถอยร่นเข้ามา ป้องกันตัวอักษรชนหรือหลุดขอบการ์ด
 function drawFieldRow(ctx, label, value, x, y, maxWidth) {
-  const labelMaxW = maxWidth * 0.36;
-  const valueMaxW = maxWidth - labelMaxW - 12;
+  // ขยายสัดส่วนพื้นที่ฝั่งขวาและเพิ่มความปลอดภัยขอบ (Padding Safety)
+  const labelMaxW = maxWidth * 0.30; 
+  const valueMaxW = maxWidth - labelMaxW - 15; 
 
-  ctx.textAlign = "left";
   ctx.font = "12px 'Prompt','Tahoma','Leelawadee UI',sans-serif";
   ctx.fillStyle = "rgba(60,60,67,0.5)";
+  ctx.textAlign = "left";
   ctx.fillText(truncateToWidth(ctx, label, labelMaxW), x, y);
 
   ctx.font = "600 13.5px 'Prompt','Tahoma','Leelawadee UI',sans-serif";
   ctx.fillStyle = "#1C1C1E";
   ctx.textAlign = "right";
-  ctx.fillText(truncateToWidth(ctx, String(value), valueMaxW), x + maxWidth, y);
+  // ลบระยะเผื่อเข้าไปอีก 5 พิกเซลเพื่อไม่ให้อักษรแนบชิดขอบเส้นโครงสร้างกล่องจนเกินไป
+  ctx.fillText(truncateToWidth(ctx, String(value), valueMaxW), x + maxWidth - 5, y);
 }
 
 function roundRect(ctx, x, y, w, h, r) {
