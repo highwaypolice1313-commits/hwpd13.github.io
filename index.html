@@ -11,191 +11,262 @@
 <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
 <!-- Chart.js ถูกโหลดแบบไดนามิกใน <script> ด้านล่าง (ลองหลาย CDN สำรอง เผื่อบางแหล่งถูกบล็อกโดยเครือข่ายองค์กร) -->
 <style>
+  /* ==================================================================
+     DESIGN SYSTEM — "Liquid Glass" (Apple iOS-inspired)
+     ------------------------------------------------------------------
+     San Francisco doesn't ship Thai glyphs on the web, so Latin/numerals
+     use the -apple-system stack while Thai text falls back to Prompt /
+     IBM Plex Sans Thai — the closest humanist-grotesk pairing to iOS's
+     own Thonburi fallback.
+     ================================================================== */
   :root{
-    --emerald: #059669;
-    --emerald-dark: #064e3b;
-    --emerald-mid: #047857;
-    --emerald-light: #34d399;
-    --emerald-glow: #6ee7b7;
-    --ink: #0f172a;
-    --paper: #f8faf9;
+    /* -- surfaces -- */
+    --bg: #EFEFF4;
+    --bg-blob-a: #E8F6EE;
+    --bg-blob-b: #EAF3FC;
+    --glass: rgba(255,255,255,.68);
+    --glass-strong: rgba(255,255,255,.86);
+    --card-border: rgba(60,60,67,.08);
+    --sep: rgba(60,60,67,.13);
+
+    /* -- system accent colors -- */
+    --blue: #0A84FF;
+    --green: #30D158;
+    --green-deep: #1F8B3D;
+    --green-ink: #0B3D22;
+    --indigo: #5E5CE6;
+    --red: #FF3B30;
+    --orange: #FF9F0A;
+    --teal: #40C8E0;
+
+    /* -- text -- */
+    --ink: #1C1C1E;
+    --ink-soft: rgba(60,60,67,.62);
+    --ink-faint: rgba(60,60,67,.38);
+
+    --radius-lg: 26px;
+    --radius-md: 18px;
+    --radius-sm: 13px;
+    --shadow-1: 0 1px 2px rgba(28,28,30,.04), 0 8px 24px -12px rgba(28,28,30,.14);
+    --shadow-2: 0 2px 6px rgba(28,28,30,.06), 0 20px 40px -16px rgba(28,28,30,.22);
   }
-  *{ -webkit-tap-highlight-color: transparent; }
+  *{ -webkit-tap-highlight-color: transparent; box-sizing: border-box; }
+  html{ -webkit-font-smoothing: antialiased; }
   body{
-    font-family:'Prompt','IBM Plex Sans Thai',sans-serif;
+    font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","SF Pro Display","Prompt","IBM Plex Sans Thai",sans-serif;
     background:
-      radial-gradient(circle at 10% 0%, #ecfdf5 0%, transparent 45%),
-      radial-gradient(circle at 90% 100%, #f0fdfa 0%, transparent 45%),
-      var(--paper);
+      radial-gradient(560px 420px at 8% -6%, var(--bg-blob-a) 0%, transparent 60%),
+      radial-gradient(620px 460px at 108% 8%, var(--bg-blob-b) 0%, transparent 55%),
+      radial-gradient(500px 400px at 50% 115%, #F3EAFB 0%, transparent 55%),
+      var(--bg);
+    background-attachment: fixed;
     color: var(--ink);
-    letter-spacing: 0.01em;
+    letter-spacing: -0.011em;
   }
+  h1,h2,h3,.tabular{ letter-spacing: -0.02em; }
 
   /* ---------- กรอบมือถือ (LIFF App Frame) ---------- */
   #mobileApp{
     max-width: 480px;
     margin: 0 auto;
     min-height: 100vh;
-    background:#fff;
+    background: transparent;
     display:flex;
     flex-direction:column;
-    box-shadow:0 0 50px rgba(4,30,20,.18);
     position:relative;
     overflow:hidden;
   }
+
+  /* Large-title nav bar, iOS-style: translucent + blur, condenses visually via padding */
   .app-header{
-    background:linear-gradient(135deg,var(--emerald-light) 0%, var(--emerald) 45%, var(--emerald-dark) 100%);
+    background: linear-gradient(165deg, var(--green) 0%, var(--green-deep) 70%, var(--green-ink) 130%);
     color:#fff;
-    padding:18px 20px;
+    padding:22px 20px 20px;
     position:sticky; top:0; z-index:30;
-    box-shadow:0 6px 20px -6px rgba(4,77,47,.45);
+    box-shadow: 0 12px 28px -14px rgba(11,61,34,.55);
     position:relative;
+    border-bottom-left-radius: 28px;
+    border-bottom-right-radius: 28px;
   }
   .app-header::after{
     content:"";
     position:absolute; inset:0;
-    background:radial-gradient(circle at 85% -20%, rgba(255,255,255,.25), transparent 55%);
+    background:
+      radial-gradient(120% 90% at 88% -30%, rgba(255,255,255,.35), transparent 55%),
+      radial-gradient(60% 60% at 0% 120%, rgba(0,0,0,.12), transparent 60%);
     pointer-events:none;
+    border-bottom-left-radius: 28px;
+    border-bottom-right-radius: 28px;
   }
 
+  /* Floating Liquid Glass tab bar — the signature element */
   .bottom-nav{
     position:sticky; bottom:0; left:0; right:0;
-    background:rgba(255,255,255,.9);
-    backdrop-filter: blur(14px) saturate(180%);
-    -webkit-backdrop-filter: blur(14px) saturate(180%);
-    border-top:1px solid rgba(0,0,0,.06);
+    margin: 0 14px calc(10px + env(safe-area-inset-bottom));
+    background: var(--glass-strong);
+    backdrop-filter: blur(26px) saturate(190%);
+    -webkit-backdrop-filter: blur(26px) saturate(190%);
+    border-radius: 24px;
+    border: 1px solid rgba(255,255,255,.6);
     display:flex;
     z-index:30;
-    padding-bottom: env(safe-area-inset-bottom);
+    box-shadow: 0 14px 34px -12px rgba(28,28,30,.28), inset 0 1px 0 rgba(255,255,255,.7);
+    padding: 6px;
+    gap: 4px;
   }
   .bottom-nav button{
     flex:1;
-    padding:11px 4px 9px;
-    font-size:11.5px;
-    font-weight:500;
-    display:flex; flex-direction:column; align-items:center; gap:4px;
-    color:#94a3b8;
-    background:transparent; border:none;
-    transition: color .2s ease, transform .2s ease;
+    padding:9px 4px 8px;
+    font-size:11px;
+    font-weight:600;
+    display:flex; flex-direction:column; align-items:center; gap:3px;
+    color: var(--ink-soft);
+    background:transparent; border:none; border-radius: 18px;
+    transition: color .25s ease, transform .25s cubic-bezier(.2,.9,.3,1.2), background .25s ease;
     position:relative;
   }
-  .bottom-nav button.active{ color:var(--emerald-mid); font-weight:700; }
-  .bottom-nav button.active::before{
-    content:"";
-    position:absolute; top:0; left:50%; transform:translateX(-50%);
-    width:28px; height:3px; border-radius:0 0 4px 4px;
-    background:linear-gradient(90deg,var(--emerald-light),var(--emerald));
+  .bottom-nav button.active{
+    color:#fff;
+    background: linear-gradient(160deg, var(--green) 0%, var(--green-deep) 100%);
+    box-shadow: 0 6px 16px -6px rgba(31,139,61,.6);
   }
-  .bottom-nav button .ic{ font-size:21px; transition: transform .2s ease; }
-  .bottom-nav button.active .ic{ transform: translateY(-2px) scale(1.08); }
+  .bottom-nav button .ic{ font-size:19px; transition: transform .25s ease; }
+  .bottom-nav button.active .ic{ transform: translateY(-1px) scale(1.05); }
 
-  .tab-panel{ display:none; flex:1; padding:18px; padding-bottom:28px; overflow-y:auto; animation: fadeIn .35s ease;}
+  .tab-panel{ display:none; flex:1; padding:18px; padding-bottom:24px; overflow-y:auto; animation: fadeIn .4s cubic-bezier(.2,.8,.3,1);}
   .tab-panel.active{ display:block; }
-  @keyframes fadeIn{ from{ opacity:0; transform:translateY(6px); } to{ opacity:1; transform:translateY(0); } }
+  @keyframes fadeIn{ from{ opacity:0; transform:translateY(8px); } to{ opacity:1; transform:translateY(0); } }
 
+  /* Glass "grouped list" card */
   .card{
-    background:#fff; border:1px solid rgba(15,23,42,.06); border-radius:18px;
-    padding:16px; box-shadow:0 4px 16px -6px rgba(15,23,42,.08);
-    transition: box-shadow .2s ease, transform .2s ease;
+    background: var(--glass-strong);
+    backdrop-filter: blur(18px) saturate(160%);
+    -webkit-backdrop-filter: blur(18px) saturate(160%);
+    border:1px solid var(--card-border);
+    border-radius: var(--radius-lg);
+    padding:17px; box-shadow: var(--shadow-1);
+    transition: box-shadow .25s ease, transform .25s ease;
   }
-  .card:hover{ box-shadow:0 8px 24px -8px rgba(5,150,105,.18); }
+  .card:hover{ box-shadow: var(--shadow-2); }
 
-  label{ font-family:'Prompt',sans-serif; }
+  label{ font-family: inherit; color: var(--ink-soft); }
 
   input[type=text], input[type=password], input[type=date], select, .dropdown-input{
-    width:100%; border:1.5px solid #e2e8f0; border-radius:12px;
-    padding:11px 14px; font-size:14px; outline:none;
-    font-family:'Prompt','IBM Plex Sans Thai',sans-serif;
-    background:#f8fafc;
-    transition: border-color .2s ease, box-shadow .2s ease, background .2s ease;
+    width:100%; border:none; border-radius: var(--radius-sm);
+    padding:12px 14px; font-size:15px; outline:none;
+    font-family: inherit;
+    background: rgba(118,118,128,.10);
+    color: var(--ink);
+    transition: box-shadow .18s ease, background .18s ease;
   }
+  input[type=text]::placeholder, input[type=password]::placeholder, .dropdown-input::placeholder{ color: var(--ink-faint); }
   input[type=text]:focus, input[type=password]:focus, input[type=date]:focus, .dropdown-input:focus, select:focus{
-    border-color:var(--emerald); background:#fff;
-    box-shadow:0 0 0 4px rgba(5,150,105,.12);
+    background:#fff;
+    box-shadow: 0 0 0 3.5px rgba(10,132,255,.28);
   }
 
   .btn-primary{
-    background:linear-gradient(135deg,var(--emerald-light),var(--emerald) 55%,var(--emerald-dark));
-    background-size:160% 160%;
-    color:#fff; border-radius:14px; padding:13px; font-weight:700; font-size:14.5px;
+    background: linear-gradient(160deg, var(--green) 0%, var(--green-deep) 100%);
+    color:#fff; border-radius: 16px; padding:14px; font-weight:600; font-size:15px;
     width:100%; border:none;
-    box-shadow:0 10px 24px -8px rgba(5,150,105,.55);
-    transition: transform .15s ease, box-shadow .15s ease, background-position .3s ease;
+    box-shadow: 0 10px 22px -8px rgba(31,139,61,.55);
+    transition: transform .15s cubic-bezier(.3,1,.4,1), box-shadow .15s ease, filter .15s ease;
   }
-  .btn-primary:active{ transform: scale(.98); }
-  .btn-primary:hover{ background-position:100% 0; box-shadow:0 14px 28px -8px rgba(5,150,105,.65); }
-  .btn-primary:disabled{ opacity:.5; box-shadow:none; }
+  .btn-primary:active{ transform: scale(.97); filter: brightness(.96); }
+  .btn-primary:hover{ box-shadow: 0 14px 28px -8px rgba(31,139,61,.65); }
+  .btn-primary:disabled{ opacity:.45; box-shadow:none; }
 
   .btn-secondary{
-    background:#f1f5f9; color:#334155; border-radius:14px; padding:12px; font-weight:600; font-size:13.5px;
-    width:100%; border:1px solid #e2e8f0;
+    background: rgba(118,118,128,.12); color: var(--ink); border-radius: 16px; padding:12px; font-weight:600; font-size:14px;
+    width:100%; border:none;
   }
+  .btn-secondary:active{ transform: scale(.98); background: rgba(118,118,128,.2); }
 
   .dropdown-list{
-    position:absolute; z-index:50; background:#fff; border:1px solid #e2e8f0;
-    border-radius:12px; max-height:190px; overflow-y:auto; width:100%;
-    box-shadow:0 14px 32px -8px rgba(15,23,42,.18); margin-top:6px; display:none;
+    position:absolute; z-index:50; background: var(--glass-strong);
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    border:1px solid var(--card-border);
+    border-radius: var(--radius-md); max-height:190px; overflow-y:auto; width:100%;
+    box-shadow: var(--shadow-2); margin-top:8px; display:none;
   }
   .dropdown-list div{ padding:10px 14px; font-size:14px; cursor:pointer; transition: background .15s; }
-  .dropdown-list div:hover{ background:#ecfdf5; color:var(--emerald-mid); font-weight:600; }
+  .dropdown-list div:hover{ background: rgba(48,209,88,.12); color: var(--green-deep); font-weight:600; }
 
-  .badge{ display:inline-block; padding:3px 11px; border-radius:999px; font-size:11px; font-weight:700; letter-spacing:.02em; }
+  .badge{ display:inline-block; padding:4px 12px; border-radius:999px; font-size:11px; font-weight:700; letter-spacing:.01em; }
 
   /* ---------- PC Admin Command Center ---------- */
-  #desktopApp{ display:none; min-height:100vh; font-family:'Prompt','IBM Plex Sans Thai',sans-serif; }
+  #desktopApp{ display:none; min-height:100vh; font-family: inherit; }
   .pc-sidebar{
-    background:linear-gradient(195deg,var(--emerald-dark) 0%, #022c22 70%);
+    background: linear-gradient(195deg, #1C1C1E 0%, #0B1F14 78%);
     color:#fff;
     box-shadow: 6px 0 30px -10px rgba(0,0,0,.3);
     position:relative;
+    backdrop-filter: blur(30px);
   }
   .pc-sidebar::before{
     content:""; position:absolute; inset:0;
-    background:radial-gradient(circle at 20% 0%, rgba(110,231,183,.18), transparent 60%);
+    background: radial-gradient(circle at 18% 0%, rgba(48,209,88,.16), transparent 60%);
     pointer-events:none;
   }
-  .pc-nav-btn{ transition: all .2s ease; }
-  .pc-nav-btn.bg-white\/10{ box-shadow: inset 0 0 0 1px rgba(255,255,255,.12); }
+  .pc-nav-btn{ transition: all .2s cubic-bezier(.2,.8,.3,1); border-radius: 14px !important; }
+  .pc-nav-btn.bg-white\/10{ box-shadow: inset 0 0 0 1px rgba(255,255,255,.14), 0 6px 16px -8px rgba(0,0,0,.4); background: rgba(48,209,88,.16) !important; }
   .pc-card{
-    background:#fff; border-radius:20px; box-shadow:0 6px 24px -10px rgba(15,23,42,.12);
-    border:1px solid rgba(15,23,42,.05);
-    transition: box-shadow .2s ease, transform .2s ease;
+    background: var(--glass-strong);
+    backdrop-filter: blur(18px) saturate(160%);
+    -webkit-backdrop-filter: blur(18px) saturate(160%);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-1);
+    border:1px solid var(--card-border);
+    transition: box-shadow .22s ease, transform .22s ease;
   }
-  .pc-card:hover{ box-shadow:0 14px 34px -12px rgba(5,150,105,.2); transform: translateY(-2px); }
+  .pc-card:hover{ box-shadow: var(--shadow-2); transform: translateY(-2px); }
 
-  /* KPI cards */
+  /* KPI cards — widget style */
   .kpi-card{
-    background:#fff; border-radius:20px; padding:20px;
-    border:1px solid rgba(15,23,42,.05);
-    box-shadow:0 6px 24px -10px rgba(15,23,42,.10);
+    background: var(--glass-strong);
+    backdrop-filter: blur(18px) saturate(160%);
+    -webkit-backdrop-filter: blur(18px) saturate(160%);
+    border-radius: var(--radius-lg); padding:20px;
+    border:1px solid var(--card-border);
+    box-shadow: var(--shadow-1);
     position:relative; overflow:hidden;
   }
   .kpi-card::before{
-    content:""; position:absolute; right:-30px; top:-30px; width:110px; height:110px;
-    border-radius:50%; background:radial-gradient(circle, rgba(5,150,105,.10), transparent 70%);
+    content:""; position:absolute; right:-30px; top:-30px; width:120px; height:120px;
+    border-radius:50%; background: radial-gradient(circle, rgba(48,209,88,.14), transparent 70%);
   }
-  .kpi-trend-up{ color:#059669; background:#ecfdf5; }
-  .kpi-trend-down{ color:#dc2626; background:#fef2f2; }
-  .kpi-trend-flat{ color:#64748b; background:#f1f5f9; }
+  .kpi-trend-up{ color:#1F8B3D; background: rgba(48,209,88,.14); }
+  .kpi-trend-down{ color:#D70015; background: rgba(255,59,48,.12); }
+  .kpi-trend-flat{ color: var(--ink-soft); background: rgba(118,118,128,.12); }
 
   .chart-card{
-    background:#fff; border-radius:20px; padding:20px;
-    border:1px solid rgba(15,23,42,.05);
-    box-shadow:0 6px 24px -10px rgba(15,23,42,.10);
+    background: var(--glass-strong);
+    backdrop-filter: blur(18px) saturate(160%);
+    -webkit-backdrop-filter: blur(18px) saturate(160%);
+    border-radius: var(--radius-lg); padding:20px;
+    border:1px solid var(--card-border);
+    box-shadow: var(--shadow-1);
   }
 
-  .row-clickable{ cursor:pointer; transition: background .15s ease; }
-  .row-clickable:hover{ background:#ecfdf5; }
+  .row-clickable{ cursor:pointer; transition: background .15s ease, transform .1s ease; border-radius: 12px; }
+  .row-clickable:hover{ background: rgba(48,209,88,.08); }
+  .row-clickable:active{ transform: scale(.995); }
 
   #videoModalOverlay{
-    position:fixed; inset:0; background:rgba(6,20,15,.65); backdrop-filter: blur(4px);
+    position:fixed; inset:0; background:rgba(20,20,22,.55); backdrop-filter: blur(10px) saturate(140%);
+    -webkit-backdrop-filter: blur(10px) saturate(140%);
     z-index:100; display:none; align-items:center; justify-content:center; padding:24px;
   }
   #videoModalOverlay.open{ display:flex; }
   .video-modal{
-    background:#fff; border-radius:20px; max-width:560px; width:100%;
-    box-shadow:0 30px 80px -20px rgba(0,0,0,.5); overflow:hidden;
+    background: var(--glass-strong);
+    backdrop-filter: blur(24px) saturate(180%);
+    -webkit-backdrop-filter: blur(24px) saturate(180%);
+    border-radius: 28px; max-width:560px; width:100%;
+    box-shadow: 0 30px 80px -20px rgba(0,0,0,.55); overflow:hidden;
     max-height: 92vh; display:flex; flex-direction:column;
+    border: 1px solid rgba(255,255,255,.5);
   }
   .video-modal-scroll{ overflow-y:auto; }
   .video-frame-wrap{
@@ -207,16 +278,16 @@
 
   @media (max-width: 640px){
     #videoModalOverlay{ padding: 14px; }
-    .video-modal{ max-width: 100%; }
+    .video-modal{ max-width: 100%; border-radius: 22px; }
   }
 
   .spinner{
-    border:3px solid #d1fae5; border-top:3px solid var(--emerald);
-    border-radius:50%; width:22px; height:22px; animation:spin 0.8s linear infinite;
+    border:3px solid rgba(48,209,88,.18); border-top:3px solid var(--green);
+    border-radius:50%; width:22px; height:22px; animation:spin 0.75s linear infinite;
   }
   .spinner-lg{
-    border:4px solid #d1fae5; border-top:4px solid var(--emerald);
-    border-radius:50%; width:42px; height:42px; animation:spin 0.8s linear infinite;
+    border:4px solid rgba(48,209,88,.18); border-top:4px solid var(--green);
+    border-radius:50%; width:42px; height:42px; animation:spin 0.75s linear infinite;
   }
   @keyframes spin{ to{ transform:rotate(360deg);} }
 
@@ -226,51 +297,56 @@
     transition: opacity .25s ease; pointer-events:none;
   }
   .video-loading-overlay.hidden-loading{ opacity:0; visibility:hidden; }
-  .video-loading-overlay span.label{ color:#a7f3d0; font-size:12px; font-weight:600; }
+  .video-loading-overlay span.label{ color:#A7F0BE; font-size:12px; font-weight:600; }
 
   ::-webkit-scrollbar{ width:6px; height:6px; }
-  ::-webkit-scrollbar-thumb{ background:#a7f3d0; border-radius:8px; }
+  ::-webkit-scrollbar-thumb{ background: rgba(118,118,128,.35); border-radius:8px; }
 
   @media (min-width: 1024px){
     #mobileApp{ display:none; }
     #desktopApp{ display:flex; }
   }
 
-  /* ================= MODAL SYSTEM ================= */
+  /* ================= MODAL SYSTEM (iOS Alert / Action Sheet) ================= */
   #appModalOverlay{
     position:fixed; inset:0; z-index:200; display:none;
     align-items:center; justify-content:center; padding:20px;
-    background:rgba(6,20,15,.55); backdrop-filter: blur(3px);
+    background:rgba(20,20,22,.42); backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
     animation: modalFadeIn .18s ease;
   }
   #appModalOverlay.open{ display:flex; }
   @keyframes modalFadeIn{ from{ opacity:0; } to{ opacity:1; } }
   .app-modal-box{
-    background:#fff; border-radius:20px; max-width:360px; width:100%;
-    padding:26px 24px 22px; text-align:center;
-    box-shadow:0 30px 70px -18px rgba(0,0,0,.45);
-    animation: modalPop .22s cubic-bezier(.2,.9,.3,1.2);
+    background: var(--glass-strong);
+    backdrop-filter: blur(26px) saturate(190%);
+    -webkit-backdrop-filter: blur(26px) saturate(190%);
+    border-radius: 22px; max-width:340px; width:100%;
+    padding:28px 24px 20px; text-align:center;
+    box-shadow: 0 30px 70px -18px rgba(0,0,0,.4);
+    border: 1px solid rgba(255,255,255,.6);
+    animation: modalPop .25s cubic-bezier(.2,.9,.3,1.25);
   }
-  @keyframes modalPop{ from{ opacity:0; transform: scale(.92) translateY(6px); } to{ opacity:1; transform:scale(1) translateY(0); } }
+  @keyframes modalPop{ from{ opacity:0; transform: scale(.9) translateY(8px); } to{ opacity:1; transform:scale(1) translateY(0); } }
   .app-modal-icon{
-    width:52px; height:52px; border-radius:50%; margin:0 auto 14px;
-    display:flex; align-items:center; justify-content:center; font-size:24px;
+    width:54px; height:54px; border-radius:50%; margin:0 auto 14px;
+    display:flex; align-items:center; justify-content:center; font-size:24px; font-weight:700;
   }
-  .app-modal-icon.success{ background:#ecfdf5; color:#059669; }
-  .app-modal-icon.error{ background:#fef2f2; color:#dc2626; }
-  .app-modal-icon.warning{ background:#fffbeb; color:#d97706; }
-  .app-modal-icon.info{ background:#eff6ff; color:#2563eb; }
-  .app-modal-icon.loading{ background:#ecfdf5; }
-  .app-modal-title{ font-weight:700; font-size:16px; color:#0f172a; margin-bottom:6px; }
-  .app-modal-msg{ font-size:13.5px; color:#64748b; line-height:1.6; margin-bottom:18px; }
+  .app-modal-icon.success{ background: rgba(48,209,88,.16); color:#1F8B3D; }
+  .app-modal-icon.error{ background: rgba(255,59,48,.14); color:#D70015; }
+  .app-modal-icon.warning{ background: rgba(255,159,10,.16); color:#B26200; }
+  .app-modal-icon.info{ background: rgba(10,132,255,.14); color:#0A84FF; }
+  .app-modal-icon.loading{ background: rgba(48,209,88,.14); }
+  .app-modal-title{ font-weight:700; font-size:17px; color: var(--ink); margin-bottom:6px; }
+  .app-modal-msg{ font-size:13.5px; color: var(--ink-soft); line-height:1.65; margin-bottom:18px; white-space:pre-line; }
   .app-modal-actions{ display:flex; gap:10px; }
-  .app-modal-progress-wrap{ width:100%; background:#f1f5f9; border-radius:999px; height:8px; margin-bottom:14px; overflow:hidden; }
-  .app-modal-progress-bar{ height:8px; border-radius:999px; width:0%; background:linear-gradient(90deg,var(--emerald-light),var(--emerald)); transition: width .2s ease; }
+  .app-modal-progress-wrap{ width:100%; background: rgba(118,118,128,.14); border-radius:999px; height:8px; margin-bottom:14px; overflow:hidden; }
+  .app-modal-progress-bar{ height:8px; border-radius:999px; width:0%; background: linear-gradient(90deg,var(--green),var(--green-deep)); transition: width .2s ease; }
 
   /* ================= FILE PICKER LISTS ================= */
-  .file-pick-item{ display:flex; align-items:center; justify-content:between; gap:8px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; padding:9px 12px; }
-  .search-mode-btn{ transition: all .15s ease; }
-  .video-tab-btn{ transition: all .15s ease; }
+  .file-pick-item{ display:flex; align-items:center; justify-content:between; gap:8px; background: rgba(118,118,128,.08); border:1px solid var(--card-border); border-radius: 14px; padding:10px 12px; }
+  .search-mode-btn{ transition: all .2s cubic-bezier(.2,.8,.3,1); }
+  .video-tab-btn{ transition: all .2s cubic-bezier(.2,.8,.3,1); }
 </style>
 </head>
 <body>
@@ -299,8 +375,8 @@
 
   <div class="app-header flex items-center justify-between">
     <div>
-      <div class="text-xs opacity-80">ระบบฐานข้อมูล</div>
-      <div class="font-bold text-lg leading-tight">หลักฐานวิดีโอรถวิ่งขวา 🚓</div>
+      <div class="text-xs opacity-80 font-medium">ระบบฐานข้อมูล</div>
+      <div class="font-bold text-xl leading-tight tracking-tight">หลักฐานวิดีโอรถวิ่งขวา 🚓</div>
     </div>
     <div id="userMiniBox" class="text-right text-xs opacity-90">
       <div id="userMiniName">กำลังโหลด...</div>
@@ -311,24 +387,24 @@
   <div id="tab-send" class="tab-panel active">
     <div class="card mb-3">
       <div class="flex items-center gap-3">
-        <img id="userAvatar" src="https://api.dicebear.com/7.x/initials/svg?seed=U" class="w-11 h-11 rounded-full border-2 border-emerald-200" />
+        <img id="userAvatar" src="https://api.dicebear.com/7.x/initials/svg?seed=U" class="w-12 h-12 rounded-full" style="box-shadow: 0 0 0 3px rgba(48,209,88,.2);" />
         <div>
           <div class="font-bold text-gray-800" id="userNameTxt">ผู้ใช้งาน</div>
-          <div class="text-xs text-gray-400" id="userIdTxt">LINE ID: -</div>
+          <div class="text-xs" style="color:var(--ink-faint);" id="userIdTxt">LINE ID: -</div>
         </div>
       </div>
     </div>
 
     <div class="card mb-3">
-      <h2 class="font-bold text-emerald-800 mb-3 text-sm">📋 ข้อมูลป้ายทะเบียนรถ</h2>
+      <h2 class="font-bold mb-3 text-sm" style="color:var(--green-ink);">📋 ข้อมูลป้ายทะเบียนรถ</h2>
 
-      <label class="text-xs text-gray-500 font-semibold">หมวดอักษร</label>
+      <label class="text-xs font-semibold">หมวดอักษร</label>
       <input type="text" id="plateChar" placeholder="เช่น กข" class="mb-3 mt-1" />
 
-      <label class="text-xs text-gray-500 font-semibold">หมวดตัวเลข</label>
+      <label class="text-xs font-semibold">หมวดตัวเลข</label>
       <input type="text" id="plateNumber" placeholder="เช่น 1234" inputmode="numeric" class="mb-3 mt-1" />
 
-      <label class="text-xs text-gray-500 font-semibold">หมวดจังหวัด</label>
+      <label class="text-xs font-semibold">หมวดจังหวัด</label>
       <div class="relative mt-1 mb-1">
         <input type="text" id="plateProvince" class="dropdown-input" placeholder="พิมพ์เพื่อค้นหาจังหวัด..." autocomplete="off" />
         <div id="provinceDropdown" class="dropdown-list"></div>
@@ -336,30 +412,30 @@
     </div>
 
     <div class="card mb-3">
-      <h2 class="font-bold text-emerald-800 mb-3 text-sm">🏢 หน่วยรายงาน</h2>
-      <label class="text-xs text-gray-500 font-semibold">สังกัดหน่วย</label>
+      <h2 class="font-bold mb-3 text-sm" style="color:var(--green-ink);">🏢 หน่วยรายงาน</h2>
+      <label class="text-xs font-semibold">สังกัดหน่วย</label>
       <select id="plateUnit" class="mt-1">
         <option value="">-- เลือกหน่วยรายงาน --</option>
       </select>
-      <div id="unitLoadStatus" class="text-xs text-gray-400 mt-1"></div>
+      <div id="unitLoadStatus" class="text-xs mt-1" style="color:var(--ink-faint);"></div>
     </div>
 
     <div class="card mb-3">
-      <h2 class="font-bold text-emerald-800 mb-3 text-sm">🎥 ไฟล์วิดีโอหลักฐาน <span class="text-xs font-normal text-gray-400">(เพิ่มได้หลายไฟล์ ไม่จำกัดขนาด)</span></h2>
+      <h2 class="font-bold mb-3 text-sm" style="color:var(--green-ink);">🎥 ไฟล์วิดีโอหลักฐาน <span class="text-xs font-normal" style="color:var(--ink-faint);">(เพิ่มได้หลายไฟล์ ไม่จำกัดขนาด)</span></h2>
       <input type="file" id="videoFileInput" accept="video/*" multiple class="hidden" />
       <button type="button" id="btnAddVideo" class="btn-secondary mb-2">➕ เพิ่มไฟล์วิดีโอ</button>
       <div id="videoFileList" class="space-y-2"></div>
     </div>
 
     <div class="card mb-3">
-      <h2 class="font-bold text-emerald-800 mb-3 text-sm">🧾 รูปสำเนาใบสั่ง <span class="text-xs font-normal text-gray-400">(เพิ่มได้หลายรูป)</span></h2>
+      <h2 class="font-bold mb-3 text-sm" style="color:var(--green-ink);">🧾 รูปสำเนาใบสั่ง <span class="text-xs font-normal" style="color:var(--ink-faint);">(เพิ่มได้หลายรูป)</span></h2>
       <input type="file" id="ticketCopyInput" accept="image/*" multiple class="hidden" />
       <button type="button" id="btnAddTicketCopy" class="btn-secondary mb-2">➕ เพิ่มรูปสำเนาใบสั่ง</button>
       <div id="ticketCopyList" class="space-y-2"></div>
     </div>
 
     <div class="card mb-3">
-      <h2 class="font-bold text-emerald-800 mb-3 text-sm">📸 รูปหลักฐานผู้ขับขี่ <span class="text-xs font-normal text-gray-400">(ถือใบสั่ง ยืนหน้ารถ เห็นป้ายทะเบียน — เพิ่มได้หลายรูป)</span></h2>
+      <h2 class="font-bold mb-3 text-sm" style="color:var(--green-ink);">📸 รูปหลักฐานผู้ขับขี่ <span class="text-xs font-normal" style="color:var(--ink-faint);">(ถือใบสั่ง ยืนหน้ารถ เห็นป้ายทะเบียน — เพิ่มได้หลายรูป)</span></h2>
       <input type="file" id="driverPhotoInput" accept="image/*" multiple class="hidden" />
       <button type="button" id="btnAddDriverPhoto" class="btn-secondary mb-2">➕ เพิ่มรูปหลักฐาน</button>
       <div id="driverPhotoList" class="space-y-2"></div>
@@ -373,11 +449,11 @@
   <!-- TAB: ใบหลักฐานภาพ (แสดงหลังอัปโหลดสำเร็จ) -->
   <div id="tab-receipt" class="tab-panel">
     <div class="text-center mb-3">
-      <h2 class="font-bold text-emerald-800">🧾 เอกสารยืนยันการรายงาน</h2>
-      <p class="text-xs text-gray-400">แตะค้างที่รูปด้านล่างเพื่อบันทึกภาพ หรือกดปุ่มดาวน์โหลด</p>
+      <h2 class="font-bold" style="color:var(--green-ink);">🧾 เอกสารยืนยันการรายงาน</h2>
+      <p class="text-xs" style="color:var(--ink-faint);">แตะค้างที่รูปด้านล่างเพื่อบันทึกภาพ หรือกดปุ่มดาวน์โหลด</p>
     </div>
     <div class="flex justify-center">
-      <img id="receiptImg" alt="เอกสารยืนยันการรายงาน" style="width:100%; max-width:380px; border-radius:10px; box-shadow:0 4px 16px -6px rgba(15,23,42,.15);" />
+      <img id="receiptImg" alt="เอกสารยืนยันการรายงาน" style="width:100%; max-width:380px; border-radius:22px; box-shadow: var(--shadow-2);" />
     </div>
     <canvas id="receiptCanvas" class="hidden"></canvas>
     <button id="btnDownloadImg" class="btn-primary mt-4">📥 ดาวน์โหลดรูปภาพหลักฐานลงเครื่อง</button>
@@ -387,19 +463,19 @@
   <!-- TAB: รายงานวัน -->
   <div id="tab-today" class="tab-panel">
     <div class="flex items-center justify-between mb-3">
-      <h2 class="font-bold text-emerald-800 text-sm">📅 รายงานวันนี้</h2>
-      <button id="btnRefreshToday" class="text-xs text-emerald-600 font-semibold">🔄 รีเฟรช</button>
+      <h2 class="font-bold text-sm" style="color:var(--green-ink);">📅 รายงานวันนี้</h2>
+      <button id="btnRefreshToday" class="text-xs font-semibold" style="color:var(--green-deep);">🔄 รีเฟรช</button>
     </div>
     <div id="todayList" class="space-y-3"></div>
   </div>
 
   <!-- TAB: ค้นหา -->
   <div id="tab-search" class="tab-panel">
-    <h2 class="font-bold text-emerald-800 mb-3 text-sm">🔍 ค้นหาหลักฐานย้อนหลัง</h2>
+    <h2 class="font-bold mb-3 text-sm" style="color:var(--green-ink);">🔍 ค้นหาหลักฐานย้อนหลัง</h2>
 
-    <div class="flex gap-2 mb-3">
-      <button id="searchModeGeneral" class="search-mode-btn flex-1 text-xs font-semibold py-2 rounded-lg bg-emerald-600 text-white">คำค้นทั่วไป</button>
-      <button id="searchModePlate" class="search-mode-btn flex-1 text-xs font-semibold py-2 rounded-lg bg-gray-100 text-gray-500">ค้นหาป้ายทะเบียน</button>
+    <div class="flex gap-2 mb-3 p-1 rounded-2xl" style="background:rgba(118,118,128,.10);">
+      <button id="searchModeGeneral" class="search-mode-btn flex-1 text-xs font-semibold py-2 rounded-xl" style="background:linear-gradient(160deg,var(--green),var(--green-deep)); color:#fff;">คำค้นทั่วไป</button>
+      <button id="searchModePlate" class="search-mode-btn flex-1 text-xs font-semibold py-2 rounded-xl" style="color:var(--ink-soft);">ค้นหาป้ายทะเบียน</button>
     </div>
 
     <div id="searchGeneralBox">
@@ -409,17 +485,17 @@
     <div id="searchPlateBox" class="hidden">
       <div class="grid grid-cols-2 gap-2 mb-2">
         <div>
-          <label class="text-xs text-gray-500 font-semibold">หมวดอักษร</label>
+          <label class="text-xs font-semibold">หมวดอักษร</label>
           <input type="text" id="searchPlateChar" class="mt-1" placeholder="เช่น กข" />
         </div>
         <div>
-          <label class="text-xs text-gray-500 font-semibold">หมวดตัวเลข</label>
+          <label class="text-xs font-semibold">หมวดตัวเลข</label>
           <input type="text" id="searchPlateNumber" class="mt-1" placeholder="เช่น 1234" />
         </div>
       </div>
-      <label class="text-xs text-gray-500 font-semibold">หมวดจังหวัด</label>
+      <label class="text-xs font-semibold">หมวดจังหวัด</label>
       <input type="text" id="searchPlateProvince" class="mt-1 mb-3" placeholder="เช่น ลพบุรี" />
-      <p class="text-xs text-gray-400 mb-3">* กรอกช่องใดช่องหนึ่งหรือหลายช่องก็ได้ ไม่จำเป็นต้องครบทุกช่อง</p>
+      <p class="text-xs mb-3" style="color:var(--ink-faint);">* กรอกช่องใดช่องหนึ่งหรือหลายช่องก็ได้ ไม่จำเป็นต้องครบทุกช่อง</p>
     </div>
 
     <div id="searchList" class="space-y-3"></div>
@@ -443,9 +519,9 @@
 <!-- ============================================================ -->
 <div id="desktopApp">
   <aside class="pc-sidebar w-64 p-6 flex-shrink-0">
-    <div class="text-xl font-bold mb-1">🚓 ศูนย์ควบคุมหลัก</div>
-    <div class="text-xs opacity-70 mb-8">ระบบฐานข้อมูลหลักฐานวิดีโอรถวิ่งขวา</div>
-    <nav class="space-y-2">
+    <div class="text-xl font-bold mb-1 tracking-tight">🚓 ศูนย์ควบคุมหลัก</div>
+    <div class="text-xs opacity-60 mb-8">ระบบฐานข้อมูลหลักฐานวิดีโอรถวิ่งขวา</div>
+    <nav class="space-y-1.5">
       <button class="pc-nav-btn w-full text-left px-4 py-3 rounded-lg bg-white/10 font-semibold" data-pc="overview">📊 ภาพรวม / สถิติ</button>
       <button class="pc-nav-btn w-full text-left px-4 py-3 rounded-lg hover:bg-white/10" data-pc="search">🔍 ค้นหาวิดีโอ</button>
     </nav>
@@ -456,61 +532,61 @@
     <!-- ============== ภาพรวม / สถิติ ============== -->
     <div id="pc-overview" class="pc-panel">
       <div class="flex items-center justify-between mb-1">
-        <h1 class="text-2xl font-bold text-gray-800">ภาพรวมระบบ</h1>
-        <button id="btnRefreshOverview" class="text-xs text-emerald-600 font-semibold border border-emerald-200 rounded-lg px-3 py-1.5 hover:bg-emerald-50">🔄 รีเฟรชข้อมูล</button>
+        <h1 class="text-2xl font-bold tracking-tight" style="color:var(--ink);">ภาพรวมระบบ</h1>
+        <button id="btnRefreshOverview" class="text-xs font-semibold rounded-full px-4 py-2" style="color:var(--green-deep); background:rgba(48,209,88,.12);">🔄 รีเฟรชข้อมูล</button>
       </div>
-      <p class="text-gray-400 text-sm mb-6">สรุปสถิติการอัปโหลดวิดีโอหลักฐานแบบเรียลไทม์</p>
+      <p class="text-sm mb-6" style="color:var(--ink-faint);">สรุปสถิติการอัปโหลดวิดีโอหลักฐานแบบเรียลไทม์</p>
 
       <!-- KPI Cards -->
       <div class="grid grid-cols-4 gap-5 mb-6">
         <div class="kpi-card">
-          <div class="text-xs text-gray-400 font-semibold">ยอดอัปโหลดวันนี้</div>
-          <div class="text-3xl font-bold text-emerald-700 mt-1" id="kpiToday">0</div>
+          <div class="text-xs font-semibold" style="color:var(--ink-faint);">ยอดอัปโหลดวันนี้</div>
+          <div class="text-3xl font-bold mt-1" style="color:var(--green-deep);" id="kpiToday">0</div>
           <div id="kpiTrendBadge" class="badge mt-2 kpi-trend-flat">- เทียบเมื่อวาน</div>
         </div>
         <div class="kpi-card">
-          <div class="text-xs text-gray-400 font-semibold">เจ้าหน้าที่ปฏิบัติงานวันนี้</div>
-          <div class="text-3xl font-bold text-emerald-700 mt-1" id="kpiOfficers">0</div>
-          <div class="text-xs text-gray-400 mt-2">นาย ที่ส่งรายงานเข้าระบบ</div>
+          <div class="text-xs font-semibold" style="color:var(--ink-faint);">เจ้าหน้าที่ปฏิบัติงานวันนี้</div>
+          <div class="text-3xl font-bold mt-1" style="color:var(--green-deep);" id="kpiOfficers">0</div>
+          <div class="text-xs mt-2" style="color:var(--ink-faint);">นาย ที่ส่งรายงานเข้าระบบ</div>
         </div>
         <div class="kpi-card">
-          <div class="text-xs text-gray-400 font-semibold">อัตราซิงค์คลาวด์</div>
-          <div class="text-3xl font-bold text-emerald-700 mt-1" id="kpiSyncRate">-</div>
+          <div class="text-xs font-semibold" style="color:var(--ink-faint);">อัตราซิงค์คลาวด์</div>
+          <div class="text-3xl font-bold mt-1" style="color:var(--green-deep);" id="kpiSyncRate">-</div>
           <div id="kpiSyncBadge" class="badge mt-2 kpi-trend-flat">กำลังตรวจสอบ...</div>
         </div>
         <div class="kpi-card">
-          <div class="text-xs text-gray-400 font-semibold">รายการสะสมทั้งหมด</div>
-          <div class="text-3xl font-bold text-emerald-700 mt-1" id="kpiTotal">0</div>
-          <div class="text-xs text-gray-400 mt-2">ตั้งแต่เริ่มใช้งานระบบ</div>
+          <div class="text-xs font-semibold" style="color:var(--ink-faint);">รายการสะสมทั้งหมด</div>
+          <div class="text-3xl font-bold mt-1" style="color:var(--green-deep);" id="kpiTotal">0</div>
+          <div class="text-xs mt-2" style="color:var(--ink-faint);">ตั้งแต่เริ่มใช้งานระบบ</div>
         </div>
       </div>
 
       <!-- Charts -->
       <div class="grid grid-cols-3 gap-5 mb-6">
         <div class="chart-card col-span-2">
-          <h2 class="font-bold text-gray-700 mb-3 text-sm">📊 ยอดอัปโหลดรายชั่วโมง (วันนี้)</h2>
+          <h2 class="font-bold mb-3 text-sm" style="color:var(--ink);">📊 ยอดอัปโหลดรายชั่วโมง (วันนี้)</h2>
           <canvas id="hourlyChart" height="130"></canvas>
         </div>
         <div class="chart-card">
-          <h2 class="font-bold text-gray-700 mb-3 text-sm">🥧 สัดส่วนตามจังหวัด</h2>
+          <h2 class="font-bold mb-3 text-sm" style="color:var(--ink);">🥧 สัดส่วนตามจังหวัด</h2>
           <canvas id="provinceChart" height="130"></canvas>
         </div>
       </div>
 
       <div class="chart-card mb-6">
-        <h2 class="font-bold text-gray-700 mb-3 text-sm">📈 แนวโน้มย้อนหลัง 7 วัน</h2>
+        <h2 class="font-bold mb-3 text-sm" style="color:var(--ink);">📈 แนวโน้มย้อนหลัง 7 วัน</h2>
         <canvas id="trendChart" height="70"></canvas>
       </div>
 
       <div class="pc-card p-5 mb-6">
-        <h2 class="font-bold text-gray-700 mb-4">🏢 สถิติแยกตามหน่วยรายงาน <span class="text-xs font-normal text-gray-400">(สะสมทั้งหมด)</span></h2>
+        <h2 class="font-bold mb-4" style="color:var(--ink);">🏢 สถิติแยกตามหน่วยรายงาน <span class="text-xs font-normal" style="color:var(--ink-faint);">(สะสมทั้งหมด)</span></h2>
         <div id="unitStatsList" class="space-y-3"></div>
       </div>
 
       <div class="pc-card p-5">
-        <h2 class="font-bold text-gray-700 mb-4">รายการล่าสุด <span class="text-xs font-normal text-gray-400">(คลิกแถวเพื่อพรีวิวหลักฐาน)</span></h2>
+        <h2 class="font-bold mb-4" style="color:var(--ink);">รายการล่าสุด <span class="text-xs font-normal" style="color:var(--ink-faint);">(คลิกแถวเพื่อพรีวิวหลักฐาน)</span></h2>
         <table class="w-full text-sm">
-          <thead><tr class="text-left text-gray-400 border-b">
+          <thead><tr class="text-left border-b" style="color:var(--ink-faint); border-color:var(--sep);">
             <th class="pb-2">เวลา</th><th class="pb-2">ผู้ส่ง</th><th class="pb-2">หน่วย</th><th class="pb-2">ทะเบียน</th><th class="pb-2">หลักฐาน</th>
           </tr></thead>
           <tbody id="pcRecentTable"></tbody>
@@ -520,59 +596,59 @@
 
     <!-- ============== ค้นหาวิดีโอ ============== -->
     <div id="pc-search" class="pc-panel hidden">
-      <h1 class="text-2xl font-bold text-gray-800 mb-1">ค้นหาหลักฐาน</h1>
-      <p class="text-gray-400 text-sm mb-6">ค้นหาตามอักษร, เลขทะเบียน, จังหวัด, เจ้าหน้าที่ หรือกรองตามช่วงวันที่</p>
+      <h1 class="text-2xl font-bold tracking-tight mb-1" style="color:var(--ink);">ค้นหาหลักฐาน</h1>
+      <p class="text-sm mb-6" style="color:var(--ink-faint);">ค้นหาตามอักษร, เลขทะเบียน, จังหวัด, เจ้าหน้าที่ หรือกรองตามช่วงวันที่</p>
 
       <div class="pc-card p-5 mb-5">
-        <div class="flex gap-2 mb-4">
-          <button id="pcSearchModeGeneral" class="search-mode-btn text-xs font-semibold px-4 py-2 rounded-lg bg-emerald-600 text-white">คำค้นทั่วไป</button>
-          <button id="pcSearchModePlate" class="search-mode-btn text-xs font-semibold px-4 py-2 rounded-lg bg-gray-100 text-gray-500">ค้นหาป้ายทะเบียน (แยกช่อง)</button>
+        <div class="flex gap-2 mb-4 p-1 rounded-2xl inline-flex" style="background:rgba(118,118,128,.10);">
+          <button id="pcSearchModeGeneral" class="search-mode-btn text-xs font-semibold px-4 py-2 rounded-xl" style="background:linear-gradient(160deg,var(--green),var(--green-deep)); color:#fff;">คำค้นทั่วไป</button>
+          <button id="pcSearchModePlate" class="search-mode-btn text-xs font-semibold px-4 py-2 rounded-xl" style="color:var(--ink-soft);">ค้นหาป้ายทะเบียน (แยกช่อง)</button>
         </div>
 
         <div class="grid grid-cols-4 gap-4 items-end">
           <div class="col-span-2" id="pcGeneralSearchBox">
-            <label class="text-xs text-gray-500 font-semibold">คำค้นหา (อักษร / เลข / จังหวัด / ชื่อ)</label>
+            <label class="text-xs font-semibold">คำค้นหา (อักษร / เลข / จังหวัด / ชื่อ)</label>
             <input type="text" id="pcSearchInput" placeholder="พิมพ์เพื่อค้นหา..." class="mt-1" />
           </div>
           <div class="col-span-2 hidden grid grid-cols-3 gap-2" id="pcPlateSearchBox">
             <div>
-              <label class="text-xs text-gray-500 font-semibold">หมวดอักษร</label>
+              <label class="text-xs font-semibold">หมวดอักษร</label>
               <input type="text" id="pcSearchPlateChar" class="mt-1" placeholder="กข" />
             </div>
             <div>
-              <label class="text-xs text-gray-500 font-semibold">หมวดตัวเลข</label>
+              <label class="text-xs font-semibold">หมวดตัวเลข</label>
               <input type="text" id="pcSearchPlateNumber" class="mt-1" placeholder="1234" />
             </div>
             <div>
-              <label class="text-xs text-gray-500 font-semibold">หมวดจังหวัด</label>
+              <label class="text-xs font-semibold">หมวดจังหวัด</label>
               <input type="text" id="pcSearchPlateProvince" class="mt-1" placeholder="ลพบุรี" />
             </div>
           </div>
           <div>
-            <label class="text-xs text-gray-500 font-semibold">ตั้งแต่วันที่</label>
+            <label class="text-xs font-semibold">ตั้งแต่วันที่</label>
             <input type="date" id="pcDateFrom" class="mt-1" />
           </div>
           <div>
-            <label class="text-xs text-gray-500 font-semibold">ถึงวันที่</label>
+            <label class="text-xs font-semibold">ถึงวันที่</label>
             <input type="date" id="pcDateTo" class="mt-1" />
           </div>
         </div>
 
         <div class="grid grid-cols-4 gap-4 items-end mt-4">
           <div>
-            <label class="text-xs text-gray-500 font-semibold">กรองเฉพาะจังหวัด</label>
+            <label class="text-xs font-semibold">กรองเฉพาะจังหวัด</label>
             <select id="pcProvinceFilter" class="mt-1">
               <option value="">ทุกจังหวัด</option>
             </select>
           </div>
           <div>
-            <label class="text-xs text-gray-500 font-semibold">กรองเฉพาะเจ้าหน้าที่</label>
+            <label class="text-xs font-semibold">กรองเฉพาะเจ้าหน้าที่</label>
             <select id="pcOfficerFilter" class="mt-1">
               <option value="">เจ้าหน้าที่ทั้งหมด</option>
             </select>
           </div>
           <div class="col-span-2">
-            <label class="text-xs text-gray-500 font-semibold">กรองเฉพาะหน่วยรายงาน</label>
+            <label class="text-xs font-semibold">กรองเฉพาะหน่วยรายงาน</label>
             <select id="pcUnitFilter" class="mt-1">
               <option value="">หน่วยทั้งหมด</option>
             </select>
@@ -580,10 +656,10 @@
         </div>
 
         <div class="flex items-center gap-2 mt-4 flex-wrap" id="pcQuickRanges">
-          <button class="quick-range text-xs font-semibold px-3 py-1.5 rounded-full bg-emerald-50 text-emerald-700" data-range="today">วันนี้</button>
-          <button class="quick-range text-xs font-semibold px-3 py-1.5 rounded-full bg-emerald-50 text-emerald-700" data-range="7d">7 วันที่ผ่านมา</button>
-          <button class="quick-range text-xs font-semibold px-3 py-1.5 rounded-full bg-emerald-50 text-emerald-700" data-range="30d">เดือนนี้</button>
-          <button class="quick-range text-xs font-semibold px-3 py-1.5 rounded-full bg-gray-100 text-gray-500" data-range="clear">ล้างตัวกรองทั้งหมด</button>
+          <button class="quick-range text-xs font-semibold px-3.5 py-1.5 rounded-full" style="background:rgba(48,209,88,.12); color:var(--green-deep);" data-range="today">วันนี้</button>
+          <button class="quick-range text-xs font-semibold px-3.5 py-1.5 rounded-full" style="background:rgba(48,209,88,.12); color:var(--green-deep);" data-range="7d">7 วันที่ผ่านมา</button>
+          <button class="quick-range text-xs font-semibold px-3.5 py-1.5 rounded-full" style="background:rgba(48,209,88,.12); color:var(--green-deep);" data-range="30d">เดือนนี้</button>
+          <button class="quick-range text-xs font-semibold px-3.5 py-1.5 rounded-full" style="background:rgba(118,118,128,.12); color:var(--ink-soft);" data-range="clear">ล้างตัวกรองทั้งหมด</button>
         </div>
       </div>
 
@@ -595,14 +671,14 @@
 <!-- Embedded Evidence Previewer Modal (วิดีโอหลายไฟล์ + รูปภาพ) -->
 <div id="videoModalOverlay">
   <div class="video-modal">
-    <div class="p-4 flex items-center justify-between border-b flex-shrink-0">
+    <div class="p-4 flex items-center justify-between border-b flex-shrink-0" style="border-color:var(--sep);">
       <div>
-        <div class="font-bold text-emerald-800" id="videoModalTitle">ทะเบียนรถ</div>
-        <div class="text-xs text-gray-400" id="videoModalSub">-</div>
+        <div class="font-bold" style="color:var(--green-ink);" id="videoModalTitle">ทะเบียนรถ</div>
+        <div class="text-xs" style="color:var(--ink-faint);" id="videoModalSub">-</div>
       </div>
       <div class="flex items-center gap-4">
-        <button id="btnFullscreenVideo" class="text-emerald-600 hover:text-emerald-800 text-xl leading-none" title="ดูแบบเต็มจอ">⛶</button>
-        <button id="btnCloseVideoModal" class="text-gray-400 hover:text-gray-700 text-xl leading-none">✕</button>
+        <button id="btnFullscreenVideo" class="text-xl leading-none" style="color:var(--green-deep);" title="ดูแบบเต็มจอ">⛶</button>
+        <button id="btnCloseVideoModal" class="text-xl leading-none" style="color:var(--ink-faint);">✕</button>
       </div>
     </div>
 
@@ -618,15 +694,15 @@
       </div>
 
       <div class="p-4">
-        <div class="text-xs font-bold text-gray-500 mb-2">🧾 รูปสำเนาใบสั่ง</div>
+        <div class="text-xs font-bold mb-2" style="color:var(--ink-soft);">🧾 รูปสำเนาใบสั่ง</div>
         <div id="ticketCopyThumbs" class="flex gap-2 flex-wrap mb-4"></div>
-        <div class="text-xs font-bold text-gray-500 mb-2">📸 รูปหลักฐานผู้ขับขี่</div>
+        <div class="text-xs font-bold mb-2" style="color:var(--ink-soft);">📸 รูปหลักฐานผู้ขับขี่</div>
         <div id="driverPhotoThumbs" class="flex gap-2 flex-wrap"></div>
       </div>
     </div>
 
-    <div class="p-4 flex justify-end flex-shrink-0 border-t">
-      <a id="videoModalOpenLink" href="#" target="_blank" class="text-xs font-semibold text-emerald-600">เปิดโฟลเดอร์หลักฐานทั้งหมดบน Drive ↗</a>
+    <div class="p-4 flex justify-end flex-shrink-0 border-t" style="border-color:var(--sep);">
+      <a id="videoModalOpenLink" href="#" target="_blank" class="text-xs font-semibold" style="color:var(--green-deep);">เปิดโฟลเดอร์หลักฐานทั้งหมดบน Drive ↗</a>
     </div>
   </div>
 </div>
@@ -991,13 +1067,13 @@ function renderFileList(listId, arrRef) {
   const el = document.getElementById(listId);
   if (!el) return;
   if (!arrRef.length) {
-    el.innerHTML = '<div class="text-xs text-gray-300">ยังไม่ได้เลือกไฟล์</div>';
+    el.innerHTML = '<div class="text-xs" style="color:var(--ink-faint);">ยังไม่ได้เลือกไฟล์</div>';
     return;
   }
   el.innerHTML = arrRef.map((f, idx) => `
     <div class="file-pick-item">
-      <div class="text-xs text-gray-600 truncate flex-1">📎 ${f.name} <span class="text-gray-400">(${(f.size/1024/1024).toFixed(2)} MB)</span></div>
-      <button type="button" class="text-red-400 text-xs font-bold remove-file-btn flex-shrink-0" data-list="${listId}" data-idx="${idx}">✕</button>
+      <div class="text-xs truncate flex-1" style="color:var(--ink-soft);">📎 ${f.name} <span style="color:var(--ink-faint);">(${(f.size/1024/1024).toFixed(2)} MB)</span></div>
+      <button type="button" class="text-xs font-bold remove-file-btn flex-shrink-0" style="color:var(--red);" data-list="${listId}" data-idx="${idx}">✕</button>
     </div>
   `).join("");
   el.querySelectorAll(".remove-file-btn").forEach(btn => {
@@ -1193,7 +1269,7 @@ function resetForm() {
 }
 
 /* ============================================================
-   CANVAS: เอกสารยืนยันการรายงาน — ดีไซน์ทางการแบบเอกสารราชการ
+   CANVAS: เอกสารยืนยันการรายงาน — ดีไซน์การ์ดสไตล์ iOS (Liquid Glass)
    ============================================================ */
 async function drawReceiptCanvas(data) {
   try {
@@ -1219,68 +1295,61 @@ async function drawReceiptCanvas(data) {
   const ctx = canvas.getContext("2d");
   ctx.scale(dpr, dpr);
 
-  ctx.fillStyle = "#fdfdfb";
+  // พื้นหลังไล่สีอ่อน + การ์ดโค้งมนแบบ iOS
+  const bgGrad = ctx.createLinearGradient(0, 0, W, H);
+  bgGrad.addColorStop(0, "#F3FBF6");
+  bgGrad.addColorStop(1, "#EFF6FC");
+  ctx.fillStyle = bgGrad;
   ctx.fillRect(0, 0, W, H);
 
-  ctx.strokeStyle = "#0f3d2e";
-  ctx.lineWidth = 2.5;
-  ctx.strokeRect(18, 18, W - 36, H - 36);
-  ctx.strokeStyle = "#c9a227";
-  ctx.lineWidth = 1;
-  ctx.strokeRect(24, 24, W - 48, H - 48);
+  roundRect(ctx, 16, 16, W - 32, H - 32, 32);
+  ctx.fillStyle = "rgba(255,255,255,0.86)";
+  ctx.fill();
+  ctx.strokeStyle = "rgba(28,28,30,0.06)";
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
 
+  // แถบหัวเอกสารไล่สีเขียว-น้ำเงินสไตล์ iOS
+  const headerGrad = ctx.createLinearGradient(16, 16, W - 16, 190);
+  headerGrad.addColorStop(0, "#30D158");
+  headerGrad.addColorStop(1, "#0A84FF");
+  roundRect(ctx, 16, 16, W - 32, 150, 32);
   ctx.save();
-  ctx.globalAlpha = 0.05;
-  ctx.fillStyle = "#0f3d2e";
-  ctx.font = "bold 46px 'Prompt','Tahoma','Leelawadee UI',sans-serif";
-  ctx.translate(W/2, H/2);
-  ctx.rotate(-Math.PI/9);
-  ctx.textAlign = "center";
-  ctx.fillText("เอกสารยืนยันการรายงาน", 0, 0);
+  ctx.clip();
+  ctx.fillStyle = headerGrad;
+  ctx.fillRect(16, 16, W - 32, 150);
   ctx.restore();
 
   ctx.save();
   ctx.beginPath();
-  ctx.arc(W/2, 78, 30, 0, Math.PI * 2);
-  ctx.fillStyle = "#0f3d2e";
+  ctx.arc(W/2, 74, 30, 0, Math.PI * 2);
+  ctx.fillStyle = "rgba(255,255,255,0.22)";
   ctx.fill();
-  ctx.strokeStyle = "#c9a227";
-  ctx.lineWidth = 2;
-  ctx.stroke();
-  ctx.fillStyle = "#c9a227";
-  ctx.font = "bold 22px 'Prompt','Tahoma','Leelawadee UI',sans-serif";
+  ctx.font = "26px 'Prompt','Tahoma','Leelawadee UI',sans-serif";
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  ctx.fillText("🚓", W/2, 80);
+  ctx.fillText("🚓", W/2, 76);
   ctx.restore();
 
   ctx.textAlign = "center";
-  ctx.fillStyle = "#0f3d2e";
+  ctx.fillStyle = "#ffffff";
   ctx.font = "bold 17px 'Prompt','Tahoma','Leelawadee UI',sans-serif";
-  ctx.fillText("กองบังคับการตำรวจทางหลวง", W/2, 130);
-  ctx.font = "600 13px 'Prompt','Tahoma','Leelawadee UI',sans-serif";
-  ctx.fillStyle = "#374151";
-  ctx.fillText("ระบบฐานข้อมูลหลักฐานวิดีโอรถวิ่งขวา", W/2, 150);
-
-  const dividerGrad = ctx.createLinearGradient(60, 0, W-60, 0);
-  dividerGrad.addColorStop(0, "rgba(201,162,39,0)");
-  dividerGrad.addColorStop(0.5, "rgba(201,162,39,0.9)");
-  dividerGrad.addColorStop(1, "rgba(201,162,39,0)");
-  ctx.strokeStyle = dividerGrad;
-  ctx.lineWidth = 1.5;
-  ctx.beginPath(); ctx.moveTo(60, 168); ctx.lineTo(W-60, 168); ctx.stroke();
+  ctx.fillText("กองบังคับการตำรวจทางหลวง", W/2, 122);
+  ctx.font = "600 12.5px 'Prompt','Tahoma','Leelawadee UI',sans-serif";
+  ctx.fillStyle = "rgba(255,255,255,0.85)";
+  ctx.fillText("ระบบฐานข้อมูลหลักฐานวิดีโอรถวิ่งขวา", W/2, 141);
 
   ctx.font = "bold 19px 'Prompt','Tahoma','Leelawadee UI',sans-serif";
-  ctx.fillStyle = "#0f3d2e";
-  ctx.fillText("เอกสารยืนยันการรายงานหลักฐาน", W/2, 196);
+  ctx.fillStyle = "#0B3D22";
+  ctx.fillText("เอกสารยืนยันการรายงานหลักฐาน", W/2, 190);
 
   if (!DOC_SEQ) DOC_SEQ = Math.floor(100000 + Math.random() * 899999);
   const docNo = "HWPD-" + (data.dateThai || "").replace(/-/g, "") + "-" + DOC_SEQ;
   ctx.font = "12px 'Prompt','Tahoma','Leelawadee UI',sans-serif";
-  ctx.fillStyle = "#6b7280";
-  ctx.fillText("เลขที่เอกสาร " + docNo, W/2, 216);
+  ctx.fillStyle = "rgba(60,60,67,0.55)";
+  ctx.fillText("เลขที่เอกสาร " + docNo, W/2, 210);
 
-  let y = 250;
+  let y = 244;
   drawSectionLabel(ctx, "ข้อมูลผู้รายงาน", 40, y);
   y += 22;
   drawFieldRow(ctx, "ชื่อผู้รายงาน", data.lineName || "-", 40, y, W - 80);
@@ -1290,45 +1359,45 @@ async function drawReceiptCanvas(data) {
   drawFieldRow(ctx, "รหัสประจำตัว LINE", data.lineUserId || "-", 40, y, W - 80);
   y += 26;
   drawFieldRow(ctx, "เวลาที่บันทึก", data.timestamp || "-", 40, y, W - 80);
-  y += 36;
+  y += 34;
 
   const plateBoxY = y;
-  const plateBoxH = 130;
-  ctx.fillStyle = "#f4faf7";
-  roundRect(ctx, 40, plateBoxY, W - 80, plateBoxH, 12);
+  const plateBoxH = 128;
+  roundRect(ctx, 40, plateBoxY, W - 80, plateBoxH, 22);
+  ctx.fillStyle = "rgba(48,209,88,0.08)";
   ctx.fill();
-  ctx.strokeStyle = "#0f3d2e";
+  ctx.strokeStyle = "rgba(48,209,88,0.35)";
   ctx.lineWidth = 1.5;
-  roundRect(ctx, 40, plateBoxY, W - 80, plateBoxH, 12);
+  roundRect(ctx, 40, plateBoxY, W - 80, plateBoxH, 22);
   ctx.stroke();
 
   ctx.textAlign = "center";
   ctx.font = "600 12px 'Prompt','Tahoma','Leelawadee UI',sans-serif";
-  ctx.fillStyle = "#0f3d2e";
+  ctx.fillStyle = "#1F8B3D";
   ctx.fillText("ข้อมูลป้ายทะเบียนรถที่รายงาน", W/2, plateBoxY + 26);
 
-  ctx.font = "bold 40px 'Prompt','Tahoma','Leelawadee UI',sans-serif";
-  ctx.fillStyle = "#0f3d2e";
-  ctx.fillText((data.plateChar || "") + "  " + (data.plateNumber || ""), W/2, plateBoxY + 74);
+  ctx.font = "bold 38px 'Prompt','Tahoma','Leelawadee UI',sans-serif";
+  ctx.fillStyle = "#0B3D22";
+  ctx.fillText((data.plateChar || "") + "  " + (data.plateNumber || ""), W/2, plateBoxY + 72);
 
   ctx.font = "600 17px 'Prompt','Tahoma','Leelawadee UI',sans-serif";
-  ctx.fillStyle = "#4b5563";
-  ctx.fillText(data.plateProvince || "-", W/2, plateBoxY + 104);
+  ctx.fillStyle = "#3C3C43";
+  ctx.fillText(data.plateProvince || "-", W/2, plateBoxY + 102);
 
-  y = plateBoxY + plateBoxH + 34;
+  y = plateBoxY + plateBoxH + 32;
 
   drawSectionLabel(ctx, "ไฟล์หลักฐาน", 40, y);
   y += 22;
   ctx.textAlign = "left";
   ctx.font = "13px 'Prompt','Tahoma','Leelawadee UI',sans-serif";
-  ctx.fillStyle = "#374151";
+  ctx.fillStyle = "#3C3C43";
   const videoCount = (data.videos || []).length;
   const ticketCount = (data.ticketCopies || []).length;
   const driverCount = (data.driverPhotos || []).length;
   wrapText(ctx, `วิดีโอ ${videoCount} ไฟล์ · รูปสำเนาใบสั่ง ${ticketCount} รูป · รูปผู้ขับขี่ ${driverCount} รูป`, 40, y, W - 80, 18);
-  y += 46;
+  y += 44;
 
-  ctx.strokeStyle = "#e5e7eb";
+  ctx.strokeStyle = "rgba(60,60,67,0.13)";
   ctx.beginPath();
   ctx.moveTo(40, y);
   ctx.lineTo(W - 40, y);
@@ -1337,13 +1406,14 @@ async function drawReceiptCanvas(data) {
 
   ctx.save();
   ctx.translate(W - 96, y + 18);
-  ctx.rotate(-Math.PI / 16);
-  ctx.strokeStyle = "#0f3d2e";
-  ctx.lineWidth = 2;
+  const badgeGrad = ctx.createLinearGradient(-40, -40, 40, 40);
+  badgeGrad.addColorStop(0, "#30D158");
+  badgeGrad.addColorStop(1, "#1F8B3D");
   ctx.beginPath();
   ctx.arc(0, 0, 40, 0, Math.PI * 2);
-  ctx.stroke();
-  ctx.fillStyle = "#0f3d2e";
+  ctx.fillStyle = badgeGrad;
+  ctx.fill();
+  ctx.fillStyle = "#ffffff";
   ctx.font = "bold 12px 'Prompt','Tahoma','Leelawadee UI',sans-serif";
   ctx.textAlign = "center";
   ctx.fillText("บันทึกข้อมูล", 0, -4);
@@ -1352,13 +1422,13 @@ async function drawReceiptCanvas(data) {
 
   ctx.textAlign = "left";
   ctx.font = "11px 'Prompt','Tahoma','Leelawadee UI',sans-serif";
-  ctx.fillStyle = "#9ca3af";
+  ctx.fillStyle = "rgba(60,60,67,0.45)";
   ctx.fillText("เอกสารนี้สร้างขึ้นโดยระบบอัตโนมัติ ไม่ต้องลงลายมือชื่อ", 40, y + 30);
   ctx.fillText("ตรวจสอบข้อมูลย้อนหลังได้ที่หน้า “ค้นหา” ของระบบ", 40, y + 48);
 
   ctx.textAlign = "center";
   ctx.font = "600 11px 'Prompt','Tahoma','Leelawadee UI',sans-serif";
-  ctx.fillStyle = "#0f3d2e";
+  ctx.fillStyle = "#1F8B3D";
   ctx.fillText("— กองบังคับการตำรวจทางหลวง —", W/2, H - 34);
 
   const receiptImg = document.getElementById("receiptImg");
@@ -1368,9 +1438,9 @@ async function drawReceiptCanvas(data) {
 function drawSectionLabel(ctx, text, x, y) {
   ctx.textAlign = "left";
   ctx.font = "bold 12.5px 'Prompt','Tahoma','Leelawadee UI',sans-serif";
-  ctx.fillStyle = "#0f3d2e";
+  ctx.fillStyle = "#1F8B3D";
   ctx.fillText(text.toUpperCase(), x, y);
-  ctx.strokeStyle = "#c9a227";
+  ctx.strokeStyle = "rgba(48,209,88,0.4)";
   ctx.lineWidth = 1;
   const textW = ctx.measureText(text.toUpperCase()).width;
   ctx.beginPath();
@@ -1382,10 +1452,10 @@ function drawSectionLabel(ctx, text, x, y) {
 function drawFieldRow(ctx, label, value, x, y, maxWidth) {
   ctx.textAlign = "left";
   ctx.font = "12px 'Prompt','Tahoma','Leelawadee UI',sans-serif";
-  ctx.fillStyle = "#9ca3af";
+  ctx.fillStyle = "rgba(60,60,67,0.5)";
   ctx.fillText(label, x, y);
   ctx.font = "600 13.5px 'Prompt','Tahoma','Leelawadee UI',sans-serif";
-  ctx.fillStyle = "#111827";
+  ctx.fillStyle = "#1C1C1E";
   ctx.textAlign = "right";
   ctx.fillText(String(value), x + maxWidth, y);
 }
@@ -1462,10 +1532,10 @@ document.getElementById("btnDownloadImg")?.addEventListener("click", () => {
    ============================================================ */
 async function loadTodayData() {
   const container = document.getElementById("todayList");
-  container.innerHTML = '<div class="text-center text-gray-400 text-sm py-6"><span class="spinner inline-block"></span> กำลังโหลดข้อมูล...</div>';
+  container.innerHTML = '<div class="text-center text-sm py-6" style="color:var(--ink-faint);"><span class="spinner inline-block"></span> กำลังโหลดข้อมูล...</div>';
   const { data, ok } = await gasFetchUrl("fetchToday", {});
   if (!ok) {
-    container.innerHTML = '<div class="text-center text-red-400 text-sm py-6">⚠ โหลดข้อมูลไม่สำเร็จ: ' + (data.message || "ตรวจสอบการตั้งค่า SCRIPT_URL") + '</div>';
+    container.innerHTML = '<div class="text-center text-sm py-6" style="color:var(--red);">⚠ โหลดข้อมูลไม่สำเร็จ: ' + (data.message || "ตรวจสอบการตั้งค่า SCRIPT_URL") + '</div>';
     return;
   }
   renderItemCards(container, data.items || []);
@@ -1481,18 +1551,25 @@ function setupSearchModeToggle() {
   const boxPlate = document.getElementById("searchPlateBox");
   if (!btnGeneral || !btnPlate) return;
 
-  btnGeneral.addEventListener("click", () => {
-    btnGeneral.classList.add("bg-emerald-600","text-white"); btnGeneral.classList.remove("bg-gray-100","text-gray-500");
-    btnPlate.classList.remove("bg-emerald-600","text-white"); btnPlate.classList.add("bg-gray-100","text-gray-500");
+  function activateGeneral() {
+    btnGeneral.style.background = "linear-gradient(160deg,var(--green),var(--green-deep))";
+    btnGeneral.style.color = "#fff";
+    btnPlate.style.background = "transparent";
+    btnPlate.style.color = "var(--ink-soft)";
     boxGeneral.classList.remove("hidden"); boxPlate.classList.add("hidden");
     document.getElementById("searchList").innerHTML = "";
-  });
-  btnPlate.addEventListener("click", () => {
-    btnPlate.classList.add("bg-emerald-600","text-white"); btnPlate.classList.remove("bg-gray-100","text-gray-500");
-    btnGeneral.classList.remove("bg-emerald-600","text-white"); btnGeneral.classList.add("bg-gray-100","text-gray-500");
+  }
+  function activatePlate() {
+    btnPlate.style.background = "linear-gradient(160deg,var(--green),var(--green-deep))";
+    btnPlate.style.color = "#fff";
+    btnGeneral.style.background = "transparent";
+    btnGeneral.style.color = "var(--ink-soft)";
     boxPlate.classList.remove("hidden"); boxGeneral.classList.add("hidden");
     document.getElementById("searchList").innerHTML = "";
-  });
+  }
+
+  btnGeneral.addEventListener("click", activateGeneral);
+  btnPlate.addEventListener("click", activatePlate);
 }
 
 async function runMobileSearch() {
@@ -1513,10 +1590,10 @@ async function runMobileSearch() {
     params = { keyword: kw };
   }
 
-  container.innerHTML = '<div class="text-center text-gray-400 text-sm py-6"><span class="spinner inline-block"></span> กำลังค้นหา...</div>';
+  container.innerHTML = '<div class="text-center text-sm py-6" style="color:var(--ink-faint);"><span class="spinner inline-block"></span> กำลังค้นหา...</div>';
   const { data, ok } = await gasFetchUrl("searchPlate", params);
   if (!ok) {
-    container.innerHTML = '<div class="text-center text-red-400 text-sm py-6">⚠ ค้นหาไม่สำเร็จ: ' + (data.message || "") + '</div>';
+    container.innerHTML = '<div class="text-center text-sm py-6" style="color:var(--red);">⚠ ค้นหาไม่สำเร็จ: ' + (data.message || "") + '</div>';
     return;
   }
   renderItemCards(container, data.items || []);
@@ -1530,22 +1607,22 @@ document.getElementById("searchPlateProvince")?.addEventListener("input", deboun
 
 function renderItemCards(container, items) {
   if (!items.length) {
-    container.innerHTML = '<div class="text-center text-gray-400 text-sm py-6">ไม่พบข้อมูล</div>';
+    container.innerHTML = '<div class="text-center text-sm py-6" style="color:var(--ink-faint);">ไม่พบข้อมูล</div>';
     return;
   }
   container.innerHTML = items.map((it, idx) => `
     <div class="card row-clickable" data-idx="${idx}">
       <div class="flex justify-between items-start mb-2">
         <div>
-          <span class="badge bg-emerald-100 text-emerald-700">${it.plateChar} ${it.plateNumber}</span>
-          <span class="badge bg-gray-100 text-gray-600 ml-1">${it.plateProvince}</span>
+          <span class="badge" style="background:rgba(48,209,88,0.14); color:#1F8B3D;">${it.plateChar} ${it.plateNumber}</span>
+          <span class="badge ml-1" style="background:rgba(118,118,128,0.12); color:var(--ink-soft);">${it.plateProvince}</span>
         </div>
-        <div class="text-xs text-gray-400">${formatTimeShort(it.timestamp)}</div>
+        <div class="text-xs" style="color:var(--ink-faint);">${formatTimeShort(it.timestamp)}</div>
       </div>
-      <div class="text-sm text-gray-700">👤 ${it.lineName || "-"}</div>
-      <div class="text-xs text-gray-400">🏢 ${it.unit || "-"}</div>
-      <div class="text-xs text-gray-400 mb-2">🎥 ${(it.videos||[]).length} วิดีโอ · 🧾 ${(it.ticketCopies||[]).length} ใบสั่ง · 📸 ${(it.driverPhotos||[]).length} รูปผู้ขับ</div>
-      <div class="text-xs font-semibold text-emerald-600">▶ แตะเพื่อดูหลักฐาน</div>
+      <div class="text-sm" style="color:var(--ink);">👤 ${it.lineName || "-"}</div>
+      <div class="text-xs" style="color:var(--ink-faint);">🏢 ${it.unit || "-"}</div>
+      <div class="text-xs mb-2" style="color:var(--ink-faint);">🎥 ${(it.videos||[]).length} วิดีโอ · 🧾 ${(it.ticketCopies||[]).length} ใบสั่ง · 📸 ${(it.driverPhotos||[]).length} รูปผู้ขับ</div>
+      <div class="text-xs font-semibold" style="color:var(--green-deep);">▶ แตะเพื่อดูหลักฐาน</div>
     </div>
   `).join("");
 
@@ -1600,10 +1677,10 @@ function setupDesktop() {
       params.keyword = document.getElementById("pcSearchInput").value.trim();
     }
 
-    container.innerHTML = '<div class="col-span-2 text-center text-gray-400 text-sm py-8"><span class="spinner inline-block"></span> กำลังค้นหา...</div>';
+    container.innerHTML = '<div class="col-span-2 text-center text-sm py-8" style="color:var(--ink-faint);"><span class="spinner inline-block"></span> กำลังค้นหา...</div>';
     const { data, ok } = await gasFetchUrl("searchPlate", params);
     if (!ok) {
-      container.innerHTML = '<div class="col-span-2 text-center text-red-400 text-sm py-8">⚠ ค้นหาไม่สำเร็จ: ' + (data.message || "") + '</div>';
+      container.innerHTML = '<div class="col-span-2 text-center text-sm py-8" style="color:var(--red);">⚠ ค้นหาไม่สำเร็จ: ' + (data.message || "") + '</div>';
       return;
     }
     renderPcSearchResults(data.items || []);
@@ -1663,13 +1740,17 @@ function setupPcSearchModeToggle() {
   if (!btnGeneral || !btnPlate) return;
 
   btnGeneral.addEventListener("click", () => {
-    btnGeneral.classList.add("bg-emerald-600","text-white"); btnGeneral.classList.remove("bg-gray-100","text-gray-500");
-    btnPlate.classList.remove("bg-emerald-600","text-white"); btnPlate.classList.add("bg-gray-100","text-gray-500");
+    btnGeneral.style.background = "linear-gradient(160deg,var(--green),var(--green-deep))";
+    btnGeneral.style.color = "#fff";
+    btnPlate.style.background = "transparent";
+    btnPlate.style.color = "var(--ink-soft)";
     boxGeneral.classList.remove("hidden"); boxPlate.classList.add("hidden");
   });
   btnPlate.addEventListener("click", () => {
-    btnPlate.classList.add("bg-emerald-600","text-white"); btnPlate.classList.remove("bg-gray-100","text-gray-500");
-    btnGeneral.classList.remove("bg-emerald-600","text-white"); btnGeneral.classList.add("bg-gray-100","text-gray-500");
+    btnPlate.style.background = "linear-gradient(160deg,var(--green),var(--green-deep))";
+    btnPlate.style.color = "#fff";
+    btnGeneral.style.background = "transparent";
+    btnGeneral.style.color = "var(--ink-soft)";
     boxPlate.classList.remove("hidden"); boxGeneral.classList.add("hidden");
   });
 }
@@ -1750,15 +1831,15 @@ async function loadStats() {
     const tbody = document.getElementById("pcRecentTable");
     const recent = stats.recent || [];
     if (!recent.length) {
-      tbody.innerHTML = '<tr><td colspan="5" class="py-6 text-center text-gray-400">ยังไม่มีรายการอัปโหลด</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="5" class="py-6 text-center" style="color:var(--ink-faint);">ยังไม่มีรายการอัปโหลด</td></tr>';
     } else {
       tbody.innerHTML = recent.map((it, idx) => `
-        <tr class="border-b last:border-0 row-clickable" data-idx="${idx}">
-          <td class="py-2 text-gray-500">${formatTimeShort(it.timestamp)}</td>
+        <tr class="border-b last:border-0 row-clickable" style="border-color:var(--sep);" data-idx="${idx}">
+          <td class="py-2" style="color:var(--ink-faint);">${formatTimeShort(it.timestamp)}</td>
           <td class="py-2">${it.lineName || "-"}</td>
-          <td class="py-2 text-gray-500">${it.unit || "-"}</td>
-          <td class="py-2 font-semibold text-emerald-700">${it.plateChar} ${it.plateNumber} ${it.plateProvince}</td>
-          <td class="py-2"><span class="text-emerald-600 text-xs font-semibold">▶ ${(it.videos||[]).length} วิดีโอ / ${(it.ticketCopies||[]).length + (it.driverPhotos||[]).length} รูป</span></td>
+          <td class="py-2" style="color:var(--ink-faint);">${it.unit || "-"}</td>
+          <td class="py-2 font-semibold" style="color:var(--green-deep);">${it.plateChar} ${it.plateNumber} ${it.plateProvince}</td>
+          <td class="py-2"><span class="text-xs font-semibold" style="color:var(--green-deep);">▶ ${(it.videos||[]).length} วิดีโอ / ${(it.ticketCopies||[]).length + (it.driverPhotos||[]).length} รูป</span></td>
         </tr>
       `).join("");
       tbody.querySelectorAll(".row-clickable").forEach((tr, idx) => {
@@ -1796,7 +1877,8 @@ function showChartLoadError(canvasId, message) {
   if (canvas && canvas.parentElement && !canvas.dataset.errorShown) {
     canvas.dataset.errorShown = "1";
     const msg = document.createElement("div");
-    msg.className = "text-center text-xs text-gray-400 py-8";
+    msg.className = "text-center text-xs py-8";
+    msg.style.color = "var(--ink-faint)";
     msg.innerText = "⚠ ไม่สามารถแสดงกราฟนี้ได้ (" + message + ")";
     canvas.style.display = "none";
     canvas.parentElement.appendChild(msg);
@@ -1809,12 +1891,12 @@ function renderHourlyChart(hourlyToday) {
   if (hourlyChartInstance) hourlyChartInstance.destroy();
   hourlyChartInstance = new Chart(ctx, {
     type: "bar",
-    data: { labels, datasets: [{ label: "อัปโหลด", data: hourlyToday, backgroundColor: "#10b981", borderRadius: 4, maxBarThickness: 18 }] },
+    data: { labels, datasets: [{ label: "อัปโหลด", data: hourlyToday, backgroundColor: "#30D158", borderRadius: 6, maxBarThickness: 18 }] },
     options: {
       plugins: { legend: { display: false } },
       scales: {
         x: { grid: { display: false }, ticks: { font: { size: 9 } } },
-        y: { beginAtZero: true, ticks: { precision: 0 }, grid: { color: "#f1f5f9" } }
+        y: { beginAtZero: true, ticks: { precision: 0 }, grid: { color: "rgba(60,60,67,0.06)" } }
       }
     }
   });
@@ -1829,13 +1911,13 @@ function renderProvinceChart(byProvince) {
   const data = top.map(e => e[1]);
   if (otherCount > 0) { labels.push("อื่นๆ"); data.push(otherCount); }
 
-  const palette = ["#059669","#10b981","#34d399","#6ee7b7","#a7f3d0","#cbd5e1"];
+  const palette = ["#0A84FF","#30D158","#5E5CE6","#40C8E0","#FF9F0A","#C7C7CC"];
 
   if (provinceChartInstance) provinceChartInstance.destroy();
   provinceChartInstance = new Chart(ctx, {
     type: "doughnut",
-    data: { labels, datasets: [{ data, backgroundColor: palette }] },
-    options: { plugins: { legend: { position: "bottom", labels: { font: { size: 10 }, boxWidth: 10 } } } }
+    data: { labels, datasets: [{ data, backgroundColor: palette, borderColor: "#ffffff", borderWidth: 2 }] },
+    options: { plugins: { legend: { position: "bottom", labels: { font: { size: 10 }, boxWidth: 10 } } }, cutout: "62%" }
   });
 }
 
@@ -1848,14 +1930,14 @@ function renderTrendChart(trend7days) {
     type: "line",
     data: { labels, datasets: [{
       label: "ยอดอัปโหลด", data,
-      borderColor: "#059669", backgroundColor: "rgba(16,185,129,0.12)",
-      fill: true, tension: 0.35, pointRadius: 4, pointBackgroundColor: "#059669"
+      borderColor: "#0A84FF", backgroundColor: "rgba(10,132,255,0.10)",
+      fill: true, tension: 0.4, pointRadius: 4, pointBackgroundColor: "#0A84FF", borderWidth: 2.5
     }]},
     options: {
       plugins: { legend: { display: false } },
       scales: {
         x: { grid: { display: false } },
-        y: { beginAtZero: true, ticks: { precision: 0 }, grid: { color: "#f1f5f9" } }
+        y: { beginAtZero: true, ticks: { precision: 0 }, grid: { color: "rgba(60,60,67,0.06)" } }
       }
     }
   });
@@ -1867,7 +1949,7 @@ function renderUnitStats(byUnit) {
 
   const entries = Object.entries(byUnit || {}).sort((a, b) => b[1] - a[1]);
   if (!entries.length) {
-    container.innerHTML = '<div class="text-center text-gray-400 text-sm py-4">ยังไม่มีข้อมูลหน่วยรายงาน</div>';
+    container.innerHTML = '<div class="text-center text-sm py-4" style="color:var(--ink-faint);">ยังไม่มีข้อมูลหน่วยรายงาน</div>';
     return;
   }
 
@@ -1880,11 +1962,11 @@ function renderUnitStats(byUnit) {
     return `
       <div>
         <div class="flex justify-between items-center mb-1">
-          <span class="text-sm font-semibold text-gray-700">${idx + 1}. ${unit}</span>
-          <span class="text-xs text-gray-500">${count} รายการ <span class="text-gray-400">(${sharePct}%)</span></span>
+          <span class="text-sm font-semibold" style="color:var(--ink);">${idx + 1}. ${unit}</span>
+          <span class="text-xs" style="color:var(--ink-faint);">${count} รายการ <span>(${sharePct}%)</span></span>
         </div>
-        <div class="w-full bg-gray-100 rounded-full h-2.5">
-          <div class="h-2.5 rounded-full" style="width:${pct}%; background:linear-gradient(90deg,var(--emerald-light),var(--emerald));"></div>
+        <div class="w-full rounded-full h-2.5" style="background:rgba(118,118,128,.12);">
+          <div class="h-2.5 rounded-full" style="width:${pct}%; background:linear-gradient(90deg,var(--green),var(--green-deep));"></div>
         </div>
       </div>
     `;
@@ -1893,14 +1975,14 @@ function renderUnitStats(byUnit) {
 
 function renderPcSearchResults(items) {
   const container = document.getElementById("pcSearchResults");
-  if (!items.length) { container.innerHTML = '<div class="text-gray-400 text-sm">ไม่พบข้อมูล</div>'; return; }
+  if (!items.length) { container.innerHTML = '<div class="text-sm" style="color:var(--ink-faint);">ไม่พบข้อมูล</div>'; return; }
   container.innerHTML = items.map((it, idx) => `
     <div class="pc-card p-4 row-clickable" data-idx="${idx}">
-      <div class="font-bold text-emerald-700">${it.plateChar} ${it.plateNumber} ${it.plateProvince}</div>
-      <div class="text-xs text-gray-500 mt-1">👤 ${it.lineName || "-"} | 🏢 ${it.unit || "-"}</div>
-      <div class="text-xs text-gray-400">🕒 ${formatTimeShort(it.timestamp)}</div>
-      <div class="text-xs text-gray-400">🎥 ${(it.videos||[]).length} วิดีโอ · 🧾 ${(it.ticketCopies||[]).length} ใบสั่ง · 📸 ${(it.driverPhotos||[]).length} รูปผู้ขับ</div>
-      <span class="text-xs font-semibold text-emerald-600">▶ พรีวิวหลักฐาน</span>
+      <div class="font-bold" style="color:var(--green-deep);">${it.plateChar} ${it.plateNumber} ${it.plateProvince}</div>
+      <div class="text-xs mt-1" style="color:var(--ink-faint);">👤 ${it.lineName || "-"} | 🏢 ${it.unit || "-"}</div>
+      <div class="text-xs" style="color:var(--ink-faint);">🕒 ${formatTimeShort(it.timestamp)}</div>
+      <div class="text-xs" style="color:var(--ink-faint);">🎥 ${(it.videos||[]).length} วิดีโอ · 🧾 ${(it.ticketCopies||[]).length} ใบสั่ง · 📸 ${(it.driverPhotos||[]).length} รูปผู้ขับ</div>
+      <span class="text-xs font-semibold" style="color:var(--green-deep);">▶ พรีวิวหลักฐาน</span>
     </div>
   `).join("");
 
@@ -1979,18 +2061,18 @@ function renderVideoTabs() {
   if (!row) return;
   if (CURRENT_MODAL_VIDEOS.length <= 1) { row.innerHTML = ""; return; }
   row.innerHTML = CURRENT_MODAL_VIDEOS.map((v, idx) =>
-    `<button class="text-xs font-semibold px-3 py-1.5 rounded-full video-tab-btn ${idx===0?'bg-emerald-600 text-white':'bg-emerald-50 text-emerald-700'}" data-idx="${idx}">วิดีโอ ${idx+1}</button>`
+    `<button class="text-xs font-semibold px-3 py-1.5 rounded-full video-tab-btn" data-idx="${idx}" style="${idx===0? 'background:linear-gradient(160deg,var(--green),var(--green-deep));color:#fff;' : 'background:rgba(48,209,88,0.12);color:var(--green-deep);'}">วิดีโอ ${idx+1}</button>`
   ).join("");
   row.querySelectorAll(".video-tab-btn").forEach(btn => {
     btn.addEventListener("click", () => {
       const idx = parseInt(btn.dataset.idx, 10);
       loadModalVideo(idx);
       row.querySelectorAll(".video-tab-btn").forEach(b => {
-        b.classList.remove("bg-emerald-600","text-white");
-        b.classList.add("bg-emerald-50","text-emerald-700");
+        b.style.background = "rgba(48,209,88,0.12)";
+        b.style.color = "var(--green-deep)";
       });
-      btn.classList.add("bg-emerald-600","text-white");
-      btn.classList.remove("bg-emerald-50","text-emerald-700");
+      btn.style.background = "linear-gradient(160deg,var(--green),var(--green-deep))";
+      btn.style.color = "#fff";
     });
   });
 }
@@ -2012,9 +2094,9 @@ function loadModalVideo(idx) {
 function renderPhotoThumbs(containerId, photos) {
   const el = document.getElementById(containerId);
   if (!el) return;
-  if (!photos.length) { el.innerHTML = '<div class="text-xs text-gray-300">ไม่มีรูป</div>'; return; }
+  if (!photos.length) { el.innerHTML = '<div class="text-xs" style="color:var(--ink-faint);">ไม่มีรูป</div>'; return; }
   el.innerHTML = photos.map(p => `
-    <a href="${p.fileUrl}" target="_blank" class="block w-16 h-16 rounded-lg overflow-hidden border border-gray-200 flex-shrink-0">
+    <a href="${p.fileUrl}" target="_blank" class="block w-16 h-16 rounded-2xl overflow-hidden flex-shrink-0" style="border:1px solid var(--card-border);">
       <img src="https://drive.google.com/thumbnail?id=${p.fileId}&sz=w200" class="w-full h-full object-cover" />
     </a>
   `).join("");
