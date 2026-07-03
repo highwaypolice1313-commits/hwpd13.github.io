@@ -1389,193 +1389,236 @@ function resetForm() {
 }
 
 /* ============================================================
-   CANVAS: เอกสารยืนยันการรายงาน — ดีไซน์การ์ดสไตล์ iOS (Liquid Glass) - FIXED VERSION
-   ============================================================ */
-/* ============================================================
-   CANVAS: เอกสารยืนยันการรายงาน — ดีไซน์การ์ดสไตล์ iOS (Liquid Glass) - ปรับปรุงสมมาตร 100%
-   ============================================================ */
-/* ============================================================
-   CANVAS REDESIGN: เอกสารยืนยันการรายงาน (Absolute Grid System)
-   รับประกันตัวอักษรไม่เบี้ยว ไม่ล้นกรอบ 100%
+   CANVAS: เอกสารยืนยันการรายงาน — ดีไซน์การ์ดสไตล์ iOS (Liquid Glass)
    ============================================================ */
 async function drawReceiptCanvas(data) {
-  // บังคับรอฟอนต์อย่างปลอดภัย (สูงสุด 1.5 วินาที)
   try {
-    await Promise.race([
-      document.fonts.load("400 14px 'Prompt'"),
-      document.fonts.load("600 16px 'Prompt'"),
-      document.fonts.load("700 24px 'Prompt'"),
-      new Promise(r => setTimeout(r, 1500)) 
+    const fontsReadyPromise = Promise.all([
+      document.fonts.load("400 13px 'Prompt'"),
+      document.fonts.load("600 13px 'Prompt'"),
+      document.fonts.load("700 20px 'Prompt'"),
+      document.fonts.ready
     ]);
-  } catch (e) { console.warn("Font load timeout, using fallback."); }
+    const timeoutPromise = new Promise((resolve) => setTimeout(resolve, 3000));
+    await Promise.race([fontsReadyPromise, timeoutPromise]);
+  } catch (e) { /* เบราว์เซอร์บางตัวไม่รองรับ document.fonts — ข้ามได้ ใช้ fallback font แทน */ }
 
   const canvas = document.getElementById("receiptCanvas");
-  const dpr = window.devicePixelRatio || 2; // เพิ่มความคมชัดภาพ x2
-  const W = 600, H = 840; // ล็อกขนาดกระดาษตายตัว
+  const dpr = window.devicePixelRatio || 1;
+  const W = 560, H = 800;
 
   canvas.width = W * dpr;
   canvas.height = H * dpr;
-  canvas.style.width = "100%";
-  canvas.style.maxWidth = "400px";
+  canvas.style.width = W + "px";
+  canvas.style.height = H + "px";
 
   const ctx = canvas.getContext("2d");
   ctx.scale(dpr, dpr);
-  ctx.textBaseline = "top"; // ล็อกจุดอ้างอิงอักษรไว้ที่มุมบนเสมอ (ป้องกันแกน Y เพี้ยน)
 
-  // ชุดสีใหม่ (Clean & Official)
-  const C_BG = "#EFEFF4"; 
-  const C_CARD = "#FFFFFF";
-  const C_TEXT = "#1C1C1E";
-  const C_MUTED = "#6E6E73";
-  const C_PRIMARY = "#1F8B3D"; 
-  const C_PLATE_BG = "#F2F4F7";
+  const MARGIN = 40;
+  const CONTENT_W = W - MARGIN * 2;
 
-  // 1. วาดพื้นหลังรวม
-  ctx.fillStyle = C_BG;
+  // พื้นหลังไล่สีอ่อน + การ์ดโค้งมนแบบ iOS
+  const bgGrad = ctx.createLinearGradient(0, 0, W, H);
+  bgGrad.addColorStop(0, "#F3FBF6");
+  bgGrad.addColorStop(1, "#EFF6FC");
+  ctx.fillStyle = bgGrad;
   ctx.fillRect(0, 0, W, H);
 
-  // 2. วาดแถบ Header สีเขียวตำรวจด้านบน
-  const grad = ctx.createLinearGradient(0, 0, W, 250);
-  grad.addColorStop(0, "#1F8B3D");
-  grad.addColorStop(1, "#0A5B24");
-  ctx.fillStyle = grad;
-  ctx.fillRect(0, 0, W, 220);
-
-  // 3. วาดการ์ดใบเสร็จสีขาว (ให้อยู่กึ่งกลาง)
-  ctx.shadowColor = "rgba(0,0,0,0.12)";
-  ctx.shadowBlur = 20;
-  ctx.shadowOffsetY = 8;
-  ctx.fillStyle = C_CARD;
-  roundRect(ctx, 30, 50, W - 60, H - 90, 24);
+  roundRect(ctx, 16, 16, W - 32, H - 32, 32);
+  ctx.fillStyle = "rgba(255,255,255,0.86)";
   ctx.fill();
-  ctx.shadowColor = "transparent"; // ปิดเงา
-
-  // ==========================================
-  // ฟังก์ชันเขียนอักษรแบบตายตัว (Bulletproof Text)
-  // ==========================================
-  const writeText = (text, x, y, align, font, color) => {
-    ctx.font = font;
-    ctx.fillStyle = color;
-    ctx.textAlign = align;
-    ctx.fillText(text, x, y);
-  };
-
-  // 4. ส่วนหัวของใบเสร็จ (Header)
-  writeText("🚓", W/2, 85, "center", "38px 'Prompt', sans-serif", C_TEXT);
-  writeText("ตำรวจทางหลวง", W/2, 140, "center", "bold 24px 'Prompt', sans-serif", C_PRIMARY);
-  writeText("หลักฐานวิดีโอรถวิ่งขวา", W/2, 175, "center", "600 16px 'Prompt', sans-serif", C_MUTED);
-
-  // เส้นประคั่น
-  ctx.strokeStyle = "#E5E5EA";
-  ctx.lineWidth = 2;
-  ctx.setLineDash([8, 8]);
-  ctx.beginPath();
-  ctx.moveTo(60, 220);
-  ctx.lineTo(W - 60, 220);
+  ctx.strokeStyle = "rgba(28,28,30,0.06)";
+  ctx.lineWidth = 1.5;
   ctx.stroke();
-  ctx.setLineDash([]);
 
-  // เลขที่เอกสาร
+  // แถบหัวเอกสารไล่สีเขียว-น้ำเงินสไตล์ iOS
+  const headerGrad = ctx.createLinearGradient(16, 16, W - 16, 190);
+  headerGrad.addColorStop(0, "#30D158");
+  headerGrad.addColorStop(1, "#0A84FF");
+  roundRect(ctx, 16, 16, W - 32, 150, 32);
+  ctx.save();
+  ctx.clip();
+  ctx.fillStyle = headerGrad;
+  ctx.fillRect(16, 16, W - 32, 150);
+  ctx.restore();
+
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(W/2, 74, 30, 0, Math.PI * 2);
+  ctx.fillStyle = "rgba(255,255,255,0.22)";
+  ctx.fill();
+  ctx.font = "26px 'Prompt','Tahoma','Leelawadee UI',sans-serif";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText("🚓", W/2, 76);
+  ctx.restore();
+
+  ctx.textAlign = "center";
+  ctx.fillStyle = "#ffffff";
+  ctx.font = "bold 17px 'Prompt','Tahoma','Leelawadee UI',sans-serif";
+  ctx.fillText("กองบังคับการตำรวจทางหลวง", W/2, 122);
+  ctx.font = "600 12.5px 'Prompt','Tahoma','Leelawadee UI',sans-serif";
+  ctx.fillStyle = "rgba(255,255,255,0.85)";
+  ctx.fillText("ระบบฐานข้อมูลหลักฐานวิดีโอรถวิ่งขวา", W/2, 141);
+
+  ctx.font = "bold 18px 'Prompt','Tahoma','Leelawadee UI',sans-serif";
+  ctx.fillStyle = "#0B3D22";
+  fitText(ctx, "เอกสารยืนยันการรายงานหลักฐาน", W/2, 190, CONTENT_W - 20, 18, "bold", "Prompt");
+
   if (!DOC_SEQ) DOC_SEQ = Math.floor(100000 + Math.random() * 899999);
   const docNo = "HWPD-" + (data.dateThai || "").replace(/-/g, "") + "-" + DOC_SEQ;
-  writeText("REF: " + docNo, W/2, 240, "center", "400 14px 'Prompt', sans-serif", C_MUTED);
+  ctx.font = "12px 'Prompt','Tahoma','Leelawadee UI',sans-serif";
+  ctx.fillStyle = "rgba(60,60,67,0.55)";
+  ctx.fillText(truncateToWidth(ctx, "เลขที่เอกสาร " + docNo, CONTENT_W - 20), W/2, 212);
 
-  // 5. ตารางข้อมูล (ล็อกแกน X ซ้าย-ขวา แบบตายตัว ไม่มีทางล้นกรอบ)
-  const LEFT_X = 60;
-  const RIGHT_X = W - 60;
-  let currY = 290;
-  const rowGap = 38;
+  let y = 246;
+  drawSectionLabel(ctx, "ข้อมูลผู้รายงาน", MARGIN, y, CONTENT_W);
+  y += 22;
+  drawFieldRow(ctx, "ชื่อผู้รายงาน", data.lineName || "-", MARGIN, y, CONTENT_W);
+  y += 26;
+  drawFieldRow(ctx, "หน่วยรายงาน", data.unit || "-", MARGIN, y, CONTENT_W);
+  y += 26;
+  drawFieldRow(ctx, "รหัสประจำตัว LINE", data.lineUserId || "-", MARGIN, y, CONTENT_W);
+  y += 26;
+  drawFieldRow(ctx, "เวลาที่บันทึก", data.timestamp || "-", MARGIN, y, CONTENT_W);
+  y += 34;
 
-  const addRow = (label, value) => {
-    writeText(label, LEFT_X, currY, "left", "400 15px 'Prompt', sans-serif", C_MUTED);
-    // วาดชิดขวา โดยเริ่มจากขอบ W-60 เสมอ (ถ้าข้อความยาว มันจะยืดไปทางซ้าย ไม่ล้นกรอบขวาแน่นอน)
-    writeText(String(value), RIGHT_X, currY, "right", "600 15px 'Prompt', sans-serif", C_TEXT);
-    currY += rowGap;
-  };
-
-  addRow("ชื่อผู้รายงาน", data.lineName || "-");
-  addRow("หน่วยรายงาน", data.unit || "-");
-  addRow("รหัสประจำตัว LINE", data.lineUserId || "-");
-  addRow("เวลาที่บันทึก", data.timestamp || "-");
-
-  // 6. ป้ายทะเบียนรถ (ตีกรอบให้เด่นชัด)
-  currY += 15;
-  ctx.fillStyle = C_PLATE_BG;
-  ctx.strokeStyle = C_PRIMARY;
-  ctx.lineWidth = 2;
-  roundRect(ctx, 60, currY, W - 120, 110, 16);
+  const plateBoxY = y;
+  const plateBoxH = 128;
+  roundRect(ctx, MARGIN, plateBoxY, CONTENT_W, plateBoxH, 22);
+  ctx.fillStyle = "rgba(48,209,88,0.08)";
   ctx.fill();
+  ctx.strokeStyle = "rgba(48,209,88,0.35)";
+  ctx.lineWidth = 1.5;
+  roundRect(ctx, MARGIN, plateBoxY, CONTENT_W, plateBoxH, 22);
   ctx.stroke();
 
-  const pChar = (data.plateChar || "-").trim();
-  const pNum = (data.plateNumber || "-").trim();
-  writeText(`${pChar} ${pNum}`, W/2, currY + 22, "center", "bold 40px 'Prompt', sans-serif", C_TEXT);
-  writeText(data.plateProvince || "-", W/2, currY + 72, "center", "600 18px 'Prompt', sans-serif", C_MUTED);
+  ctx.textAlign = "center";
+  ctx.font = "600 12px 'Prompt','Tahoma','Leelawadee UI',sans-serif";
+  ctx.fillStyle = "#1F8B3D";
+  ctx.fillText("ข้อมูลป้ายทะเบียนรถที่รายงาน", W/2, plateBoxY + 26);
 
-  currY += 140;
+  ctx.font = "bold 34px 'Prompt','Tahoma','Leelawadee UI',sans-serif";
+  ctx.fillStyle = "#0B3D22";
+  fitText(ctx, (data.plateChar || "") + "  " + (data.plateNumber || ""), W/2, plateBoxY + 72, CONTENT_W - 40, 34, "bold", "Prompt");
 
-  // 7. สรุปไฟล์หลักฐาน
-  const vCount = (data.videos || []).length;
-  const tCount = (data.ticketCopies || []).length;
-  const dCount = (data.driverPhotos || []).length;
-  addRow("ไฟล์วิดีโอหลักฐาน", `${vCount} ไฟล์`);
-  addRow("รูปสำเนาใบสั่ง", `${tCount} รูป`);
-  addRow("รูปหลักฐานผู้ขับขี่", `${dCount} รูป`);
+  ctx.font = "600 17px 'Prompt','Tahoma','Leelawadee UI',sans-serif";
+  ctx.fillStyle = "#3C3C43";
+  ctx.fillText(truncateToWidth(ctx, data.plateProvince || "-", CONTENT_W - 40), W/2, plateBoxY + 102);
 
-  // เส้นประคั่นก่อนตราประทับ
-  currY += 10;
-  ctx.strokeStyle = "#E5E5EA";
-  ctx.setLineDash([8, 8]);
+  y = plateBoxY + plateBoxH + 32;
+
+  drawSectionLabel(ctx, "ไฟล์หลักฐาน", MARGIN, y, CONTENT_W);
+  y += 22;
+  ctx.textAlign = "left";
+  ctx.font = "13px 'Prompt','Tahoma','Leelawadee UI',sans-serif";
+  ctx.fillStyle = "#3C3C43";
+  const videoCount = (data.videos || []).length;
+  const ticketCount = (data.ticketCopies || []).length;
+  const driverCount = (data.driverPhotos || []).length;
+  y = wrapText(ctx, `วิดีโอ ${videoCount} ไฟล์ · รูปสำเนาใบสั่ง ${ticketCount} รูป · รูปผู้ขับขี่ ${driverCount} รูป`, MARGIN, y, CONTENT_W, 18);
+  y += 26;
+
+  ctx.strokeStyle = "rgba(60,60,67,0.13)";
   ctx.beginPath();
-  ctx.moveTo(60, currY);
-  ctx.lineTo(W - 60, currY);
+  ctx.moveTo(MARGIN, y);
+  ctx.lineTo(W - MARGIN, y);
   ctx.stroke();
-  ctx.setLineDash([]);
+  y += 24;
 
-  // 8. ตราประทับและสถานะ (ล็อกตำแหน่งวงกลมและตัวอักษรตายตัว)
-  currY += 35;
-  
-  // วาดวงกลมเขียว
-  ctx.fillStyle = "#E8F6EE";
+  ctx.save();
+  ctx.translate(W - MARGIN - 56, y + 18);
+  const badgeGrad = ctx.createLinearGradient(-40, -40, 40, 40);
+  badgeGrad.addColorStop(0, "#30D158");
+  badgeGrad.addColorStop(1, "#1F8B3D");
   ctx.beginPath();
-  ctx.arc(95, currY + 25, 35, 0, Math.PI * 2);
+  ctx.arc(0, 0, 40, 0, Math.PI * 2);
+  ctx.fillStyle = badgeGrad;
   ctx.fill();
-  
-  // เครื่องหมายติ๊กถูกในวงกลม
-  writeText("✔", 95, currY - 2, "center", "bold 26px sans-serif", C_PRIMARY);
-  writeText("สำเร็จ", 95, currY + 30, "center", "bold 13px 'Prompt', sans-serif", C_PRIMARY);
+  ctx.fillStyle = "#ffffff";
+  ctx.font = "bold 12px 'Prompt','Tahoma','Leelawadee UI',sans-serif";
+  ctx.textAlign = "center";
+  ctx.fillText("บันทึกข้อมูล", 0, -4);
+  ctx.fillText("สำเร็จแล้ว", 0, 11);
+  ctx.restore();
 
-  // ข้อความข้างวงกลม
-  writeText("บันทึกข้อมูลเข้าสู่ระบบเรียบร้อย", 150, currY + 5, "left", "bold 16px 'Prompt', sans-serif", C_PRIMARY);
-  writeText("เอกสารนี้สร้างโดยระบบอัตโนมัติ ไม่ต้องลงลายมือชื่อ", 150, currY + 30, "left", "400 13px 'Prompt', sans-serif", C_MUTED);
+  ctx.textAlign = "left";
+  ctx.font = "11px 'Prompt','Tahoma','Leelawadee UI',sans-serif";
+  ctx.fillStyle = "rgba(60,60,67,0.45)";
+  ctx.fillText("เอกสารนี้สร้างขึ้นโดยระบบอัตโนมัติ ไม่ต้องลงลายมือชื่อ", MARGIN, y + 30);
+  ctx.fillText("ตรวจสอบข้อมูลย้อนหลังได้ที่หน้า “ค้นหา” ของระบบ", MARGIN, y + 48);
 
-  // นำภาพที่ได้ไปแสดงในแท็ก <img>
+  ctx.textAlign = "center";
+  ctx.font = "600 11px 'Prompt','Tahoma','Leelawadee UI',sans-serif";
+  ctx.fillStyle = "#1F8B3D";
+  ctx.fillText("— กองบังคับการตำรวจทางหลวง —", W/2, H - 34);
+
   const receiptImg = document.getElementById("receiptImg");
-  if (receiptImg) {
-    receiptImg.src = canvas.toDataURL("image/png");
+  if (receiptImg) receiptImg.src = canvas.toDataURL("image/png");
+}
+
+// วัดข้อความและลดขนาดฟอนต์ลงอัตโนมัติ (จนถึงขั้นต่ำที่กำหนด) เพื่อให้พอดีกับความกว้างที่จำกัด
+// ป้องกันปัญหาข้อความล้นขอบเอกสารเมื่อค่าที่ได้จาก API ยาวเกินคาด
+function fitText(ctx, text, centerX, y, maxWidth, baseSize, weight, family) {
+  let size = baseSize;
+  const minSize = Math.max(10, Math.round(baseSize * 0.55));
+  ctx.textAlign = "center";
+  while (size > minSize) {
+    ctx.font = `${weight} ${size}px '${family}','Tahoma','Leelawadee UI',sans-serif`;
+    if (ctx.measureText(text).width <= maxWidth) break;
+    size -= 1;
+  }
+  ctx.font = `${weight} ${size}px '${family}','Tahoma','Leelawadee UI',sans-serif`;
+  if (ctx.measureText(text).width > maxWidth) {
+    ctx.fillText(truncateToWidth(ctx, text, maxWidth), centerX, y);
+  } else {
+    ctx.fillText(text, centerX, y);
   }
 }
 
-// ฟังก์ชันวาดกรอบโค้งมน (สั้นและเสถียรที่สุด)
-function roundRect(ctx, x, y, width, height, radius) {
-  if (typeof ctx.roundRect === 'function') {
-    ctx.beginPath();
-    ctx.roundRect(x, y, width, height, radius);
-    return;
+// ตัดข้อความให้พอดีความกว้างที่กำหนด แล้วเติม "…" ต่อท้าย (ใช้ font ปัจจุบันของ ctx)
+function truncateToWidth(ctx, text, maxWidth) {
+  if (ctx.measureText(text).width <= maxWidth) return text;
+  let low = 0, high = text.length;
+  while (low < high) {
+    const mid = Math.ceil((low + high) / 2);
+    const candidate = text.slice(0, mid) + "…";
+    if (ctx.measureText(candidate).width <= maxWidth) low = mid; else high = mid - 1;
   }
+  return text.slice(0, low) + "…";
+}
+
+function drawSectionLabel(ctx, text, x, y, maxWidth) {
+  ctx.textAlign = "left";
+  ctx.font = "bold 12.5px 'Prompt','Tahoma','Leelawadee UI',sans-serif";
+  ctx.fillStyle = "#1F8B3D";
+  ctx.fillText(text.toUpperCase(), x, y);
+  ctx.strokeStyle = "rgba(48,209,88,0.4)";
+  ctx.lineWidth = 1;
+  const textW = ctx.measureText(text.toUpperCase()).width;
+  const lineEndX = Math.min(x + textW + 8 + 170, x + maxWidth);
   ctx.beginPath();
-  ctx.moveTo(x + radius, y);
-  ctx.lineTo(x + width - radius, y);
-  ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
-  ctx.lineTo(x + width, y + height - radius);
-  ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
-  ctx.lineTo(x + radius, y + height);
-  ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
-  ctx.lineTo(x, y + radius);
-  ctx.quadraticCurveTo(x, y, x + radius, y);
-  ctx.closePath();
+  ctx.moveTo(x + textW + 8, y - 4);
+  ctx.lineTo(lineEndX, y - 4);
+  ctx.stroke();
 }
 
+// วาดแถว label/value โดยจำกัดความกว้างของทั้งสองฝั่งไม่ให้ชนหรือล้นขอบ
+function drawFieldRow(ctx, label, value, x, y, maxWidth) {
+  const labelMaxW = maxWidth * 0.36;
+  const valueMaxW = maxWidth - labelMaxW - 12;
+
+  ctx.textAlign = "left";
+  ctx.font = "12px 'Prompt','Tahoma','Leelawadee UI',sans-serif";
+  ctx.fillStyle = "rgba(60,60,67,0.5)";
+  ctx.fillText(truncateToWidth(ctx, label, labelMaxW), x, y);
+
+  ctx.font = "600 13.5px 'Prompt','Tahoma','Leelawadee UI',sans-serif";
+  ctx.fillStyle = "#1C1C1E";
+  ctx.textAlign = "right";
+  ctx.fillText(truncateToWidth(ctx, String(value), valueMaxW), x + maxWidth, y);
+}
 
 function roundRect(ctx, x, y, w, h, r) {
   ctx.beginPath();
@@ -1587,6 +1630,25 @@ function roundRect(ctx, x, y, w, h, r) {
   ctx.closePath();
 }
 
+// ตัดคำ/บรรทัดข้อความให้พอดีความกว้างที่กำหนด (คืนค่าตำแหน่ง y ถัดไปหลังวาดเสร็จ)
+function wrapText(ctx, text, x, y, maxWidth, lineHeight) {
+  const words = text.split("");
+  let line = "";
+  let curY = y;
+  ctx.textAlign = "left";
+  for (let i = 0; i < words.length; i++) {
+    const testLine = line + words[i];
+    if (ctx.measureText(testLine).width > maxWidth && line !== "") {
+      ctx.fillText(line, x, curY);
+      line = words[i];
+      curY += lineHeight;
+    } else {
+      line = testLine;
+    }
+  }
+  ctx.fillText(line, x, curY);
+  return curY;
+}
 
 document.getElementById("btnDownloadImg")?.addEventListener("click", () => {
   const canvas = document.getElementById("receiptCanvas");
