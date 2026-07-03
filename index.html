@@ -360,6 +360,30 @@
 
   /* ================= MOBILE SEARCH FILTERS ================= */
   .quick-range{ transition: all .2s cubic-bezier(.2,.8,.3,1); }
+
+  /* ================= ADVANCED FILTER BOTTOM SHEET ================= */
+  #advFilterOverlay{
+    position:fixed; inset:0; z-index:150; display:none;
+    align-items:flex-end; justify-content:center;
+    background:rgba(20,20,22,.42); backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    animation: modalFadeIn .18s ease;
+  }
+  #advFilterOverlay.open{ display:flex; }
+  .adv-filter-sheet{
+    background: var(--glass-strong);
+    backdrop-filter: blur(26px) saturate(190%);
+    -webkit-backdrop-filter: blur(26px) saturate(190%);
+    border-radius: 26px 26px 0 0;
+    max-width: 480px; width:100%;
+    max-height: 82vh; overflow-y:auto;
+    padding: 18px 20px calc(20px + env(safe-area-inset-bottom));
+    box-shadow: 0 -20px 60px -18px rgba(0,0,0,.35);
+    border: 1px solid rgba(255,255,255,.6); border-bottom:none;
+    animation: advSheetUp .25s cubic-bezier(.2,.9,.3,1.15);
+  }
+  @keyframes advSheetUp{ from{ transform: translateY(24px); opacity:0; } to{ transform: translateY(0); opacity:1; } }
+  .adv-sheet-handle{ width:38px; height:5px; border-radius:999px; background:rgba(118,118,128,.35); margin:0 auto 14px; }
 </style>
 </head>
 <body>
@@ -378,6 +402,60 @@
     <div id="appModalActions" class="app-modal-actions">
       <button id="appModalConfirmBtn" class="btn-primary">ตกลง</button>
     </div>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- ADVANCED FILTER BOTTOM SHEET (มือถือ) -->
+<!-- ============================================================ -->
+<div id="advFilterOverlay">
+  <div class="adv-filter-sheet">
+    <div class="adv-sheet-handle"></div>
+    <div class="flex items-center justify-between mb-4">
+      <h3 class="font-bold text-sm" style="color:var(--green-ink);">⚙️ ตัวกรองขั้นสูง</h3>
+      <button id="btnCloseAdvFilter" class="text-xl leading-none" style="color:var(--ink-faint);">✕</button>
+    </div>
+
+    <div class="grid grid-cols-2 gap-3 mb-3">
+      <div>
+        <label class="text-xs font-semibold">ตั้งแต่วันที่</label>
+        <input type="date" id="searchDateFrom" class="mt-1" />
+      </div>
+      <div>
+        <label class="text-xs font-semibold">ถึงวันที่</label>
+        <input type="date" id="searchDateTo" class="mt-1" />
+      </div>
+    </div>
+
+    <div class="mb-3">
+      <label class="text-xs font-semibold">กรองเฉพาะจังหวัด</label>
+      <select id="searchProvinceFilter" class="mt-1">
+        <option value="">ทุกจังหวัด</option>
+      </select>
+    </div>
+
+    <div class="mb-3">
+      <label class="text-xs font-semibold">กรองเฉพาะเจ้าหน้าที่</label>
+      <select id="searchOfficerFilter" class="mt-1">
+        <option value="">เจ้าหน้าที่ทั้งหมด</option>
+      </select>
+    </div>
+
+    <div class="mb-4">
+      <label class="text-xs font-semibold">กรองเฉพาะหน่วยรายงาน</label>
+      <select id="searchUnitFilter" class="mt-1">
+        <option value="">หน่วยทั้งหมด</option>
+      </select>
+    </div>
+
+    <div class="flex items-center gap-2 mb-5 flex-wrap" id="searchQuickRanges">
+      <button class="quick-range text-xs font-semibold px-3.5 py-1.5 rounded-full" style="background:rgba(48,209,88,.12); color:var(--green-deep);" data-range="today">วันนี้</button>
+      <button class="quick-range text-xs font-semibold px-3.5 py-1.5 rounded-full" style="background:rgba(48,209,88,.12); color:var(--green-deep);" data-range="7d">7 วันที่ผ่านมา</button>
+      <button class="quick-range text-xs font-semibold px-3.5 py-1.5 rounded-full" style="background:rgba(48,209,88,.12); color:var(--green-deep);" data-range="30d">เดือนนี้</button>
+      <button class="quick-range text-xs font-semibold px-3.5 py-1.5 rounded-full" style="background:rgba(118,118,128,.12); color:var(--ink-soft);" data-range="clear">ล้างตัวกรองทั้งหมด</button>
+    </div>
+
+    <button id="btnApplyAdvFilter" class="btn-primary">แสดงผลการค้นหา</button>
   </div>
 </div>
 
@@ -1327,7 +1405,7 @@ async function drawReceiptCanvas(data) {
 
   const canvas = document.getElementById("receiptCanvas");
   const dpr = window.devicePixelRatio || 1;
-  const W = 520, H = 740;
+  const W = 560, H = 800;
 
   canvas.width = W * dpr;
   canvas.height = H * dpr;
@@ -1336,6 +1414,9 @@ async function drawReceiptCanvas(data) {
 
   const ctx = canvas.getContext("2d");
   ctx.scale(dpr, dpr);
+
+  const MARGIN = 40;
+  const CONTENT_W = W - MARGIN * 2;
 
   // พื้นหลังไล่สีอ่อน + การ์ดโค้งมนแบบ iOS
   const bgGrad = ctx.createLinearGradient(0, 0, W, H);
@@ -1381,36 +1462,36 @@ async function drawReceiptCanvas(data) {
   ctx.fillStyle = "rgba(255,255,255,0.85)";
   ctx.fillText("ระบบฐานข้อมูลหลักฐานวิดีโอรถวิ่งขวา", W/2, 141);
 
-  ctx.font = "bold 19px 'Prompt','Tahoma','Leelawadee UI',sans-serif";
+  ctx.font = "bold 18px 'Prompt','Tahoma','Leelawadee UI',sans-serif";
   ctx.fillStyle = "#0B3D22";
-  ctx.fillText("เอกสารยืนยันการรายงานหลักฐาน", W/2, 190);
+  fitText(ctx, "เอกสารยืนยันการรายงานหลักฐาน", W/2, 190, CONTENT_W - 20, 18, "bold", "Prompt");
 
   if (!DOC_SEQ) DOC_SEQ = Math.floor(100000 + Math.random() * 899999);
   const docNo = "HWPD-" + (data.dateThai || "").replace(/-/g, "") + "-" + DOC_SEQ;
   ctx.font = "12px 'Prompt','Tahoma','Leelawadee UI',sans-serif";
   ctx.fillStyle = "rgba(60,60,67,0.55)";
-  ctx.fillText("เลขที่เอกสาร " + docNo, W/2, 210);
+  ctx.fillText(truncateToWidth(ctx, "เลขที่เอกสาร " + docNo, CONTENT_W - 20), W/2, 212);
 
-  let y = 244;
-  drawSectionLabel(ctx, "ข้อมูลผู้รายงาน", 40, y);
+  let y = 246;
+  drawSectionLabel(ctx, "ข้อมูลผู้รายงาน", MARGIN, y, CONTENT_W);
   y += 22;
-  drawFieldRow(ctx, "ชื่อผู้รายงาน", data.lineName || "-", 40, y, W - 80);
+  drawFieldRow(ctx, "ชื่อผู้รายงาน", data.lineName || "-", MARGIN, y, CONTENT_W);
   y += 26;
-  drawFieldRow(ctx, "หน่วยรายงาน", data.unit || "-", 40, y, W - 80);
+  drawFieldRow(ctx, "หน่วยรายงาน", data.unit || "-", MARGIN, y, CONTENT_W);
   y += 26;
-  drawFieldRow(ctx, "รหัสประจำตัว LINE", data.lineUserId || "-", 40, y, W - 80);
+  drawFieldRow(ctx, "รหัสประจำตัว LINE", data.lineUserId || "-", MARGIN, y, CONTENT_W);
   y += 26;
-  drawFieldRow(ctx, "เวลาที่บันทึก", data.timestamp || "-", 40, y, W - 80);
+  drawFieldRow(ctx, "เวลาที่บันทึก", data.timestamp || "-", MARGIN, y, CONTENT_W);
   y += 34;
 
   const plateBoxY = y;
   const plateBoxH = 128;
-  roundRect(ctx, 40, plateBoxY, W - 80, plateBoxH, 22);
+  roundRect(ctx, MARGIN, plateBoxY, CONTENT_W, plateBoxH, 22);
   ctx.fillStyle = "rgba(48,209,88,0.08)";
   ctx.fill();
   ctx.strokeStyle = "rgba(48,209,88,0.35)";
   ctx.lineWidth = 1.5;
-  roundRect(ctx, 40, plateBoxY, W - 80, plateBoxH, 22);
+  roundRect(ctx, MARGIN, plateBoxY, CONTENT_W, plateBoxH, 22);
   ctx.stroke();
 
   ctx.textAlign = "center";
@@ -1418,17 +1499,17 @@ async function drawReceiptCanvas(data) {
   ctx.fillStyle = "#1F8B3D";
   ctx.fillText("ข้อมูลป้ายทะเบียนรถที่รายงาน", W/2, plateBoxY + 26);
 
-  ctx.font = "bold 38px 'Prompt','Tahoma','Leelawadee UI',sans-serif";
+  ctx.font = "bold 34px 'Prompt','Tahoma','Leelawadee UI',sans-serif";
   ctx.fillStyle = "#0B3D22";
-  ctx.fillText((data.plateChar || "") + "  " + (data.plateNumber || ""), W/2, plateBoxY + 72);
+  fitText(ctx, (data.plateChar || "") + "  " + (data.plateNumber || ""), W/2, plateBoxY + 72, CONTENT_W - 40, 34, "bold", "Prompt");
 
   ctx.font = "600 17px 'Prompt','Tahoma','Leelawadee UI',sans-serif";
   ctx.fillStyle = "#3C3C43";
-  ctx.fillText(data.plateProvince || "-", W/2, plateBoxY + 102);
+  ctx.fillText(truncateToWidth(ctx, data.plateProvince || "-", CONTENT_W - 40), W/2, plateBoxY + 102);
 
   y = plateBoxY + plateBoxH + 32;
 
-  drawSectionLabel(ctx, "ไฟล์หลักฐาน", 40, y);
+  drawSectionLabel(ctx, "ไฟล์หลักฐาน", MARGIN, y, CONTENT_W);
   y += 22;
   ctx.textAlign = "left";
   ctx.font = "13px 'Prompt','Tahoma','Leelawadee UI',sans-serif";
@@ -1436,18 +1517,18 @@ async function drawReceiptCanvas(data) {
   const videoCount = (data.videos || []).length;
   const ticketCount = (data.ticketCopies || []).length;
   const driverCount = (data.driverPhotos || []).length;
-  wrapText(ctx, `วิดีโอ ${videoCount} ไฟล์ · รูปสำเนาใบสั่ง ${ticketCount} รูป · รูปผู้ขับขี่ ${driverCount} รูป`, 40, y, W - 80, 18);
-  y += 44;
+  y = wrapText(ctx, `วิดีโอ ${videoCount} ไฟล์ · รูปสำเนาใบสั่ง ${ticketCount} รูป · รูปผู้ขับขี่ ${driverCount} รูป`, MARGIN, y, CONTENT_W, 18);
+  y += 26;
 
   ctx.strokeStyle = "rgba(60,60,67,0.13)";
   ctx.beginPath();
-  ctx.moveTo(40, y);
-  ctx.lineTo(W - 40, y);
+  ctx.moveTo(MARGIN, y);
+  ctx.lineTo(W - MARGIN, y);
   ctx.stroke();
   y += 24;
 
   ctx.save();
-  ctx.translate(W - 96, y + 18);
+  ctx.translate(W - MARGIN - 56, y + 18);
   const badgeGrad = ctx.createLinearGradient(-40, -40, 40, 40);
   badgeGrad.addColorStop(0, "#30D158");
   badgeGrad.addColorStop(1, "#1F8B3D");
@@ -1465,8 +1546,8 @@ async function drawReceiptCanvas(data) {
   ctx.textAlign = "left";
   ctx.font = "11px 'Prompt','Tahoma','Leelawadee UI',sans-serif";
   ctx.fillStyle = "rgba(60,60,67,0.45)";
-  ctx.fillText("เอกสารนี้สร้างขึ้นโดยระบบอัตโนมัติ ไม่ต้องลงลายมือชื่อ", 40, y + 30);
-  ctx.fillText("ตรวจสอบข้อมูลย้อนหลังได้ที่หน้า “ค้นหา” ของระบบ", 40, y + 48);
+  ctx.fillText("เอกสารนี้สร้างขึ้นโดยระบบอัตโนมัติ ไม่ต้องลงลายมือชื่อ", MARGIN, y + 30);
+  ctx.fillText("ตรวจสอบข้อมูลย้อนหลังได้ที่หน้า “ค้นหา” ของระบบ", MARGIN, y + 48);
 
   ctx.textAlign = "center";
   ctx.font = "600 11px 'Prompt','Tahoma','Leelawadee UI',sans-serif";
@@ -1477,7 +1558,38 @@ async function drawReceiptCanvas(data) {
   if (receiptImg) receiptImg.src = canvas.toDataURL("image/png");
 }
 
-function drawSectionLabel(ctx, text, x, y) {
+// วัดข้อความและลดขนาดฟอนต์ลงอัตโนมัติ (จนถึงขั้นต่ำที่กำหนด) เพื่อให้พอดีกับความกว้างที่จำกัด
+// ป้องกันปัญหาข้อความล้นขอบเอกสารเมื่อค่าที่ได้จาก API ยาวเกินคาด
+function fitText(ctx, text, centerX, y, maxWidth, baseSize, weight, family) {
+  let size = baseSize;
+  const minSize = Math.max(10, Math.round(baseSize * 0.55));
+  ctx.textAlign = "center";
+  while (size > minSize) {
+    ctx.font = `${weight} ${size}px '${family}','Tahoma','Leelawadee UI',sans-serif`;
+    if (ctx.measureText(text).width <= maxWidth) break;
+    size -= 1;
+  }
+  ctx.font = `${weight} ${size}px '${family}','Tahoma','Leelawadee UI',sans-serif`;
+  if (ctx.measureText(text).width > maxWidth) {
+    ctx.fillText(truncateToWidth(ctx, text, maxWidth), centerX, y);
+  } else {
+    ctx.fillText(text, centerX, y);
+  }
+}
+
+// ตัดข้อความให้พอดีความกว้างที่กำหนด แล้วเติม "…" ต่อท้าย (ใช้ font ปัจจุบันของ ctx)
+function truncateToWidth(ctx, text, maxWidth) {
+  if (ctx.measureText(text).width <= maxWidth) return text;
+  let low = 0, high = text.length;
+  while (low < high) {
+    const mid = Math.ceil((low + high) / 2);
+    const candidate = text.slice(0, mid) + "…";
+    if (ctx.measureText(candidate).width <= maxWidth) low = mid; else high = mid - 1;
+  }
+  return text.slice(0, low) + "…";
+}
+
+function drawSectionLabel(ctx, text, x, y, maxWidth) {
   ctx.textAlign = "left";
   ctx.font = "bold 12.5px 'Prompt','Tahoma','Leelawadee UI',sans-serif";
   ctx.fillStyle = "#1F8B3D";
@@ -1485,21 +1597,27 @@ function drawSectionLabel(ctx, text, x, y) {
   ctx.strokeStyle = "rgba(48,209,88,0.4)";
   ctx.lineWidth = 1;
   const textW = ctx.measureText(text.toUpperCase()).width;
+  const lineEndX = Math.min(x + textW + 8 + 170, x + maxWidth);
   ctx.beginPath();
   ctx.moveTo(x + textW + 8, y - 4);
-  ctx.lineTo(x + 200, y - 4);
+  ctx.lineTo(lineEndX, y - 4);
   ctx.stroke();
 }
 
+// วาดแถว label/value โดยจำกัดความกว้างของทั้งสองฝั่งไม่ให้ชนหรือล้นขอบ
 function drawFieldRow(ctx, label, value, x, y, maxWidth) {
+  const labelMaxW = maxWidth * 0.36;
+  const valueMaxW = maxWidth - labelMaxW - 12;
+
   ctx.textAlign = "left";
   ctx.font = "12px 'Prompt','Tahoma','Leelawadee UI',sans-serif";
   ctx.fillStyle = "rgba(60,60,67,0.5)";
-  ctx.fillText(label, x, y);
+  ctx.fillText(truncateToWidth(ctx, label, labelMaxW), x, y);
+
   ctx.font = "600 13.5px 'Prompt','Tahoma','Leelawadee UI',sans-serif";
   ctx.fillStyle = "#1C1C1E";
   ctx.textAlign = "right";
-  ctx.fillText(String(value), x + maxWidth, y);
+  ctx.fillText(truncateToWidth(ctx, String(value), valueMaxW), x + maxWidth, y);
 }
 
 function roundRect(ctx, x, y, w, h, r) {
@@ -1512,10 +1630,12 @@ function roundRect(ctx, x, y, w, h, r) {
   ctx.closePath();
 }
 
+// ตัดคำ/บรรทัดข้อความให้พอดีความกว้างที่กำหนด (คืนค่าตำแหน่ง y ถัดไปหลังวาดเสร็จ)
 function wrapText(ctx, text, x, y, maxWidth, lineHeight) {
   const words = text.split("");
   let line = "";
   let curY = y;
+  ctx.textAlign = "left";
   for (let i = 0; i < words.length; i++) {
     const testLine = line + words[i];
     if (ctx.measureText(testLine).width > maxWidth && line !== "") {
@@ -1527,6 +1647,7 @@ function wrapText(ctx, text, x, y, maxWidth, lineHeight) {
     }
   }
   ctx.fillText(line, x, curY);
+  return curY;
 }
 
 document.getElementById("btnDownloadImg")?.addEventListener("click", () => {
@@ -1614,6 +1735,71 @@ function setupSearchModeToggle() {
   btnPlate.addEventListener("click", activatePlate);
 }
 
+/* ---------- ตัวกรองขั้นสูง (วันที่ / จังหวัด / เจ้าหน้าที่ / หน่วย) — มือถือ (bottom sheet) ---------- */
+function setupAdvFilterSheet() {
+  const overlay = document.getElementById("advFilterOverlay");
+  const btnOpen = document.getElementById("btnOpenAdvFilter");
+  const btnClose = document.getElementById("btnCloseAdvFilter");
+  const btnApply = document.getElementById("btnApplyAdvFilter");
+  if (!overlay || !btnOpen) return;
+
+  btnOpen.addEventListener("click", async () => {
+    await ensureMobileFiltersLoaded();
+    overlay.classList.add("open");
+  });
+  btnClose?.addEventListener("click", () => overlay.classList.remove("open"));
+  overlay.addEventListener("click", (e) => { if (e.target === overlay) overlay.classList.remove("open"); });
+  btnApply?.addEventListener("click", () => {
+    overlay.classList.remove("open");
+    updateAdvFilterBadge();
+    runMobileSearch();
+  });
+
+  document.querySelectorAll("#searchQuickRanges .quick-range").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const range = btn.dataset.range;
+      const fromEl = document.getElementById("searchDateFrom");
+      const toEl = document.getElementById("searchDateTo");
+      const today = new Date();
+      const toStr = today.toISOString().slice(0,10);
+
+      if (range === "clear") {
+        fromEl.value = ""; toEl.value = "";
+        document.getElementById("searchProvinceFilter").value = "";
+        document.getElementById("searchOfficerFilter").value = "";
+        document.getElementById("searchUnitFilter").value = "";
+      } else if (range === "today") {
+        fromEl.value = toStr; toEl.value = toStr;
+      } else if (range === "7d") {
+        const from = new Date(today); from.setDate(from.getDate() - 6);
+        fromEl.value = from.toISOString().slice(0,10); toEl.value = toStr;
+      } else if (range === "30d") {
+        const from = new Date(today.getFullYear(), today.getMonth(), 1);
+        fromEl.value = from.toISOString().slice(0,10); toEl.value = toStr;
+      }
+      updateAdvFilterBadge();
+      runMobileSearch();
+    });
+  });
+
+  ["searchDateFrom", "searchDateTo", "searchProvinceFilter", "searchOfficerFilter", "searchUnitFilter"].forEach(id => {
+    document.getElementById(id)?.addEventListener("change", updateAdvFilterBadge);
+  });
+}
+
+function updateAdvFilterBadge() {
+  const badge = document.getElementById("advFilterBadge");
+  if (!badge) return;
+  const ids = ["searchDateFrom", "searchDateTo", "searchProvinceFilter", "searchOfficerFilter", "searchUnitFilter"];
+  const activeCount = ids.filter(id => (document.getElementById(id)?.value || "").trim() !== "").length;
+  if (activeCount > 0) {
+    badge.classList.remove("hidden");
+    badge.innerText = String(activeCount);
+  } else {
+    badge.classList.add("hidden");
+  }
+}
+
 /* ---------- ตัวกรองขั้นสูง (วันที่ / จังหวัด / เจ้าหน้าที่ / หน่วย) — มือถือ ---------- */
 async function ensureMobileFiltersLoaded() {
   if (MOBILE_FILTERS_LOADED) return;
@@ -1640,41 +1826,7 @@ async function ensureMobileFiltersLoaded() {
 }
 
 function setupMobileSearchFilters() {
-  const runDebounced = debounce(runMobileSearch, 350);
-
-  ["searchDateFrom", "searchDateTo", "searchProvinceFilter", "searchOfficerFilter", "searchUnitFilter"].forEach(id => {
-    document.getElementById(id)?.addEventListener("change", runMobileSearch);
-  });
-
-  document.querySelectorAll("#searchQuickRanges .quick-range").forEach(btn => {
-    btn.addEventListener("click", () => {
-      const range = btn.dataset.range;
-      const fromEl = document.getElementById("searchDateFrom");
-      const toEl = document.getElementById("searchDateTo");
-      const today = new Date();
-      const toStr = today.toISOString().slice(0,10);
-
-      if (range === "clear") {
-        fromEl.value = ""; toEl.value = "";
-        document.getElementById("searchProvinceFilter").value = "";
-        document.getElementById("searchOfficerFilter").value = "";
-        document.getElementById("searchUnitFilter").value = "";
-        document.getElementById("searchInput").value = "";
-        document.getElementById("searchPlateChar").value = "";
-        document.getElementById("searchPlateNumber").value = "";
-        document.getElementById("searchPlateProvince").value = "";
-      } else if (range === "today") {
-        fromEl.value = toStr; toEl.value = toStr;
-      } else if (range === "7d") {
-        const from = new Date(today); from.setDate(from.getDate() - 6);
-        fromEl.value = from.toISOString().slice(0,10); toEl.value = toStr;
-      } else if (range === "30d") {
-        const from = new Date(today.getFullYear(), today.getMonth(), 1);
-        fromEl.value = from.toISOString().slice(0,10); toEl.value = toStr;
-      }
-      runMobileSearch();
-    });
-  });
+  // การตั้งค่าตัวกรองขั้นสูงถูกจัดการโดย setupAdvFilterSheet() แล้ว (bottom sheet)
 }
 
 async function runMobileSearch() {
@@ -2292,6 +2444,7 @@ window.addEventListener("DOMContentLoaded", () => {
   setupFilePickers();
   setupUploadForm();
   setupSearchModeToggle();
+  setupAdvFilterSheet();
   setupMobileSearchFilters();
   setupDesktop();
 
