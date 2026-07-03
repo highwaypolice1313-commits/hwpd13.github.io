@@ -1391,6 +1391,9 @@ function resetForm() {
 /* ============================================================
    CANVAS: เอกสารยืนยันการรายงาน — ดีไซน์การ์ดสไตล์ iOS (Liquid Glass) - FIXED VERSION
    ============================================================ */
+/* ============================================================
+   CANVAS: เอกสารยืนยันการรายงาน — ดีไซน์การ์ดสไตล์ iOS (Liquid Glass) - ปรับปรุงสมมาตร 100%
+   ============================================================ */
 async function drawReceiptCanvas(data) {
   try {
     const fontsReadyPromise = Promise.all([
@@ -1416,7 +1419,7 @@ async function drawReceiptCanvas(data) {
   ctx.scale(dpr, dpr);
 
   const MARGIN = 40;
-  const CONTENT_W = W - MARGIN * 2;
+  const CONTENT_W = W - MARGIN * 2; // ความกว้างพื้นที่เนื้อหา = 480px
 
   // พื้นหลังไล่สีอ่อน + การ์ดโค้งมนแบบ iOS
   const bgGrad = ctx.createLinearGradient(0, 0, W, H);
@@ -1455,9 +1458,10 @@ async function drawReceiptCanvas(data) {
   ctx.fillText("🚓", W/2, 76);
   ctx.restore();
 
-  // ข้อความในแถบหัวข้อสีขาว (ครอบด้วย save/restore เพื่อล็อกแนวตรงกลาง)
+  // [แก้จุดที่ 2] ข้อความในแถบหัวข้อสีขาว บังคับให้อยู่กึ่งกลางหน้ากระดาษเป๊ะๆ
   ctx.save();
   ctx.textAlign = "center";
+  ctx.textBaseline = "alphabetic";
   ctx.fillStyle = "#ffffff";
   ctx.font = "bold 17px 'Prompt','Tahoma','Leelawadee UI',sans-serif";
   ctx.fillText("กองบังคับการตำรวจทางหลวง", W/2, 122);
@@ -1466,27 +1470,27 @@ async function drawReceiptCanvas(data) {
   ctx.fillText("ระบบฐานข้อมูลหลักฐานวิดีโอรถวิ่งขวา", W/2, 141);
   ctx.restore();
 
-  // หัวข้อเอกสาร (ปรับพิกัด Y ลงมาเป็น 196 ป้องกันอักษรลอยไปทับแถบสีด้านบน)
-ctx.save();
-ctx.font = "bold 18px 'Prompt','Tahoma','Leelawadee UI',sans-serif";
-ctx.fillStyle = "#0B3D22";
-ctx.textAlign = "center";
-ctx.textBaseline = "middle";
-fitText(ctx, "เอกสารยืนยันการรายงานหลักฐาน", W/2, 198, CONTENT_W - 20, 18, "bold", "Prompt");
-ctx.restore();
+  // [แก้จุดที่ 2] "เอกสารยืนยันการรายงานหลักฐาน" บังคับเซ็ตศูนย์กลางและขยับพิกัด Y ลงมาให้พ้นแถบสี
+  ctx.save();
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillStyle = "#0B3D22";
+  ctx.font = "bold 18px 'Prompt','Tahoma','Leelawadee UI',sans-serif";
+  fitText(ctx, "เอกสารยืนยันการรายงานหลักฐาน", W/2, 198, CONTENT_W - 20, 18, "bold", "Prompt");
+  ctx.restore();
 
   // เลขที่เอกสาร
   if (!DOC_SEQ) DOC_SEQ = Math.floor(100000 + Math.random() * 899999);
   const docNo = "HWPD-" + (data.dateThai || "").replace(/-/g, "") + "-" + DOC_SEQ;
   ctx.save();
+  ctx.textAlign = "center";
   ctx.font = "12px 'Prompt','Tahoma','Leelawadee UI',sans-serif";
   ctx.fillStyle = "rgba(60,60,67,0.55)";
-  ctx.textAlign = "center";
-  ctx.fillText(truncateToWidth(ctx, "เลขที่เอกสาร " + docNo, CONTENT_W - 20), W/2, 218);
+  ctx.fillText(truncateToWidth(ctx, "เลขที่เอกสาร " + docNo, CONTENT_W - 20), W/2, 222);
   ctx.restore();
 
   // ตารางข้อมูลผู้รายงาน
-  let y = 254;
+  let y = 258;
   drawSectionLabel(ctx, "ข้อมูลผู้รายงาน", MARGIN, y, CONTENT_W);
   y += 24;
   drawFieldRow(ctx, "ชื่อผู้รายงาน", data.lineName || "-", MARGIN, y, CONTENT_W);
@@ -1517,7 +1521,7 @@ ctx.restore();
 
   ctx.font = "bold 34px 'Prompt','Tahoma','Leelawadee UI',sans-serif";
   ctx.fillStyle = "#0B3D22";
-  // ใช้ช่องว่างธรรมดาตัวเดียวพอ ป้องกันระบบจัดขอบอักษรพังในเว็บบิว
+  // ล้างอักขระพิเศษว่างเปล่าล่องหนออกไป
   fitText(ctx, (data.plateChar || "").trim() + " " + (data.plateNumber || "").trim(), W/2, plateBoxY + 72, CONTENT_W - 40, 34, "bold", "Prompt");
 
   ctx.font = "600 17px 'Prompt','Tahoma','Leelawadee UI',sans-serif";
@@ -1549,9 +1553,10 @@ ctx.restore();
   ctx.stroke();
   y += 24;
 
-  // ตราสแตมป์สำเร็จรูปวงกลมฝั่งขวา
+  // [แก้จุดที่ 3] ตราสแตมป์สำเร็จรูปวงกลมฝั่งขวา + ย้ายข้อความเข้าไปอยู่ด้านในศูนย์กลาง
   ctx.save();
-  ctx.translate(W - MARGIN - 56, y + 18);
+  // ขยับศูนย์กลางวงกลมมาที่พิกัดสัมพันธ์ที่ถูกต้อง
+  ctx.translate(W - MARGIN - 40, y + 25);
   const badgeGrad = ctx.createLinearGradient(-40, -40, 40, 40);
   badgeGrad.addColorStop(0, "#30D158");
   badgeGrad.addColorStop(1, "#1F8B3D");
@@ -1559,10 +1564,12 @@ ctx.restore();
   ctx.arc(0, 0, 40, 0, Math.PI * 2);
   ctx.fillStyle = badgeGrad;
   ctx.fill();
+  
+  // บังคับให้เขียนตัวหนังสืออิงจากจุดศูนย์กลาง (0,0) ของวงกลมพอดี ไม่หลุดออกข้างนอก
   ctx.fillStyle = "#ffffff";
-  ctx.font = "bold 12px 'Prompt','Tahoma','Leelawadee UI',sans-serif";
+  ctx.font = "bold 11.5px 'Prompt','Tahoma','Leelawadee UI',sans-serif";
   ctx.textAlign = "center";
-  ctx.textBaseline = "middle"; // ตั้งฐานอักษรให้อยู่จุดศูนย์กลางวงกลม
+  ctx.textBaseline = "middle";
   ctx.fillText("บันทึกข้อมูล", 0, -8);
   ctx.fillText("สำเร็จแล้ว", 0, 8);
   ctx.restore();
@@ -1572,8 +1579,8 @@ ctx.restore();
   ctx.textAlign = "left";
   ctx.font = "11px 'Prompt','Tahoma','Leelawadee UI',sans-serif";
   ctx.fillStyle = "rgba(60,60,67,0.45)";
-  ctx.fillText("เอกสารนี้สร้างขึ้นโดยระบบอัตโนมัติ ไม่ต้องลงลายมือชื่อ", MARGIN, y + 26);
-  ctx.fillText("ตรวจสอบข้อมูลย้อนหลังได้ที่หน้า “ค้นหา” ของระบบ", MARGIN, y + 44);
+  ctx.fillText("เอกสารนี้สร้างขึ้นโดยระบบอัตโนมัติ ไม่ต้องลงลายมือชื่อ", MARGIN, y + 16);
+  ctx.fillText("ตรวจสอบข้อมูลย้อนหลังได้ที่หน้า “ค้นหา” ของระบบ", MARGIN, y + 34);
   ctx.restore();
 
   // ชื่อหน่วยงานท้ายเอกสารตรงกลางด้านล่างสุด
@@ -1586,6 +1593,35 @@ ctx.restore();
 
   const receiptImg = document.getElementById("receiptImg");
   if (receiptImg) receiptImg.src = canvas.toDataURL("image/png");
+}
+
+// [แก้จุดที่ 1] ฟังก์ชันย่อยพ่นข้อมูลแถว ให้ฝั่งขวาชดเชยระยะปลอดภัย ตัวอักษรดิ่งเท่ากันทุกแถวไม่เลยจอ
+function drawFieldRow(ctx, label, value) {
+  const x = arguments[3] !== undefined ? arguments[3] : 40;
+  const y = arguments[4] !== undefined ? arguments[4] : 0;
+  const maxWidth = arguments[5] !== undefined ? arguments[5] : 480;
+
+  ctx.save();
+
+  // บล็อกสัดส่วนฝั่งซ้ายและขวาให้แน่นอนไม่ล้นทับกัน
+  const labelMaxW = maxWidth * 0.35;
+  const valueMaxW = maxWidth * 0.60;
+
+  ctx.font = "400 13px 'Prompt','Tahoma','Leelawadee UI',sans-serif";
+  ctx.fillStyle = "rgba(60,60,67,0.5)";
+  ctx.textAlign = "left";
+  ctx.textBaseline = "alphabetic";
+  ctx.fillText(truncateToWidth(ctx, label, labelMaxW), x, y);
+
+  ctx.font = "600 13px 'Prompt','Tahoma','Leelawadee UI',sans-serif";
+  ctx.fillStyle = "#1C1C1E";
+  ctx.textAlign = "right";
+  ctx.textBaseline = "alphabetic";
+  
+  // พ่นข้อความโดยอิงระยะจาก (ขอบซ้าย + ความกว้างเต็มหน้าปัด) แล้วหักลบ 5px เพื่อความเนียนตาเท่ากันหมด
+  ctx.fillText(truncateToWidth(ctx, String(value), valueMaxW), x + maxWidth - 5, y);
+
+  ctx.restore();
 }
 
 function fitText(ctx, text, centerX, y, maxWidth, baseSize, weight, family) {
