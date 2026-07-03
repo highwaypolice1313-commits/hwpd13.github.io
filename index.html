@@ -99,10 +99,14 @@
     border-bottom-right-radius: 28px;
   }
 
-  /* Floating Liquid Glass tab bar — the signature element */
+  /* Floating Liquid Glass tab bar — the signature element
+     ใช้ position:fixed (แทน sticky เดิม) เพื่อให้แถบเมนูล่างลอยติดขอบล่างของหน้าจอ
+     ตลอดเวลาไม่ว่าจะเลื่อนเนื้อหาในแท็บไปไกลแค่ไหนก็ตาม โดยยึดกึ่งกลางแนวนอน
+     ให้พอดีกับกรอบแอปมือถือ (max-width 480px) เสมอ */
   .bottom-nav{
-    position:sticky; bottom:0; left:0; right:0;
-    margin: 0 14px calc(10px + env(safe-area-inset-bottom));
+    position:fixed; bottom:0; left:50%; transform: translateX(-50%);
+    width: calc(100% - 28px); max-width: calc(480px - 28px);
+    margin: 0; margin-bottom: calc(10px + env(safe-area-inset-bottom));
     background: var(--glass-strong);
     backdrop-filter: blur(26px) saturate(190%);
     -webkit-backdrop-filter: blur(26px) saturate(190%);
@@ -133,7 +137,7 @@
   .bottom-nav button .ic{ font-size:19px; transition: transform .25s ease; }
   .bottom-nav button.active .ic{ transform: translateY(-1px) scale(1.05); }
 
-  .tab-panel{ display:none; flex:1; padding:18px; padding-bottom:24px; overflow-y:auto; animation: fadeIn .4s cubic-bezier(.2,.8,.3,1);}
+  .tab-panel{ display:none; flex:1; padding:18px; padding-bottom: calc(88px + env(safe-area-inset-bottom)); overflow-y:auto; animation: fadeIn .4s cubic-bezier(.2,.8,.3,1);}
   .tab-panel.active{ display:block; }
   @keyframes fadeIn{ from{ opacity:0; transform:translateY(8px); } to{ opacity:1; transform:translateY(0); } }
 
@@ -405,49 +409,58 @@
     </div>
 
     <div class="card mb-3" id="plateInfoCard">
-      <h2 class="font-bold mb-3 text-sm" style="color:var(--green-ink);">📋 ข้อมูลป้ายทะเบียนรถ</h2>
+      <h2 class="font-bold mb-4 text-sm" style="color:var(--green-ink);">📋 ข้อมูลป้ายทะเบียนรถ</h2>
 
-      <label class="text-xs font-semibold">หมวดอักษร</label>
-      <input type="text" id="plateChar" placeholder="เช่น กข" class="mb-3 mt-1" />
-
-      <label class="text-xs font-semibold">หมวดตัวเลข</label>
-      <input type="text" id="plateNumber" placeholder="เช่น 1234" inputmode="numeric" class="mb-3 mt-1" />
+      <div class="grid grid-cols-2 gap-3 mb-3">
+        <div>
+          <label class="text-xs font-semibold">หมวดอักษร</label>
+          <input type="text" id="plateChar" placeholder="เช่น กข" class="mt-1" />
+        </div>
+        <div>
+          <label class="text-xs font-semibold">หมวดตัวเลข</label>
+          <input type="text" id="plateNumber" placeholder="เช่น 1234" inputmode="numeric" class="mt-1" />
+        </div>
+      </div>
 
       <label class="text-xs font-semibold">หมวดจังหวัด</label>
-      <div class="relative mt-1 mb-1">
+      <div class="relative mt-1 mb-4">
         <input type="text" id="plateProvince" class="dropdown-input" placeholder="พิมพ์เพื่อค้นหาจังหวัด..." autocomplete="off" />
         <div id="provinceDropdown" class="dropdown-list"></div>
+      </div>
+
+      <div class="pt-3" style="border-top:1px solid var(--sep);">
+        <label class="text-xs font-semibold">🏢 สังกัดหน่วยรายงาน</label>
+        <select id="plateUnit" class="mt-1">
+          <option value="">-- เลือกหน่วยรายงาน --</option>
+        </select>
+        <div id="unitLoadStatus" class="text-xs mt-1" style="color:var(--ink-faint);"></div>
       </div>
     </div>
 
     <div class="card mb-3">
-      <h2 class="font-bold mb-3 text-sm" style="color:var(--green-ink);">🏢 หน่วยรายงาน</h2>
-      <label class="text-xs font-semibold">สังกัดหน่วย</label>
-      <select id="plateUnit" class="mt-1">
-        <option value="">-- เลือกหน่วยรายงาน --</option>
-      </select>
-      <div id="unitLoadStatus" class="text-xs mt-1" style="color:var(--ink-faint);"></div>
-    </div>
+      <h2 class="font-bold mb-1 text-sm" style="color:var(--green-ink);">📎 ไฟล์หลักฐาน</h2>
+      <p class="text-xs mb-4" style="color:var(--ink-faint);">แนบไฟล์ให้ครบทั้ง 3 หมวดก่อนส่งข้อมูล</p>
 
-    <div class="card mb-3">
-      <h2 class="font-bold mb-3 text-sm" style="color:var(--green-ink);">🎥 ไฟล์วิดีโอหลักฐาน <span class="text-xs font-normal" style="color:var(--ink-faint);">(เพิ่มได้หลายไฟล์ ไม่จำกัดขนาด)</span></h2>
-      <input type="file" id="videoFileInput" accept="video/*" multiple class="hidden" />
-      <button type="button" id="btnAddVideo" class="btn-secondary mb-2">➕ เพิ่มไฟล์วิดีโอ</button>
-      <div id="videoFileList" class="space-y-2"></div>
-    </div>
+      <div class="mb-4">
+        <div class="text-xs font-semibold mb-2">🎥 ไฟล์วิดีโอหลักฐาน <span class="font-normal" style="color:var(--ink-faint);">(หลายไฟล์ได้ ไม่จำกัดขนาด)</span></div>
+        <input type="file" id="videoFileInput" accept="video/*" multiple class="hidden" />
+        <button type="button" id="btnAddVideo" class="btn-secondary mb-2">➕ เพิ่มไฟล์วิดีโอ</button>
+        <div id="videoFileList" class="space-y-2"></div>
+      </div>
 
-    <div class="card mb-3">
-      <h2 class="font-bold mb-3 text-sm" style="color:var(--green-ink);">🧾 รูปสำเนาใบสั่ง <span class="text-xs font-normal" style="color:var(--ink-faint);">(เพิ่มได้หลายรูป)</span></h2>
-      <input type="file" id="ticketCopyInput" accept="image/*" multiple class="hidden" />
-      <button type="button" id="btnAddTicketCopy" class="btn-secondary mb-2">➕ เพิ่มรูปสำเนาใบสั่ง</button>
-      <div id="ticketCopyList" class="space-y-2"></div>
-    </div>
+      <div class="mb-4 pt-4" style="border-top:1px solid var(--sep);">
+        <div class="text-xs font-semibold mb-2">🧾 รูปสำเนาใบสั่ง <span class="font-normal" style="color:var(--ink-faint);">(หลายรูปได้)</span></div>
+        <input type="file" id="ticketCopyInput" accept="image/*" multiple class="hidden" />
+        <button type="button" id="btnAddTicketCopy" class="btn-secondary mb-2">➕ เพิ่มรูปสำเนาใบสั่ง</button>
+        <div id="ticketCopyList" class="space-y-2"></div>
+      </div>
 
-    <div class="card mb-3">
-      <h2 class="font-bold mb-3 text-sm" style="color:var(--green-ink);">📸 รูปหลักฐานผู้ขับขี่ <span class="text-xs font-normal" style="color:var(--ink-faint);">(ถือใบสั่ง ยืนหน้ารถ เห็นป้ายทะเบียน — เพิ่มได้หลายรูป)</span></h2>
-      <input type="file" id="driverPhotoInput" accept="image/*" multiple class="hidden" />
-      <button type="button" id="btnAddDriverPhoto" class="btn-secondary mb-2">➕ เพิ่มรูปหลักฐาน</button>
-      <div id="driverPhotoList" class="space-y-2"></div>
+      <div class="pt-4" style="border-top:1px solid var(--sep);">
+        <div class="text-xs font-semibold mb-2">📸 รูปหลักฐานผู้ขับขี่ <span class="font-normal" style="color:var(--ink-faint);">(ถือใบสั่ง ยืนหน้ารถ เห็นป้ายทะเบียน)</span></div>
+        <input type="file" id="driverPhotoInput" accept="image/*" multiple class="hidden" />
+        <button type="button" id="btnAddDriverPhoto" class="btn-secondary mb-2">➕ เพิ่มรูปหลักฐาน</button>
+        <div id="driverPhotoList" class="space-y-2"></div>
+      </div>
     </div>
 
     <button id="btnSubmit" class="btn-primary flex items-center justify-center gap-2">
@@ -507,44 +520,11 @@
       <p class="text-xs mb-3" style="color:var(--ink-faint);">* กรอกช่องใดช่องหนึ่งหรือหลายช่องก็ได้ ไม่จำเป็นต้องครบทุกช่อง</p>
     </div>
 
-    <!-- ตัวกรองเพิ่มเติม (เทียบเท่าฝั่งคอมพิวเตอร์) -->
-    <div class="card mb-3">
-      <h3 class="font-bold mb-2 text-xs" style="color:var(--green-ink);">⚙️ ตัวกรองขั้นสูง</h3>
-      <div class="grid grid-cols-2 gap-2 mb-2">
-        <div>
-          <label class="text-xs font-semibold">ตั้งแต่วันที่</label>
-          <input type="date" id="searchDateFrom" class="mt-1" />
-        </div>
-        <div>
-          <label class="text-xs font-semibold">ถึงวันที่</label>
-          <input type="date" id="searchDateTo" class="mt-1" />
-        </div>
-      </div>
-      <div class="mb-2">
-        <label class="text-xs font-semibold">กรองเฉพาะจังหวัด</label>
-        <select id="searchProvinceFilter" class="mt-1">
-          <option value="">ทุกจังหวัด</option>
-        </select>
-      </div>
-      <div class="mb-2">
-        <label class="text-xs font-semibold">กรองเฉพาะเจ้าหน้าที่</label>
-        <select id="searchOfficerFilter" class="mt-1">
-          <option value="">เจ้าหน้าที่ทั้งหมด</option>
-        </select>
-      </div>
-      <div class="mb-3">
-        <label class="text-xs font-semibold">กรองเฉพาะหน่วยรายงาน</label>
-        <select id="searchUnitFilter" class="mt-1">
-          <option value="">หน่วยทั้งหมด</option>
-        </select>
-      </div>
-      <div class="flex items-center gap-2 flex-wrap" id="searchQuickRanges">
-        <button class="quick-range text-xs font-semibold px-3.5 py-1.5 rounded-full" style="background:rgba(48,209,88,.12); color:var(--green-deep);" data-range="today">วันนี้</button>
-        <button class="quick-range text-xs font-semibold px-3.5 py-1.5 rounded-full" style="background:rgba(48,209,88,.12); color:var(--green-deep);" data-range="7d">7 วันที่ผ่านมา</button>
-        <button class="quick-range text-xs font-semibold px-3.5 py-1.5 rounded-full" style="background:rgba(48,209,88,.12); color:var(--green-deep);" data-range="30d">เดือนนี้</button>
-        <button class="quick-range text-xs font-semibold px-3.5 py-1.5 rounded-full" style="background:rgba(118,118,128,.12); color:var(--ink-soft);" data-range="clear">ล้างตัวกรองทั้งหมด</button>
-      </div>
-    </div>
+    <!-- ปุ่มเปิดตัวกรองขั้นสูง (แสดงเป็น bottom sheet แทนการฝังในหน้า) -->
+    <button type="button" id="btnOpenAdvFilter" class="btn-secondary mb-3 flex items-center justify-center gap-2">
+      <span>⚙️ ตัวกรองขั้นสูง</span>
+      <span id="advFilterBadge" class="badge hidden" style="background:rgba(48,209,88,.18); color:var(--green-deep);">0</span>
+    </button>
 
     <div id="searchList" class="space-y-3"></div>
   </div>
