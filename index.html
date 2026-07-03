@@ -1590,17 +1590,17 @@ function fitText(ctx, text, centerX, y, maxWidth, baseSize, weight, family) {
   let size = baseSize;
   const minSize = Math.max(10, Math.round(baseSize * 0.5));
   
-  ctx.save(); // เซฟสถานะ Canvas
+  ctx.save(); // [FIX] กักสถานะ Layout ไม่ให้กระเด็นไปโดนตัวอื่น
+  ctx.font = `${weight} ${size}px '${family}','Tahoma','Leelawadee UI',sans-serif`;
   
-  // ล้างค่าและตั้งค่าฟอนต์แบบมี Fallback ที่แน่นอน
-  ctx.font = `${weight} ${size}px '${family}', 'Leelawadee UI', 'Tahoma', sans-serif`;
-  
+  // ลูปวัดขนาดลดขนาดฟอนต์ถ้าข้อความยาวเกินไป
   while (size > minSize && ctx.measureText(text).width > maxWidth) {
     size -= 1;
-    ctx.font = `${weight} ${size}px '${family}', 'Leelawadee UI', 'Tahoma', sans-serif`;
+    ctx.font = `${weight} ${size}px '${family}','Tahoma','Leelawadee UI',sans-serif`;
   }
   
-  ctx.textAlign = "center";
+  ctx.font = `${weight} ${size}px '${family}','Tahoma','Leelawadee UI',sans-serif`;
+  ctx.textAlign = "center";   // [FIX] บังคับทิศทางตรงนี้ก่อนเขียนเสมอ ป้องกันไหลขวา
   ctx.textBaseline = "middle";
   
   if (ctx.measureText(text).width > maxWidth) {
@@ -1608,17 +1608,22 @@ function fitText(ctx, text, centerX, y, maxWidth, baseSize, weight, family) {
   } else {
     ctx.fillText(text, centerX, y);
   }
-  
-  ctx.restore(); // คืนค่าสถานะป้องกันเอฟเฟกต์ตกค้างไปบรรทัดอื่น
+  ctx.restore(); // [FIX] ปล่อยสถานะกลับคืนที่เดิม
 }
 
 function truncateToWidth(ctx, text, maxWidth) {
-  if (ctx.measureText(text).width <= maxWidth) return text;
+  ctx.save(); // [FIX] ป้องกันสไตล์ฟอนต์ข้างนอกส่งผลกับการตัดคำภาษาไทย
+  if (ctx.measureText(text).width <= maxWidth) {
+    ctx.restore();
+    return text;
+  }
   let low = 0, high = text.length;
   while (low < high) {
     const mid = Math.ceil((low + high) / 2);
-    if (ctx.measureText(text.slice(0, mid) + "…").width <= maxWidth) low = mid; else high = mid - 1;
+    const candidate = text.slice(0, mid) + "…";
+    if (ctx.measureText(candidate).width <= maxWidth) low = mid; else high = mid - 1;
   }
+  ctx.restore();
   return text.slice(0, low) + "…";
 }
 
@@ -1637,26 +1642,34 @@ function drawSectionLabel(ctx, text, x, y, maxWidth) {
   ctx.stroke();
 }
 
-function drawFieldRow(ctx, label, value, x, y, maxWidth) {
-  ctx.save();
-  
-  // กำหนดสัดส่วนตายตัว ป้องกันฟอนต์บวมทะลุกล่อง
-  const labelMaxW = maxWidth * 0.35;
+function drawFieldRow(ctx, label, value) {
+  // ฟังก์ชันนี้ถูกเรียกใช้ด้วยอาร์กิวเมนต์ (ctx, label, value, x, y, maxWidth) ในสคริปต์ของคุณ
+  // ดึงค่า arguments ลำดับหลังเพื่อความปลอดภัยเผื่อหน้าเว็บบางจุดเรียกไม่เหมือนกัน
+  const x = arguments[3] !== undefined ? arguments[3] : 40;
+  const y = arguments[4] !== undefined ? arguments[4] : 0;
+  const maxWidth = arguments[5] !== undefined ? arguments[5] : 480;
+
+  ctx.save(); // [FIX] ตัดวงจรการสืบทอดค่าสายตาตัวอักษรระหว่างแถวเด็ดขาด
+
+  // ปรับสัดส่วนที่ปลอดภัยเพื่อไม่ให้เบียดกันจนตกขอบกระดาษ
+  const labelMaxW = maxWidth * 0.35; 
   const valueMaxW = maxWidth * 0.60; 
 
-  // วาดป้ายชื่อฝั่งซ้าย
-  ctx.font = "400 13px 'Prompt', 'Leelawadee UI', 'Tahoma', sans-serif";
-  ctx.fillStyle = "rgba(60,60,67,0.6)";
+  // วาดชื่อหัวข้อฝั่งซ้าย
+  ctx.font = "400 13px 'Prompt','Tahoma','Leelawadee UI',sans-serif";
+  ctx.fillStyle = "rgba(60,60,67,0.5)";
   ctx.textAlign = "left";
+  ctx.textBaseline = "alphabetic";
   ctx.fillText(truncateToWidth(ctx, label, labelMaxW), x, y);
 
-  // วาดค่าฝั่งขวา (ขยับระยะ x + maxWidth ถอยร่นเข้ามา 15px ป้องกันตกขอบ)
-  ctx.font = "600 13px 'Prompt', 'Leelawadee UI', 'Tahoma', sans-serif";
+  // วาดรายละเอียดฝั่งขวา (ขยับเข้าในมาอีก 10px ป้องกันชนขอบโครงสร้างกล่อง)
+  ctx.font = "600 13px 'Prompt','Tahoma','Leelawadee UI',sans-serif";
   ctx.fillStyle = "#1C1C1E";
   ctx.textAlign = "right";
-  ctx.fillText(truncateToWidth(ctx, String(value), valueMaxW), x + maxWidth - 15, y);
-  
-  ctx.restore();
+  ctx.textBaseline = "alphabetic";
+  ctx.fillText(truncateToWidth(ctx, String(value), valueMaxW), x + maxWidth - 10, y);
+
+  ctx.restore(); // [FIX] รีเซ็ตกลับสากล
 }
 
 function roundRect(ctx, x, y, w, h, r) {
