@@ -1571,7 +1571,8 @@ async function renderReceiptToCanvas(data, canvasId) {
   const colLeft = 60;
   const colRight = 540;
   const LABEL_RESERVED_WIDTH = 150;         // เผื่อพื้นที่ให้ label ทางซ้าย
-  const VALUE_MAX_WIDTH = (colRight - colLeft) - LABEL_RESERVED_WIDTH - 10; // เหลือให้ value
+  const VALUE_MAX_WIDTH = ((colRight - colLeft) - LABEL_RESERVED_WIDTH - 10) * 0.96; // เผื่อ margin กันข้อความล้นข้ามอุปกรณ์
+
 
   const addRow = (label, val) => {
     drawSafeText(label, colLeft, currY, "left", 15, "400", "#6E6E73");
