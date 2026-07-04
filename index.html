@@ -1649,44 +1649,49 @@ async function drawReceiptCanvas(data) {
   if (receiptImg) receiptImg.src = dataUrl;
 }
 
-document.getElementById("btnDownloadImg")?.addEventListener("click", () => {
-  const canvas = document.getElementById("receiptCanvas");
-  if (!canvas) return;
-  const fileName = "หลักฐานรายงาน_" + (LAST_REPORT_DATA?.plateChar || "") + (LAST_REPORT_DATA?.plateNumber || "") + ".png";
+  async function downloadOrShareImage(dataUrl, fileName) {
+  try {
+    const res = await fetch(dataUrl);
+    const blob = await res.blob();
+    const file = new File([blob], fileName, { type: "image/png" });
 
-  canvas.toBlob((blob) => {
-    if (!blob) {
-      showModal({
-        type: "info",
-        title: "บันทึกภาพด้วยตนเอง",
-        message: "ไม่สามารถดาวน์โหลดอัตโนมัติได้ กรุณาแตะค้างที่รูปด้านบนแล้วเลือก \"บันทึกรูปภาพ\""
-      });
+    // ลองใช้ Web Share API ก่อน (รองรับดีกว่ามากบน LINE in-app browser และมือถือส่วนใหญ่)
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      await navigator.share({ files: [file], title: fileName });
       return;
     }
-    const url = URL.createObjectURL(blob);
-    let downloadTriggered = false;
-    try {
-      const link = document.createElement("a");
-      link.download = fileName;
-      link.href = url;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      downloadTriggered = true;
-    } catch (err) {
-      downloadTriggered = false;
-    } finally {
-      setTimeout(() => URL.revokeObjectURL(url), 4000);
-    }
 
-    if (CURRENT_USER.isInClient || !downloadTriggered) {
+    // Fallback: ดาวน์โหลดผ่าน blob URL (ใช้ได้ดีบน browser ทั่วไปที่ไม่ใช่ in-app)
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.download = fileName;
+    link.href = url;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    setTimeout(() => URL.revokeObjectURL(url), 4000);
+
+    if (isLineInAppBrowser()) {
       showModal({
         type: "info",
         title: "หากไฟล์ยังไม่ถูกบันทึก",
         message: "กรุณาแตะค้างที่รูปภาพด้านบน แล้วเลือก \"บันทึกรูปภาพ\" หรือ \"Save Image\" จากเมนูที่ปรากฏขึ้น"
       });
     }
-  }, "image/png");
+  } catch (err) {
+    showModal({
+      type: "info",
+      title: "บันทึกภาพด้วยตนเอง",
+      message: "ไม่สามารถดาวน์โหลดอัตโนมัติได้ กรุณาแตะค้างที่รูปด้านบนแล้วเลือก \"บันทึกรูปภาพ\""
+    });
+  }
+}
+
+document.getElementById("btnDownloadImg")?.addEventListener("click", () => {
+  const canvas = document.getElementById("receiptCanvas");
+  if (!canvas) return;
+  const fileName = "หลักฐานรายงาน_" + (LAST_REPORT_DATA?.plateChar || "") + (LAST_REPORT_DATA?.plateNumber || "") + ".png";
+  downloadOrShareImage(canvas.toDataURL("image/png"), fileName);
 });
 
 /* ============================================================
