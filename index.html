@@ -1449,29 +1449,34 @@ function stableDocSeq(str) {
   return 100000 + (hash % 900000);
 }
 
+// เวอร์ชันที่ยืนยันด้วย document.fonts.check() จริงๆ ก่อนเริ่มวาด
+// (document.fonts.ready บางครั้ง resolve เร็วเกินไปใน webview ของ LINE
+//  ทั้งที่ฟอนต์เฉพาะ weight/size ที่ต้องใช้ยังโหลดไม่เสร็จจริง)
 async function ensurePromptFontLoaded() {
-  // บังคับโหลดฟอนต์ Prompt ทุก weight/ขนาดที่ใช้จริงในแคนวาส ก่อนจะวัด/วาดข้อความ
-  // (กันปัญหา measureText ใช้ฟอนต์สำรองแคบกว่าจริง บนมือถือที่ยังไม่เคย render ฟอนต์นี้มาก่อน
-  //  เพราะ tab-receipt ถูกซ่อนด้วย display:none จนกว่าจะสลับแท็บ)
-  const weightsUsed = ["300", "400", "500", "600", "700", "800", "normal", "bold"];
+  const weightsUsed = ["300", "400", "500", "600", "700", "800"];
   const sizesToCheck = [10, 11, 12, 13, 14, 15, 16, 18, 20, 24, 26, 38];
-
+ 
   const loadPromises = [];
   weightsUsed.forEach(w => {
     sizesToCheck.forEach(s => {
-      loadPromises.push(
-        document.fonts.load(`${w} ${s}px "Prompt"`).catch(() => {})
-      );
+      loadPromises.push(document.fonts.load(`${w} ${s}px "Prompt"`).catch(() => {}));
     });
   });
-
+ 
   try {
     await Promise.all(loadPromises);
     await document.fonts.ready;
+ 
+    // ยืนยันซ้ำว่าฟอนต์ weight ที่ใช้บ่อยที่สุด (bold, 600) พร้อมจริง
+    // ถ้ายังไม่พร้อม ให้รอเพิ่มอีกเล็กน้อย (กัน race condition ใน webview ที่ช้า)
+    const criticalChecks = ["bold 24px Prompt", "600 16px Prompt", "700 15px Prompt"];
+    const stillMissing = criticalChecks.some(f => !document.fonts.check(f));
+    if (stillMissing) {
+      await new Promise(resolve => setTimeout(resolve, 300));
+    }
   } catch (e) {
     console.warn("Font preload skipped:", e);
   }
-}
 
 // วาดใบเสร็จลง canvas ที่ระบุ แล้วคืนค่าเป็น dataURL (ใช้ได้ทั้งตอนส่งใหม่ และตอนดูย้อนหลัง)
 async function renderReceiptToCanvas(data, canvasId) {
@@ -1502,27 +1507,32 @@ await new Promise(resolve => requestAnimationFrame(resolve));
   // HELPER: หาฟอนต์/ข้อความที่ "พอดี" กับความกว้างที่กำหนด
   // ลดขนาดฟอนต์ลงทีละ 1px ก่อน ถ้ายังไม่พอค่อยตัดคำ + ใส่ "…"
   // ==========================================
-  function fitFontAndText(text, maxWidth, weight, baseSize, minSize) {
-    text = String(text ?? "-");
-    let size = baseSize;
+// เพิ่ม SAFETY_MARGIN กันไว้เผื่อ measureText วัดด้วย fallback font
+// ที่แคบกว่า Prompt ตัวจริง (เช่น กรณีฟอนต์ยังโหลดไม่เสร็จสนิทตอนวัด)
+const CANVAS_TEXT_SAFETY_MARGIN = 0.90; // ใช้พื้นที่จริงแค่ 90% ของ maxWidth ที่กำหนด
+ 
+function fitFontAndText(text, maxWidth, weight, baseSize, minSize) {
+  text = String(text ?? "-");
+  const safeMaxWidth = maxWidth * CANVAS_TEXT_SAFETY_MARGIN; // <-- กันชนเพิ่ม
+  let size = baseSize;
+  ctx.font = `${weight} ${size}px 'Prompt', sans-serif`;
+ 
+  while (size > minSize && ctx.measureText(text).width > safeMaxWidth) {
+    size -= 1;
     ctx.font = `${weight} ${size}px 'Prompt', sans-serif`;
-
-    while (size > minSize && ctx.measureText(text).width > maxWidth) {
-      size -= 1;
-      ctx.font = `${weight} ${size}px 'Prompt', sans-serif`;
-    }
-
-    if (ctx.measureText(text).width <= maxWidth) {
-      return { text, size };
-    }
-
-    // ยังไม่พอแม้ลดฟอนต์สุดแล้ว -> ตัดคำใส่ "…"
-    let truncated = text;
-    while (truncated.length > 1 && ctx.measureText(truncated + "…").width > maxWidth) {
-      truncated = truncated.slice(0, -1);
-    }
-    return { text: truncated + "…", size };
   }
+ 
+  if (ctx.measureText(text).width <= safeMaxWidth) {
+    return { text, size };
+  }
+ 
+  // ยังไม่พอแม้ลดฟอนต์สุดแล้ว -> ตัดคำใส่ "…"
+  let truncated = text;
+  while (truncated.length > 1 && ctx.measureText(truncated + "…").width > safeMaxWidth) {
+    truncated = truncated.slice(0, -1);
+  }
+  return { text: truncated + "…", size };
+}
 
   const drawSafeRoundRect = (x, y, w, h, r, fillColor) => {
     ctx.save();
