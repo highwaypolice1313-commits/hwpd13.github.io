@@ -579,8 +579,9 @@
       <p class="text-xs" style="color:var(--ink-faint);">แตะค้างที่รูปด้านล่างเพื่อบันทึกภาพ หรือกดปุ่มดาวน์โหลด</p>
     </div>
     <div class="flex justify-center">
-      <img id="receiptImg" alt="เอกสารยืนยันการรายงาน" style="width:100%; max-width:380px; border-radius:22px; box-shadow: var(--shadow-2);" />
-    </div>
+  <img id="receiptImg" alt="เอกสารยืนยันการรายงาน" 
+       style="width:100%; max-width:380px; min-width:0; border-radius:22px; box-shadow: var(--shadow-2);" />
+</div>
     <canvas id="receiptCanvas" class="hidden"></canvas>
     <button id="btnDownloadImg" class="btn-primary mt-4">📥 ดาวน์โหลดรูปภาพหลักฐานลงเครื่อง</button>
     <button id="btnBackToForm" class="btn-secondary mt-2">⬅ กลับไปส่งรายงานใหม่</button>
@@ -855,7 +856,7 @@
       <span class="spinner-lg"></span>
       <div class="text-xs mt-2">กำลังสร้างเอกสาร...</div>
     </div>
-    <img id="receiptViewImg" class="hidden" style="width:100%; border-radius:16px; box-shadow: var(--shadow-2);" />
+    <img id="receiptViewImg" class="hidden" style="width:100%; min-width:0; border-radius:16px; box-shadow: var(--shadow-2);" />
     <button id="btnDownloadReceiptView" class="btn-primary mt-4 hidden">📥 ดาวน์โหลดรูปภาพ</button>
   </div>
 </div>
