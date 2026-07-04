@@ -1441,25 +1441,41 @@ function stableDocSeq(str) {
   return 100000 + (hash % 900000);
 }
 
+async function ensurePromptFontLoaded() {
+  // บังคับโหลดฟอนต์ Prompt ทุก weight/ขนาดที่ใช้จริงในแคนวาส ก่อนจะวัด/วาดข้อความ
+  // (กันปัญหา measureText ใช้ฟอนต์สำรองแคบกว่าจริง บนมือถือที่ยังไม่เคย render ฟอนต์นี้มาก่อน
+  //  เพราะ tab-receipt ถูกซ่อนด้วย display:none จนกว่าจะสลับแท็บ)
+  const weightsUsed = ["300", "400", "500", "600", "700", "800", "normal", "bold"];
+  const sizesToCheck = [10, 11, 12, 13, 14, 15, 16, 18, 20, 24, 26, 38];
+
+  const loadPromises = [];
+  weightsUsed.forEach(w => {
+    sizesToCheck.forEach(s => {
+      loadPromises.push(
+        document.fonts.load(`${w} ${s}px "Prompt"`).catch(() => {})
+      );
+    });
+  });
+
+  try {
+    await Promise.all(loadPromises);
+    await document.fonts.ready;
+  } catch (e) {
+    console.warn("Font preload skipped:", e);
+  }
+}
+
 // วาดใบเสร็จลง canvas ที่ระบุ แล้วคืนค่าเป็น dataURL (ใช้ได้ทั้งตอนส่งใหม่ และตอนดูย้อนหลัง)
 async function renderReceiptToCanvas(data, canvasId) {
-  try {
-    await document.fonts.ready;
-    await new Promise(resolve => setTimeout(resolve, 300));
-  } catch (e) {
-    console.warn("Font loading wait skipped.");
-  }
+  await ensurePromptFontLoaded();
 
   const canvas = document.getElementById(canvasId);
   if (!canvas) throw new Error("ไม่พบ canvas: " + canvasId);
-
   const dpr = window.devicePixelRatio || 2;
   const W = 600;
   const H = 840;
-
   canvas.width = W * dpr;
   canvas.height = H * dpr;
-
   const ctx = canvas.getContext("2d");
   ctx.scale(dpr, dpr);
 
