@@ -1477,7 +1477,7 @@ async function ensurePromptFontLoaded() {
   } catch (e) {
     console.warn("Font preload skipped:", e);
   }
-
+}
 // วาดใบเสร็จลง canvas ที่ระบุ แล้วคืนค่าเป็น dataURL (ใช้ได้ทั้งตอนส่งใหม่ และตอนดูย้อนหลัง)
 async function renderReceiptToCanvas(data, canvasId) {
   await ensurePromptFontLoaded();
