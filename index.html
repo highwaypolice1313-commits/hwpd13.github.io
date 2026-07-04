@@ -1482,7 +1482,20 @@ async function renderReceiptToCanvas(data, canvasId) {
   canvas.width = W * dpr;
   canvas.height = H * dpr;
   const ctx = canvas.getContext("2d");
-  ctx.scale(dpr, dpr);
+ctx.scale(dpr, dpr);
+
+// วอร์มอัพ canvas ให้ "รู้จัก" ฟอนต์ Prompt จริงก่อนเริ่มวัด/วาด
+// (แก้บั๊ก iOS Safari/WebKit ที่ measureText ครั้งแรกอาจยังใช้ฟอนต์สำรองอยู่
+//  แม้ document.fonts.ready จะ resolve แล้วก็ตาม เพราะ canvas มี font cache แยกต่างหาก)
+ctx.save();
+ctx.globalAlpha = 0;
+["300","400","500","600","700","800","bold","normal"].forEach(w => {
+  [14, 16, 24, 38].forEach(s => {
+    ctx.font = `${w} ${s}px 'Prompt', sans-serif`;
+    ctx.fillText("กองบังคับการตำรวจทางหลวงกขคง0123456789", 0, 0);
+  });
+});
+ctx.restore();
 
   // ==========================================
   // HELPER: หาฟอนต์/ข้อความที่ "พอดี" กับความกว้างที่กำหนด
@@ -1553,8 +1566,8 @@ async function renderReceiptToCanvas(data, canvasId) {
 
   // --- Header ---
 drawSafeText("🚓", 300, 90, "center", 42, "normal", "#000");
-drawFittedText("กองบังคับการตำรวจทางหลวง", 300, 140, "center", 460, 24, 14, "bold", "#1F8B3D");
-drawFittedText("เอกสารยืนยันการรายงานหลักฐานวิดีโอรถวิ่งขวา", 300, 175, "center", 460, 16, 10, "600", "#6E6E73");
+drawFittedText("กองบังคับการตำรวจทางหลวง", 300, 140, "center", 430, 24, 14, "bold", "#1F8B3D");
+drawFittedText("เอกสารยืนยันการรายงานหลักฐานวิดีโอรถวิ่งขวา", 300, 175, "center", 430, 16, 10, "600", "#6E6E73");
 
   ctx.save();
   ctx.strokeStyle = "#E5E5EA";
