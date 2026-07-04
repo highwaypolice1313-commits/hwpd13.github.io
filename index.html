@@ -1716,42 +1716,7 @@ async function openReceiptView(it) {
     downloadBtn.classList.remove("hidden");
     downloadBtn.onclick = () => {
   const fileName = `หลักฐานรายงาน_${it.plateChar || ""}${it.plateNumber || ""}.png`;
-
-  fetch(dataUrl)
-    .then(res => res.blob())
-    .then(blob => {
-      const url = URL.createObjectURL(blob);
-      let downloadTriggered = false;
-      try {
-        const link = document.createElement("a");
-        link.download = fileName;
-        link.href = url;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        downloadTriggered = true;
-      } catch (err) {
-        downloadTriggered = false;
-      } finally {
-        setTimeout(() => URL.revokeObjectURL(url), 4000);
-      }
-
-      // in-app browser (เช่น LINE) หรือดาวน์โหลดไม่ผ่าน -> เตือนให้แตะค้างบันทึกรูปแทน
-      if (isLineInAppBrowser() || !downloadTriggered) {
-        showModal({
-          type: "info",
-          title: "หากไฟล์ยังไม่ถูกบันทึก",
-          message: "กรุณาแตะค้างที่รูปภาพด้านบน แล้วเลือก \"บันทึกรูปภาพ\" หรือ \"Save Image\" จากเมนูที่ปรากฏขึ้น"
-        });
-      }
-    })
-    .catch(() => {
-      showModal({
-        type: "info",
-        title: "บันทึกภาพด้วยตนเอง",
-        message: "ไม่สามารถดาวน์โหลดอัตโนมัติได้ กรุณาแตะค้างที่รูปด้านบนแล้วเลือก \"บันทึกรูปภาพ\""
-      });
-    });
+  downloadOrShareImage(dataUrl, fileName);
 };
   } catch (err) {
     overlay.classList.remove("open");
