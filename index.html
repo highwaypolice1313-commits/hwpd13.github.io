@@ -384,6 +384,24 @@
   }
   @keyframes advSheetUp{ from{ transform: translateY(24px); opacity:0; } to{ transform: translateY(0); opacity:1; } }
   .adv-sheet-handle{ width:38px; height:5px; border-radius:999px; background:rgba(118,118,128,.35); margin:0 auto 14px; }
+
+  /* ================= RECEIPT VIEW MODAL (ดูใบเสร็จ/เอกสารยืนยันย้อนหลัง) ================= */
+  #receiptViewOverlay{
+    position:fixed; inset:0; z-index:210; display:none;
+    align-items:center; justify-content:center; padding:20px;
+    background:rgba(20,20,22,.55); backdrop-filter: blur(10px) saturate(140%);
+    -webkit-backdrop-filter: blur(10px) saturate(140%);
+  }
+  #receiptViewOverlay.open{ display:flex; }
+  .receipt-view-box{
+    background: var(--glass-strong);
+    backdrop-filter: blur(24px) saturate(180%);
+    -webkit-backdrop-filter: blur(24px) saturate(180%);
+    border-radius: 24px; max-width:400px; width:100%;
+    padding:20px; box-shadow: 0 30px 70px -18px rgba(0,0,0,.4);
+    border: 1px solid rgba(255,255,255,.6);
+    max-height:90vh; overflow-y:auto;
+  }
 </style>
 </head>
 <body>
@@ -783,6 +801,7 @@
         <div class="text-xs" style="color:var(--ink-faint);" id="videoModalSub">-</div>
       </div>
       <div class="flex items-center gap-4">
+        <button id="btnViewReceipt" class="text-xl leading-none" style="color:var(--green-deep);" title="ดูใบเสร็จ/เอกสารยืนยัน">🧾</button>
         <button id="btnFullscreenVideo" class="text-xl leading-none" style="color:var(--green-deep);" title="ดูแบบเต็มจอ">⛶</button>
         <button id="btnCloseVideoModal" class="text-xl leading-none" style="color:var(--ink-faint);">✕</button>
       </div>
@@ -810,6 +829,26 @@
     <div class="p-4 flex justify-end flex-shrink-0 border-t" style="border-color:var(--sep);">
       <a id="videoModalOpenLink" href="#" target="_blank" class="text-xs font-semibold" style="color:var(--green-deep);">เปิดโฟลเดอร์หลักฐานทั้งหมดบน Drive ↗</a>
     </div>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- RECEIPT VIEW MODAL (ดูใบเสร็จ/เอกสารยืนยันย้อนหลัง) -->
+<!-- ============================================================ -->
+<canvas id="receiptViewCanvas" class="hidden"></canvas>
+
+<div id="receiptViewOverlay">
+  <div class="receipt-view-box">
+    <div class="flex items-center justify-between mb-3">
+      <div class="font-bold text-sm" style="color:var(--green-ink);">🧾 เอกสารยืนยันการรายงาน</div>
+      <button id="btnCloseReceiptView" class="text-xl leading-none" style="color:var(--ink-faint);">✕</button>
+    </div>
+    <div id="receiptViewLoading" class="py-10 text-center" style="color:var(--ink-faint);">
+      <span class="spinner-lg"></span>
+      <div class="text-xs mt-2">กำลังสร้างเอกสาร...</div>
+    </div>
+    <img id="receiptViewImg" class="hidden" style="width:100%; border-radius:16px; box-shadow: var(--shadow-2);" />
+    <button id="btnDownloadReceiptView" class="btn-primary mt-4 hidden">📥 ดาวน์โหลดรูปภาพ</button>
   </div>
 </div>
 
@@ -1389,10 +1428,21 @@ function resetForm() {
 }
 
 /* ============================================================
-   CANVAS API (BULLETPROOF VERSION): ล็อกพิกัดและสถานะแบบ 100%
-   แก้ปัญหาตัวหนังสือเรียงไม่ตรง บรรทัดเหลื่อม ใน LINE WebView
+   CANVAS API: สร้างใบเสร็จ/เอกสารยืนยัน (พร้อม auto-fit ข้อความ กันล้นกรอบ)
    ============================================================ */
-async function drawReceiptCanvas(data) {
+
+// hash ง่ายๆ เพื่อให้ "เลขที่เอกสาร" คงที่เสมอสำหรับข้อมูลชุดเดียวกัน
+// (ไม่ใช่การสุ่ม ดังนั้นดูย้อนหลังกี่ครั้งก็ได้เลขเดิม)
+function stableDocSeq(str) {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = (hash * 31 + str.charCodeAt(i)) >>> 0;
+  }
+  return 100000 + (hash % 900000);
+}
+
+// วาดใบเสร็จลง canvas ที่ระบุ แล้วคืนค่าเป็น dataURL (ใช้ได้ทั้งตอนส่งใหม่ และตอนดูย้อนหลัง)
+async function renderReceiptToCanvas(data, canvasId) {
   try {
     await document.fonts.ready;
     await new Promise(resolve => setTimeout(resolve, 300));
@@ -1400,8 +1450,8 @@ async function drawReceiptCanvas(data) {
     console.warn("Font loading wait skipped.");
   }
 
-  const canvas = document.getElementById("receiptCanvas");
-  if (!canvas) return;
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) throw new Error("ไม่พบ canvas: " + canvasId);
 
   const dpr = window.devicePixelRatio || 2;
   const W = 600;
@@ -1495,8 +1545,9 @@ async function drawReceiptCanvas(data) {
   ctx.stroke();
   ctx.restore();
 
-  const docSeq = Math.floor(100000 + Math.random() * 899999);
-  const docNo = "HWPD-" + (data.dateThai || "").replace(/-/g, "") + "-" + docSeq;
+  const dateForDoc = data.dateThai || (data.timestamp ? new Date(data.timestamp).toISOString().slice(0,10).replace(/-/g,"") : "");
+  const docKey = `${data.plateChar||""}-${data.plateNumber||""}-${data.plateProvince||""}-${data.timestamp||""}`;
+  const docNo = "HWPD-" + dateForDoc + "-" + stableDocSeq(docKey);
   drawSafeText("เลขที่เอกสาร: " + docNo, 300, 240, "center", 14, "400", "#8E8E93");
 
   // --- ตารางข้อมูล (label ชิดซ้าย / value ชิดขวา พร้อม fit อัตโนมัติ) ---
@@ -1566,43 +1617,15 @@ async function drawReceiptCanvas(data) {
   drawFittedText("บันทึกข้อมูลเข้าสู่ระบบเรียบร้อยแล้ว", 150, currY - 10, "left", 380, 16, 11, "bold", "#1F8B3D");
   drawFittedText("เอกสารนี้สร้างโดยระบบอัตโนมัติ ไม่ต้องลงลายมือชื่อ", 150, currY + 14, "left", 380, 13, 10, "400", "#8E8E93");
 
+  return canvas.toDataURL("image/png");
+}
+
+// ใช้กับหน้าฟอร์มส่งเดิม (หลังอัปโหลดสำเร็จ)
+async function drawReceiptCanvas(data) {
+  const dataUrl = await renderReceiptToCanvas(data, "receiptCanvas");
   const receiptImg = document.getElementById("receiptImg");
-  if (receiptImg) {
-    receiptImg.src = canvas.toDataURL("image/png");
-  }
+  if (receiptImg) receiptImg.src = dataUrl;
 }
-
-// ฟังก์ชันวาดกรอบโค้งมน (สั้นและเสถียรที่สุด)
-function roundRect(ctx, x, y, width, height, radius) {
-  if (typeof ctx.roundRect === 'function') {
-    ctx.beginPath();
-    ctx.roundRect(x, y, width, height, radius);
-    return;
-  }
-  ctx.beginPath();
-  ctx.moveTo(x + radius, y);
-  ctx.lineTo(x + width - radius, y);
-  ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
-  ctx.lineTo(x + width, y + height - radius);
-  ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
-  ctx.lineTo(x + radius, y + height);
-  ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
-  ctx.lineTo(x, y + radius);
-  ctx.quadraticCurveTo(x, y, x + radius, y);
-  ctx.closePath();
-}
-
-
-function roundRect(ctx, x, y, w, h, r) {
-  ctx.beginPath();
-  ctx.moveTo(x+r, y);
-  ctx.arcTo(x+w, y, x+w, y+h, r);
-  ctx.arcTo(x+w, y+h, x, y+h, r);
-  ctx.arcTo(x, y+h, x, y, r);
-  ctx.arcTo(x, y, x+w, y, r);
-  ctx.closePath();
-}
-
 
 document.getElementById("btnDownloadImg")?.addEventListener("click", () => {
   const canvas = document.getElementById("receiptCanvas");
@@ -1642,6 +1665,50 @@ document.getElementById("btnDownloadImg")?.addEventListener("click", () => {
       });
     }
   }, "image/png");
+});
+
+/* ============================================================
+   RECEIPT VIEW (ดูใบเสร็จ/เอกสารยืนยันย้อนหลัง)
+   ============================================================ */
+async function openReceiptView(it) {
+  if (!it) return;
+  const overlay = document.getElementById("receiptViewOverlay");
+  const img = document.getElementById("receiptViewImg");
+  const loading = document.getElementById("receiptViewLoading");
+  const downloadBtn = document.getElementById("btnDownloadReceiptView");
+
+  img.classList.add("hidden");
+  downloadBtn.classList.add("hidden");
+  loading.classList.remove("hidden");
+  overlay.classList.add("open");
+
+  try {
+    const dataUrl = await renderReceiptToCanvas(it, "receiptViewCanvas");
+    img.src = dataUrl;
+    img.classList.remove("hidden");
+    downloadBtn.classList.remove("hidden");
+    downloadBtn.onclick = () => {
+      const link = document.createElement("a");
+      link.href = dataUrl;
+      link.download = `หลักฐานรายงาน_${it.plateChar || ""}${it.plateNumber || ""}.png`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    };
+  } catch (err) {
+    overlay.classList.remove("open");
+    showErrorModal("สร้างเอกสารไม่สำเร็จ", err.message);
+  } finally {
+    loading.classList.add("hidden");
+  }
+}
+
+document.getElementById("btnViewReceipt")?.addEventListener("click", () => openReceiptView(CURRENT_MODAL_ITEM));
+document.getElementById("btnCloseReceiptView")?.addEventListener("click", () => {
+  document.getElementById("receiptViewOverlay").classList.remove("open");
+});
+document.getElementById("receiptViewOverlay")?.addEventListener("click", (e) => {
+  if (e.target.id === "receiptViewOverlay") e.currentTarget.classList.remove("open");
 });
 
 /* ============================================================
@@ -2213,6 +2280,7 @@ function renderPcSearchResults(items) {
    EMBEDDED EVIDENCE PREVIEWER (วิดีโอหลายไฟล์ + รูปภาพ) — ใช้ร่วมกันทั้งมือถือและ PC
    ============================================================ */
 let CURRENT_MODAL_VIDEOS = [];
+let CURRENT_MODAL_ITEM = null; // เก็บ record ปัจจุบันที่เปิดพรีวิวอยู่ ไว้ใช้สร้างใบเสร็จย้อนหลัง
 
 function driveEmbedUrl(it) {
   if (!it) return "";
@@ -2258,6 +2326,7 @@ function refreshFullscreenButtonState() {
 
 function openVideoModal(it) {
   if (!it) return;
+  CURRENT_MODAL_ITEM = it;
   CURRENT_MODAL_VIDEOS = it.videos || [];
 
   document.getElementById("videoModalTitle").innerText = `${it.plateChar} ${it.plateNumber} ${it.plateProvince}`;
