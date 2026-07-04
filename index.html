@@ -1580,8 +1580,8 @@ async function renderReceiptToCanvas(data, canvasId) {
   ctx.stroke();
   ctx.restore();
 
-  const pChar = (data.plateChar || "").trim();
-  const pNum = (data.plateNumber || "").trim();
+  const pChar = String(data.plateChar || "").trim();
+  const pNum = String(data.plateNumber || "").trim();
   // ทะเบียนรถ: fit ในกรอบกว้าง 440px (กันล้นถ้าหมวดอักษร/เลขยาวผิดปกติ)
   drawFittedText(`${pChar} ${pNum}`, 300, currY + 45, "center", 440, 38, 20, "bold", "#1C1C1E");
   drawFittedText(data.plateProvince || "-", 300, currY + 85, "center", 440, 18, 12, "600", "#6E6E73");
