@@ -1393,11 +1393,9 @@ function resetForm() {
    แก้ปัญหาตัวหนังสือเรียงไม่ตรง บรรทัดเหลื่อม ใน LINE WebView
    ============================================================ */
 async function drawReceiptCanvas(data) {
-  // 1. บังคับรอฟอนต์อย่างเด็ดขาด (เพิ่มความชัวร์ให้ WebView มือถือ)
   try {
     await document.fonts.ready;
-    // หน่วงเวลาเพิ่มอีกนิดให้ WebView เรนเดอร์ฟอนต์เข้าหน่วยความจำเสร็จจริงๆ
-    await new Promise(resolve => setTimeout(resolve, 300)); 
+    await new Promise(resolve => setTimeout(resolve, 300));
   } catch (e) {
     console.warn("Font loading wait skipped.");
   }
@@ -1406,20 +1404,41 @@ async function drawReceiptCanvas(data) {
   if (!canvas) return;
 
   const dpr = window.devicePixelRatio || 2;
-  const W = 600; 
-  const H = 840; 
+  const W = 600;
+  const H = 840;
 
   canvas.width = W * dpr;
   canvas.height = H * dpr;
-  
+
   const ctx = canvas.getContext("2d");
   ctx.scale(dpr, dpr);
 
   // ==========================================
-  // HELPER: ฟังก์ชันวาดที่ล็อกสถานะ (Safe Drawing)
-  // ตัดขาดจากกัน 100% ป้องกันการตั้งค่าไหลไปปนกัน
+  // HELPER: หาฟอนต์/ข้อความที่ "พอดี" กับความกว้างที่กำหนด
+  // ลดขนาดฟอนต์ลงทีละ 1px ก่อน ถ้ายังไม่พอค่อยตัดคำ + ใส่ "…"
   // ==========================================
-  
+  function fitFontAndText(text, maxWidth, weight, baseSize, minSize) {
+    text = String(text ?? "-");
+    let size = baseSize;
+    ctx.font = `${weight} ${size}px 'Prompt', sans-serif`;
+
+    while (size > minSize && ctx.measureText(text).width > maxWidth) {
+      size -= 1;
+      ctx.font = `${weight} ${size}px 'Prompt', sans-serif`;
+    }
+
+    if (ctx.measureText(text).width <= maxWidth) {
+      return { text, size };
+    }
+
+    // ยังไม่พอแม้ลดฟอนต์สุดแล้ว -> ตัดคำใส่ "…"
+    let truncated = text;
+    while (truncated.length > 1 && ctx.measureText(truncated + "…").width > maxWidth) {
+      truncated = truncated.slice(0, -1);
+    }
+    return { text: truncated + "…", size };
+  }
+
   const drawSafeRoundRect = (x, y, w, h, r, fillColor) => {
     ctx.save();
     ctx.beginPath();
@@ -1435,36 +1454,37 @@ async function drawReceiptCanvas(data) {
   };
 
   const drawSafeText = (text, x, y, align, size, weight, color) => {
-    ctx.save(); // บันทึกสถานะก่อนวาด
+    ctx.save();
     ctx.font = `${weight} ${size}px 'Prompt', sans-serif`;
     ctx.fillStyle = color;
-    ctx.textAlign = align;       // ล็อกแกน X (left, right, center)
-    ctx.textBaseline = "middle"; // ล็อกแกน Y ให้อยู่กึ่งกลางพิกัดเสมอ ป้องกันบรรทัดเหลื่อม
+    ctx.textAlign = align;
+    ctx.textBaseline = "middle";
     ctx.fillText(text, x, y);
-    ctx.restore(); // ล้างสถานะคืนค่าเดิมทันที
+    ctx.restore();
+  };
+
+  // วาดข้อความแบบ "พอดีกรอบ" — ใช้กับค่าที่ความยาวไม่แน่นอน (ชื่อ, หน่วย, ID ฯลฯ)
+  const drawFittedText = (text, x, y, align, maxWidth, baseSize, minSize, weight, color) => {
+    const fitted = fitFontAndText(text, maxWidth, weight, baseSize, minSize);
+    drawSafeText(fitted.text, x, y, align, fitted.size, weight, color);
   };
 
   // ==========================================
-  // 2. เริ่มวาดลงพิกัด (Absolute Coordinates)
+  // เริ่มวาด
   // ==========================================
-  
-  // พื้นหลังและแถบสีเขียว
   ctx.fillStyle = "#F2F4F7";
   ctx.fillRect(0, 0, W, H);
-  
-  ctx.fillStyle = "#1F8B3D"; 
+
+  ctx.fillStyle = "#1F8B3D";
   ctx.fillRect(0, 0, W, 180);
 
-  // การ์ดสีขาว
   drawSafeRoundRect(30, 40, W - 60, H - 70, 20, "#FFFFFF");
 
-  // --- ส่วนหัว (Header) ---
-  // วาง X ที่ 300 (W/2) และใช้ align "center"
+  // --- Header ---
   drawSafeText("🚓", 300, 90, "center", 42, "normal", "#000");
   drawSafeText("กองบังคับการตำรวจทางหลวง", 300, 140, "center", 24, "bold", "#1F8B3D");
   drawSafeText("เอกสารยืนยันการรายงานหลักฐานวิดีโอรถวิ่งขวา", 300, 175, "center", 16, "600", "#6E6E73");
 
-  // เส้นประคั่น
   ctx.save();
   ctx.strokeStyle = "#E5E5EA";
   ctx.lineWidth = 1.5;
@@ -1475,22 +1495,21 @@ async function drawReceiptCanvas(data) {
   ctx.stroke();
   ctx.restore();
 
-  // เลขที่เอกสาร
   const docSeq = Math.floor(100000 + Math.random() * 899999);
   const docNo = "HWPD-" + (data.dateThai || "").replace(/-/g, "") + "-" + docSeq;
   drawSafeText("เลขที่เอกสาร: " + docNo, 300, 240, "center", 14, "400", "#8E8E93");
 
-  // --- ตารางข้อมูล (Grid Layout) ---
+  // --- ตารางข้อมูล (label ชิดซ้าย / value ชิดขวา พร้อม fit อัตโนมัติ) ---
   let currY = 295;
-  const colLeft = 60;   // ขอบซ้าย
-  const colRight = 540; // ขอบขวา (W - 60)
+  const colLeft = 60;
+  const colRight = 540;
+  const LABEL_RESERVED_WIDTH = 150;         // เผื่อพื้นที่ให้ label ทางซ้าย
+  const VALUE_MAX_WIDTH = (colRight - colLeft) - LABEL_RESERVED_WIDTH - 10; // เหลือให้ value
 
   const addRow = (label, val) => {
-    // ฝั่งซ้ายชิดซ้าย (X=60)
     drawSafeText(label, colLeft, currY, "left", 15, "400", "#6E6E73");
-    // ฝั่งขวาชิดขวา (X=540)
-    drawSafeText(val, colRight, currY, "right", 15, "600", "#1C1C1E");
-    currY += 40; // ขยับบรรทัดลงมา 40px เท่าๆ กัน
+    drawFittedText(val, colRight, currY, "right", VALUE_MAX_WIDTH, 15, 10, "600", "#1C1C1E");
+    currY += 40;
   };
 
   addRow("ชื่อผู้รายงาน", data.lineName || "-");
@@ -1501,8 +1520,7 @@ async function drawReceiptCanvas(data) {
   // --- กล่องทะเบียนรถ ---
   currY += 15;
   drawSafeRoundRect(60, currY, 480, 110, 12, "#F8F9FA");
-  
-  // กรอบสีเขียวของกล่องทะเบียน
+
   ctx.save();
   ctx.strokeStyle = "#1F8B3D";
   ctx.lineWidth = 1.5;
@@ -1510,11 +1528,12 @@ async function drawReceiptCanvas(data) {
   ctx.roundRect(60, currY, 480, 110, 12);
   ctx.stroke();
   ctx.restore();
-  
+
   const pChar = (data.plateChar || "").trim();
   const pNum = (data.plateNumber || "").trim();
-  drawSafeText(`${pChar} ${pNum}`, 300, currY + 45, "center", 38, "bold", "#1C1C1E");
-  drawSafeText(data.plateProvince || "-", 300, currY + 85, "center", 18, "600", "#6E6E73");
+  // ทะเบียนรถ: fit ในกรอบกว้าง 440px (กันล้นถ้าหมวดอักษร/เลขยาวผิดปกติ)
+  drawFittedText(`${pChar} ${pNum}`, 300, currY + 45, "center", 440, 38, 20, "bold", "#1C1C1E");
+  drawFittedText(data.plateProvince || "-", 300, currY + 85, "center", 440, 18, 12, "600", "#6E6E73");
 
   currY += 145;
 
@@ -1526,7 +1545,6 @@ async function drawReceiptCanvas(data) {
   addRow("รูปสำเนาใบสั่ง", `${tCount} รูป`);
   addRow("รูปหลักฐานผู้ขับขี่", `${dCount} รูป`);
 
-  // เส้นคั่นก่อนจบ
   currY += 10;
   ctx.save();
   ctx.strokeStyle = "#E5E5EA";
@@ -1537,23 +1555,17 @@ async function drawReceiptCanvas(data) {
   ctx.stroke();
   ctx.restore();
 
-  // --- ตราประทับและข้อความยืนยัน ---
+  // --- ตราประทับ ---
   currY += 55;
-  
-  // วงกลม (จุดศูนย์กลาง X=95, Y=currY)
-  drawSafeRoundRect(60, currY - 35, 70, 70, 35, "#E8F6EE"); // วาดวงกลมด้วย roundRect รัศมี 35
-  
-  // อักษรในวงกลม (พิกัด Y ชดเชยขึ้นลงจากจุดศูนย์กลาง)
+
+  drawSafeRoundRect(60, currY - 35, 70, 70, 35, "#E8F6EE");
   drawSafeText("✔", 95, currY - 10, "center", 26, "bold", "#1F8B3D");
   drawSafeText("สำเร็จ", 95, currY + 14, "center", 13, "bold", "#1F8B3D");
 
-  // ข้อความข้างๆ
-  drawSafeText("บันทึกข้อมูลเข้าสู่ระบบเรียบร้อยแล้ว", 150, currY - 10, "left", 16, "bold", "#1F8B3D");
-  drawSafeText("เอกสารนี้สร้างโดยระบบอัตโนมัติ ไม่ต้องลงลายมือชื่อ", 150, currY + 14, "left", 13, "400", "#8E8E93");
+  // ข้อความข้างๆ: fit ในความกว้างที่เหลือ (540 - 150 - เผื่อขอบ)
+  drawFittedText("บันทึกข้อมูลเข้าสู่ระบบเรียบร้อยแล้ว", 150, currY - 10, "left", 380, 16, 11, "bold", "#1F8B3D");
+  drawFittedText("เอกสารนี้สร้างโดยระบบอัตโนมัติ ไม่ต้องลงลายมือชื่อ", 150, currY + 14, "left", 380, 13, 10, "400", "#8E8E93");
 
-  // ==========================================
-  // 3. นำ Canvas ไปแสดงเป็นภาพ
-  // ==========================================
   const receiptImg = document.getElementById("receiptImg");
   if (receiptImg) {
     receiptImg.src = canvas.toDataURL("image/png");
