@@ -1717,14 +1717,33 @@ const infoRowFits = infoRowsSpec.map(spec => ({
   };
 
   const drawSafeText = (text, x, y, align, size, weight, color) => {
-    ctx.save();
-    ctx.font = `${weight} ${size}px 'Prompt', sans-serif`;
-    ctx.fillStyle = color;
-    ctx.textAlign = align;
-    ctx.textBaseline = "middle";
-    ctx.fillText(text, x, y);
-    ctx.restore();
-  };
+  ctx.save();
+  ctx.font = `${weight} ${size}px 'Prompt', sans-serif`;
+  ctx.fillStyle = color;
+  ctx.textAlign = align;
+  ctx.textBaseline = "middle";
+
+  let drawX = x;
+
+  // แก้ปัญหาตัวอักษรไทยที่มีหางโค้ง (เช่น ล, ป, ญ) ทำให้หมึกจริงล้นเกินตำแหน่งอ้างอิง
+  // จนแนวขวาไม่ตรงกันระหว่างแถว: ใช้ actualBoundingBoxRight/Left (ขอบเขตหมึกจริง)
+  // แทน advance width ในการจัดตำแหน่ง
+  if (align === "right") {
+    const m = ctx.measureText(text);
+    if (typeof m.actualBoundingBoxRight === "number") {
+      const overhang = Math.max(0, m.actualBoundingBoxRight - m.width * 0); // ระยะหมึกล้นทางขวาจากจุดอ้างอิง
+      drawX = x - Math.max(0, m.actualBoundingBoxRight);
+    }
+  } else if (align === "left") {
+    const m = ctx.measureText(text);
+    if (typeof m.actualBoundingBoxLeft === "number") {
+      drawX = x + Math.max(0, m.actualBoundingBoxLeft) * 0; // ฝั่งซ้ายปกติไม่ค่อยมีปัญหา ไม่ต้องปรับ
+    }
+  }
+
+  ctx.fillText(text, drawX, y);
+  ctx.restore();
+};
 
   // วาดหลายบรรทัดจากผล fitTextBlock() โดยกึ่งกลางแนวตั้งรอบจุด centerY ที่กำหนด
   const drawFittedBlock = (fit, x, centerY, align, weight, color) => {
