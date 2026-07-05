@@ -1520,23 +1520,28 @@ function wrapTextToLines(ctx, text, maxWidth) {
 function fitTextBlock(ctx, text, maxWidth, weight, baseSize, minSize, maxLines) {
   let size = baseSize;
   let lines = [];
-  while (size >= minSize) {
+  let fitted = false;
+
+  for (size = baseSize; size >= minSize; size--) {
     ctx.font = `${weight} ${size}px 'Prompt', sans-serif`;
     lines = wrapTextToLines(ctx, text, maxWidth);
-    if (lines.length <= maxLines) break;
-    size -= 1;
+    if (lines.length <= maxLines) { fitted = true; break; }
   }
-  ctx.font = `${weight} ${size}px 'Prompt', sans-serif`;
-  lines = wrapTextToLines(ctx, text, maxWidth);
 
-  if (lines.length > maxLines) {
-    lines = lines.slice(0, maxLines);
-    let last = lines[maxLines - 1];
-    while (last.length > 1 && ctx.measureText(last + "…").width > maxWidth) {
-      last = last.slice(0, -1);
+  if (!fitted) {
+    size = minSize; // ห้ามหลุดต่ำกว่า minSize เด็ดขาด
+    ctx.font = `${weight} ${size}px 'Prompt', sans-serif`;
+    lines = wrapTextToLines(ctx, text, maxWidth);
+    if (lines.length > maxLines) {
+      lines = lines.slice(0, maxLines);
+      let last = lines[maxLines - 1];
+      while (last.length > 1 && ctx.measureText(last + "…").width > maxWidth) {
+        last = last.slice(0, -1);
+      }
+      lines[maxLines - 1] = last + "…";
     }
-    lines[maxLines - 1] = last + "…";
   }
+
   return { lines, size };
 }
 
@@ -1579,15 +1584,15 @@ async function renderReceiptToCanvas(data, canvasId) {
   const VALUE_MAX_WIDTH = CONTENT_WIDTH - LABEL_WIDTH - 10;
 
   const infoRowsSpec = [
-    ["ชื่อผู้รายงาน", data.lineName || "-"],
-    ["หน่วยรายงาน", data.unit || "-"],
-    ["รหัสประจำตัว LINE", data.lineUserId || "-"],
-    ["เวลาที่บันทึก", data.timestamp || "-"],
-  ];
-  const infoRowFits = infoRowsSpec.map(([label, val]) => ({
-    label,
-    valueFit: fitTextBlock(mctx, String(val), VALUE_MAX_WIDTH, "600", 15, 11, 2)
-  }));
+  { label: "ชื่อผู้รายงาน", value: data.lineName || "-", maxLines: 2, minSize: 11 },
+  { label: "หน่วยรายงาน", value: data.unit || "-", maxLines: 3, minSize: 10 },
+  { label: "รหัสประจำตัว LINE", value: data.lineUserId || "-", maxLines: 2, minSize: 11 },
+  { label: "เวลาที่บันทึก", value: data.timestamp || "-", maxLines: 1, minSize: 11 },
+];
+const infoRowFits = infoRowsSpec.map(spec => ({
+  label: spec.label,
+  valueFit: fitTextBlock(mctx, String(spec.value), VALUE_MAX_WIDTH, "600", 15, spec.minSize, spec.maxLines)
+}));
 
   const pChar = String(data.plateChar || "").trim();
   const pNum = String(data.plateNumber || "").trim();
