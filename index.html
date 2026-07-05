@@ -1436,11 +1436,11 @@ function resetForm() {
 }
 
 /* ============================================================
-   CANVAS API: สร้างใบเสร็จ/เอกสารยืนยัน (พร้อม auto-fit ข้อความ กันล้นกรอบ)
+   CANVAS API: สร้างใบเสร็จ/เอกสารยืนยัน
+   (เวอร์ชันใหม่: วัดข้อความก่อนวาดเสมอ + ตัดขึ้นบรรทัดใหม่แทนการบีบฟอนต์
+    + คำนวณความสูงทุกส่วนจากเนื้อหาจริง -> ข้อความไม่มีทางล้นกรอบอีก)
    ============================================================ */
 
-// hash ง่ายๆ เพื่อให้ "เลขที่เอกสาร" คงที่เสมอสำหรับข้อมูลชุดเดียวกัน
-// (ไม่ใช่การสุ่ม ดังนั้นดูย้อนหลังกี่ครั้งก็ได้เลขเดิม)
 function stableDocSeq(str) {
   let hash = 0;
   for (let i = 0; i < str.length; i++) {
@@ -1449,26 +1449,20 @@ function stableDocSeq(str) {
   return 100000 + (hash % 900000);
 }
 
-// เวอร์ชันที่ยืนยันด้วย document.fonts.check() จริงๆ ก่อนเริ่มวาด
-// (document.fonts.ready บางครั้ง resolve เร็วเกินไปใน webview ของ LINE
-//  ทั้งที่ฟอนต์เฉพาะ weight/size ที่ต้องใช้ยังโหลดไม่เสร็จจริง)
 async function ensurePromptFontLoaded() {
   const weightsUsed = ["300", "400", "500", "600", "700", "800"];
-  const sizesToCheck = [10, 11, 12, 13, 14, 15, 16, 18, 20, 24, 26, 38];
- 
+  const sizesToCheck = [10, 11, 12, 13, 14, 15, 16, 18, 20, 24, 26, 36, 38];
+
   const loadPromises = [];
   weightsUsed.forEach(w => {
     sizesToCheck.forEach(s => {
       loadPromises.push(document.fonts.load(`${w} ${s}px "Prompt"`).catch(() => {}));
     });
   });
- 
+
   try {
     await Promise.all(loadPromises);
     await document.fonts.ready;
- 
-    // ยืนยันซ้ำว่าฟอนต์ weight ที่ใช้บ่อยที่สุด (bold, 600) พร้อมจริง
-    // ถ้ายังไม่พร้อม ให้รอเพิ่มอีกเล็กน้อย (กัน race condition ใน webview ที่ช้า)
     const criticalChecks = ["bold 24px Prompt", "600 16px Prompt", "700 15px Prompt"];
     const stillMissing = criticalChecks.some(f => !document.fonts.check(f));
     if (stillMissing) {
@@ -1478,61 +1472,230 @@ async function ensurePromptFontLoaded() {
     console.warn("Font preload skipped:", e);
   }
 }
+
+/* ---------- ตัดข้อความยาวให้ขึ้นบรรทัดใหม่ (รองรับไทยที่ไม่มีช่องว่างระหว่างคำ) ---------- */
+function wrapTextToLines(ctx, text, maxWidth) {
+  text = String(text ?? "-").trim();
+  if (!text) return ["-"];
+  if (ctx.measureText(text).width <= maxWidth) return [text];
+
+  // ผ่านที่ 1: ตัดตามช่องว่าง (ได้ผลดีกับอังกฤษ/ตัวเลข/ข้อความผสม)
+  const words = text.split(/(\s+)/).filter(w => w !== "");
+  const roughLines = [];
+  let current = "";
+  const pushCurrent = () => { if (current.trim() !== "") roughLines.push(current.trim()); current = ""; };
+  for (const w of words) {
+    const test = current + w;
+    if (ctx.measureText(test).width > maxWidth && current.trim() !== "") {
+      pushCurrent();
+      current = w;
+    } else {
+      current = test;
+    }
+  }
+  pushCurrent();
+  if (!roughLines.length) roughLines.push(text);
+
+  // ผ่านที่ 2: บรรทัดไหนยังกว้างเกิน (ภาษาไทยไม่มีช่องว่าง) ตัดซ้ำทีละตัวอักษร
+  const finalLines = [];
+  for (const line of roughLines) {
+    if (ctx.measureText(line).width <= maxWidth) { finalLines.push(line); continue; }
+    let chunk = "";
+    for (const ch of line) {
+      const test = chunk + ch;
+      if (ctx.measureText(test).width > maxWidth && chunk !== "") {
+        finalLines.push(chunk);
+        chunk = ch;
+      } else {
+        chunk = test;
+      }
+    }
+    if (chunk) finalLines.push(chunk);
+  }
+  return finalLines.length ? finalLines : [text];
+}
+
+// หาฟอนต์ที่ใหญ่สุดที่ทำให้ข้อความ "พอดี" ภายในจำนวนบรรทัดสูงสุดที่กำหนด
+// ลดขนาดฟอนต์ทีละ 1px จนพอดี ถ้าถึงขนาดต่ำสุดแล้วยังไม่พอ ค่อยตัดด้วย "…" ที่บรรทัดสุดท้าย
+function fitTextBlock(ctx, text, maxWidth, weight, baseSize, minSize, maxLines) {
+  let size = baseSize;
+  let lines = [];
+  while (size >= minSize) {
+    ctx.font = `${weight} ${size}px 'Prompt', sans-serif`;
+    lines = wrapTextToLines(ctx, text, maxWidth);
+    if (lines.length <= maxLines) break;
+    size -= 1;
+  }
+  ctx.font = `${weight} ${size}px 'Prompt', sans-serif`;
+  lines = wrapTextToLines(ctx, text, maxWidth);
+
+  if (lines.length > maxLines) {
+    lines = lines.slice(0, maxLines);
+    let last = lines[maxLines - 1];
+    while (last.length > 1 && ctx.measureText(last + "…").width > maxWidth) {
+      last = last.slice(0, -1);
+    }
+    lines[maxLines - 1] = last + "…";
+  }
+  return { lines, size };
+}
+
+const RECEIPT_LINE_GAP = 1.35; // ตัวคูณระยะห่างบรรทัด เทียบกับขนาดฟอนต์
+
 // วาดใบเสร็จลง canvas ที่ระบุ แล้วคืนค่าเป็น dataURL (ใช้ได้ทั้งตอนส่งใหม่ และตอนดูย้อนหลัง)
 async function renderReceiptToCanvas(data, canvasId) {
   await ensurePromptFontLoaded();
 
   const canvas = document.getElementById(canvasId);
   if (!canvas) throw new Error("ไม่พบ canvas: " + canvasId);
+
   const dpr = window.devicePixelRatio || 2;
-  const W = 600;
-  const H = 840;
+  const W = 640;
+  const CARD_X = 30;
+  const CARD_W = W - CARD_X * 2;             // 580
+  const PAD_X = 40;
+  const CONTENT_X = CARD_X + PAD_X;          // 70
+  const CONTENT_RIGHT = W - CARD_X - PAD_X;  // 570
+  const CONTENT_WIDTH = CONTENT_RIGHT - CONTENT_X; // 500
+  const CARD_TOP = 40;
+  const GREEN_STRIP_H = 44;
+  const CARD_PAD_TOP = 36;
+  const CARD_PAD_BOTTOM = 40;
+
+  // canvas ชั่วคราวไว้ "วัดขนาด" ล้วนๆ ก่อนรู้ความสูงจริงของ canvas ที่จะวาด
+  const measureCanvas = document.createElement("canvas");
+  const mctx = measureCanvas.getContext("2d");
+
+  const docKey = `${data.plateChar || ""}-${data.plateNumber || ""}-${data.plateProvince || ""}-${data.timestamp || ""}`;
+  const dateForDoc = data.dateThai || (data.timestamp ? new Date(data.timestamp).toISOString().slice(0, 10).replace(/-/g, "") : "");
+  const docNo = "HWPD-" + dateForDoc + "-" + stableDocSeq(docKey);
+
+  /* ============ PASS 1: วัดข้อความทั้งหมดล่วงหน้า ============ */
+  const titleFit    = fitTextBlock(mctx, "กองบังคับการตำรวจทางหลวง", CONTENT_WIDTH, "bold", 19, 14, 2);
+  const subtitleFit = fitTextBlock(mctx, "เอกสารยืนยันการรายงานหลักฐานวิดีโอรถวิ่งขวา", CONTENT_WIDTH, "600", 12, 10, 2);
+  const docNoFit    = fitTextBlock(mctx, "เลขที่เอกสาร: " + docNo, CONTENT_WIDTH, "400", 14, 11, 1);
+
+  const LABEL_WIDTH = 175;
+  const VALUE_MAX_WIDTH = CONTENT_WIDTH - LABEL_WIDTH - 10;
+
+  const infoRowsSpec = [
+    ["ชื่อผู้รายงาน", data.lineName || "-"],
+    ["หน่วยรายงาน", data.unit || "-"],
+    ["รหัสประจำตัว LINE", data.lineUserId || "-"],
+    ["เวลาที่บันทึก", data.timestamp || "-"],
+  ];
+  const infoRowFits = infoRowsSpec.map(([label, val]) => ({
+    label,
+    valueFit: fitTextBlock(mctx, String(val), VALUE_MAX_WIDTH, "600", 15, 11, 2)
+  }));
+
+  const pChar = String(data.plateChar || "").trim();
+  const pNum = String(data.plateNumber || "").trim();
+  const PLATE_BOX_W = CARD_W - 60;
+  const PLATE_TEXT_MAX_WIDTH = PLATE_BOX_W - 40;
+  const plateMainFit = fitTextBlock(mctx, `${pChar} ${pNum}`.trim(), PLATE_TEXT_MAX_WIDTH, "bold", 36, 20, 1);
+  const plateProvinceFit = fitTextBlock(mctx, data.plateProvince || "-", PLATE_TEXT_MAX_WIDTH, "600", 18, 12, 1);
+
+  const vCount = (data.videos || []).length;
+  const tCount = (data.ticketCopies || []).length;
+  const dCount = (data.driverPhotos || []).length;
+  const fileRowsSpec = [
+    ["ไฟล์วิดีโอหลักฐาน", `${vCount} ไฟล์`],
+    ["รูปสำเนาใบสั่ง", `${tCount} รูป`],
+    ["รูปหลักฐานผู้ขับขี่", `${dCount} รูป`],
+  ];
+  const fileRowFits = fileRowsSpec.map(([label, val]) => ({
+    label,
+    valueFit: fitTextBlock(mctx, String(val), VALUE_MAX_WIDTH, "600", 15, 11, 1)
+  }));
+
+  const STAMP_LABEL_MAX_WIDTH = CONTENT_WIDTH - 100; // เผื่อพื้นที่วงกลมไอคอนด้านซ้าย
+  const stampLine1Fit = fitTextBlock(mctx, "บันทึกข้อมูลเข้าสู่ระบบเรียบร้อยแล้ว", STAMP_LABEL_MAX_WIDTH, "bold", 16, 11, 2);
+  const stampLine2Fit = fitTextBlock(mctx, "เอกสารนี้สร้างโดยระบบอัตโนมัติ ไม่ต้องลงลายมือชื่อ", STAMP_LABEL_MAX_WIDTH, "400", 13, 10, 2);
+
+  /* ============ PASS 2: คำนวณตำแหน่งจริง (Y) ของทุกส่วนจากผลวัด ============ */
+  let cy = CARD_TOP + CARD_PAD_TOP;
+
+  const iconH = 46;
+  const iconCenterY = cy + iconH / 2;
+  cy += iconH;
+
+  const titleH = titleFit.lines.length * titleFit.size * RECEIPT_LINE_GAP;
+  const titleCenterY = cy + titleH / 2;
+  cy += titleH + 8;
+
+  const subtitleH = subtitleFit.lines.length * subtitleFit.size * RECEIPT_LINE_GAP;
+  const subtitleCenterY = cy + subtitleH / 2;
+  cy += subtitleH + 26;
+
+  const dividerTopY = cy;
+  cy += 30;
+
+  const docNoH = docNoFit.lines.length * docNoFit.size * RECEIPT_LINE_GAP;
+  const docNoCenterY = cy + docNoH / 2;
+  cy += docNoH + 30;
+
+  const rowLayout = infoRowFits.map(r => {
+    const lineCount = Math.max(1, r.valueFit.lines.length);
+    const rowH = Math.max(38, lineCount * r.valueFit.size * RECEIPT_LINE_GAP + 14);
+    const centerY = cy + rowH / 2;
+    cy += rowH;
+    return { ...r, centerY };
+  });
+
+  cy += 14;
+  const plateBoxTop = cy;
+  const plateBoxPadTB = 20;
+  const plateGapMid = 10;
+  const plateMainH = plateMainFit.lines.length * plateMainFit.size * RECEIPT_LINE_GAP;
+  const plateProvinceH = plateProvinceFit.lines.length * plateProvinceFit.size * RECEIPT_LINE_GAP;
+  const plateBoxH = plateBoxPadTB * 2 + plateMainH + plateGapMid + plateProvinceH;
+  const plateMainCenterY = plateBoxTop + plateBoxPadTB + plateMainH / 2;
+  const plateProvinceCenterY = plateMainCenterY + plateMainH / 2 + plateGapMid + plateProvinceH / 2;
+  cy += plateBoxH + 26;
+
+  const fileRowLayout = fileRowFits.map(r => {
+    const lineCount = Math.max(1, r.valueFit.lines.length);
+    const rowH = Math.max(34, lineCount * r.valueFit.size * RECEIPT_LINE_GAP + 12);
+    const centerY = cy + rowH / 2;
+    cy += rowH;
+    return { ...r, centerY };
+  });
+
+  cy += 10;
+  const dividerBottomY = cy;
+  cy += 45;
+
+  const stampCircleD = 70;
+  const stampLine1H = stampLine1Fit.lines.length * stampLine1Fit.size * RECEIPT_LINE_GAP;
+  const stampLine2H = stampLine2Fit.lines.length * stampLine2Fit.size * RECEIPT_LINE_GAP;
+  const stampTextGap = 8;
+  const stampTextTotalH = stampLine1H + stampTextGap + stampLine2H;
+  const stampBlockH = Math.max(stampCircleD, stampTextTotalH);
+  const stampCenterY = cy + stampBlockH / 2;
+  const stampLine1CenterY = stampCenterY - stampTextTotalH / 2 + stampLine1H / 2;
+  const stampLine2CenterY = stampLine1CenterY + stampLine1H / 2 + stampTextGap + stampLine2H / 2;
+  cy += stampBlockH;
+
+  cy += CARD_PAD_BOTTOM;
+
+  const cardH = cy - CARD_TOP;
+  const H = CARD_TOP + cardH + 20;
+
+  /* ============ วาดจริงลง canvas ที่คำนวณขนาดแล้ว ============ */
   canvas.width = W * dpr;
   canvas.height = H * dpr;
   const ctx = canvas.getContext("2d");
-ctx.scale(dpr, dpr);
+  ctx.scale(dpr, dpr);
 
-// วอร์มอัพฟอนต์บน canvas ตัวเดียวกับที่จะวาดจริง แล้วรอเฟรมถัดไป
-// (font cache ผูกกับ context ของ canvas นั้นๆ วอร์มอัพ canvas แยกต่างหากช่วยไม่เต็มที่)
-ctx.save();
-ctx.globalAlpha = 0;
-["300","400","500","600","700","800"].forEach(w => {
-  ctx.font = `${w} 24px 'Prompt', sans-serif`;
-  ctx.fillText("กองบังคับการตำรวจทางหลวงกขคง0123456789", 0, 0);
-});
-ctx.restore();
-await new Promise(resolve => requestAnimationFrame(resolve));
-
-  // ==========================================
-  // HELPER: หาฟอนต์/ข้อความที่ "พอดี" กับความกว้างที่กำหนด
-  // ลดขนาดฟอนต์ลงทีละ 1px ก่อน ถ้ายังไม่พอค่อยตัดคำ + ใส่ "…"
-  // ==========================================
-// เพิ่ม SAFETY_MARGIN กันไว้เผื่อ measureText วัดด้วย fallback font
-// ที่แคบกว่า Prompt ตัวจริง (เช่น กรณีฟอนต์ยังโหลดไม่เสร็จสนิทตอนวัด)
-const CANVAS_TEXT_SAFETY_MARGIN = 0.65; // ใช้พื้นที่จริงแค่ 90% ของ maxWidth ที่กำหนด
- 
-function fitFontAndText(text, maxWidth, weight, baseSize, minSize) {
-  text = String(text ?? "-");
-  const safeMaxWidth = maxWidth * CANVAS_TEXT_SAFETY_MARGIN; // <-- กันชนเพิ่ม
-  let size = baseSize;
-  ctx.font = `${weight} ${size}px 'Prompt', sans-serif`;
- 
-  while (size > minSize && ctx.measureText(text).width > safeMaxWidth) {
-    size -= 1;
-    ctx.font = `${weight} ${size}px 'Prompt', sans-serif`;
-  }
- 
-  if (ctx.measureText(text).width <= safeMaxWidth) {
-    return { text, size };
-  }
- 
-  // ยังไม่พอแม้ลดฟอนต์สุดแล้ว -> ตัดคำใส่ "…"
-  let truncated = text;
-  while (truncated.length > 1 && ctx.measureText(truncated + "…").width > safeMaxWidth) {
-    truncated = truncated.slice(0, -1);
-  }
-  return { text: truncated + "…", size };
-}
+  ctx.save();
+  ctx.globalAlpha = 0;
+  ["300", "400", "500", "600", "700", "800"].forEach(w => {
+    ctx.font = `${w} 24px 'Prompt', sans-serif`;
+    ctx.fillText("กองบังคับการตำรวจทางหลวงกขคง0123456789", 0, 0);
+  });
+  ctx.restore();
+  await new Promise(resolve => requestAnimationFrame(resolve));
 
   const drawSafeRoundRect = (x, y, w, h, r, fillColor) => {
     ctx.save();
@@ -1558,110 +1721,84 @@ function fitFontAndText(text, maxWidth, weight, baseSize, minSize) {
     ctx.restore();
   };
 
-  // วาดข้อความแบบ "พอดีกรอบ" — ใช้กับค่าที่ความยาวไม่แน่นอน (ชื่อ, หน่วย, ID ฯลฯ)
-  const drawFittedText = (text, x, y, align, maxWidth, baseSize, minSize, weight, color) => {
-    const fitted = fitFontAndText(text, maxWidth, weight, baseSize, minSize);
-    drawSafeText(fitted.text, x, y, align, fitted.size, weight, color);
+  // วาดหลายบรรทัดจากผล fitTextBlock() โดยกึ่งกลางแนวตั้งรอบจุด centerY ที่กำหนด
+  const drawFittedBlock = (fit, x, centerY, align, weight, color) => {
+    const totalH = fit.lines.length * fit.size * RECEIPT_LINE_GAP;
+    let y = centerY - totalH / 2 + (fit.size * RECEIPT_LINE_GAP) / 2;
+    fit.lines.forEach(line => {
+      drawSafeText(line, x, y, align, fit.size, weight, color);
+      y += fit.size * RECEIPT_LINE_GAP;
+    });
   };
 
-  // ==========================================
-  // เริ่มวาด
-  // ==========================================
+  /* ---------- พื้นหลัง + แถบหัวเขียว + การ์ดขาว ---------- */
   ctx.fillStyle = "#F2F4F7";
   ctx.fillRect(0, 0, W, H);
 
   ctx.fillStyle = "#1F8B3D";
-  ctx.fillRect(0, 0, W, 180);
+  ctx.fillRect(0, 0, W, GREEN_STRIP_H);
 
-  drawSafeRoundRect(30, 40, W - 60, H - 70, 20, "#FFFFFF");
+  drawSafeRoundRect(CARD_X, CARD_TOP, CARD_W, cardH, 20, "#FFFFFF");
 
-  // --- Header ---
-drawSafeText("🚓", 300, 90, "center", 42, "normal", "#000");
-drawSafeText("กองบังคับการตำรวจทางหลวง", 300, 140, "center", 17, "bold", "#1F8B3D");
-drawSafeText("เอกสารยืนยันการรายงานหลักฐานวิดีโอรถวิ่งขวา", 300, 175, "center", 11, "600", "#6E6E73");
+  /* ---------- Header ---------- */
+  drawSafeText("🚓", W / 2, iconCenterY, "center", 40, "normal", "#000");
+  drawFittedBlock(titleFit, W / 2, titleCenterY, "center", "bold", "#1F8B3D");
+  drawFittedBlock(subtitleFit, W / 2, subtitleCenterY, "center", "600", "#6E6E73");
 
   ctx.save();
   ctx.strokeStyle = "#E5E5EA";
   ctx.lineWidth = 1.5;
   ctx.setLineDash([6, 6]);
   ctx.beginPath();
-  ctx.moveTo(60, 210);
-  ctx.lineTo(540, 210);
+  ctx.moveTo(CARD_X + 30, dividerTopY);
+  ctx.lineTo(CARD_X + CARD_W - 30, dividerTopY);
   ctx.stroke();
   ctx.restore();
 
-  const dateForDoc = data.dateThai || (data.timestamp ? new Date(data.timestamp).toISOString().slice(0,10).replace(/-/g,"") : "");
-  const docKey = `${data.plateChar||""}-${data.plateNumber||""}-${data.plateProvince||""}-${data.timestamp||""}`;
-  const docNo = "HWPD-" + dateForDoc + "-" + stableDocSeq(docKey);
-  drawSafeText("เลขที่เอกสาร: " + docNo, 300, 240, "center", 14, "400", "#8E8E93");
+  drawFittedBlock(docNoFit, W / 2, docNoCenterY, "center", "400", "#8E8E93");
 
-  // --- ตารางข้อมูล (label ชิดซ้าย / value ชิดขวา พร้อม fit อัตโนมัติ) ---
-  let currY = 295;
-  const colLeft = 60;
-  const colRight = 540;
-  const LABEL_RESERVED_WIDTH = 170;         // เผื่อพื้นที่ให้ label ทางซ้าย
-  const VALUE_MAX_WIDTH = ((colRight - colLeft) - LABEL_RESERVED_WIDTH - 10) * 0.80; // เผื่อ margin กันข้อความล้นข้ามอุปกรณ์
+  /* ---------- แถวข้อมูล (label ซ้าย / value ขวา รองรับหลายบรรทัด) ---------- */
+  rowLayout.forEach(r => {
+    drawSafeText(r.label, CONTENT_X, r.centerY, "left", 15, "400", "#6E6E73");
+    drawFittedBlock(r.valueFit, CONTENT_RIGHT, r.centerY, "right", "600", "#1C1C1E");
+  });
 
-
-  const addRow = (label, val) => {
-    drawSafeText(label, colLeft, currY, "left", 15, "400", "#6E6E73");
-    drawFittedText(val, colRight, currY, "right", VALUE_MAX_WIDTH, 15, 10, "600", "#1C1C1E");
-    currY += 40;
-  };
-
-  addRow("ชื่อผู้รายงาน", data.lineName || "-");
-  addRow("หน่วยรายงาน", data.unit || "-");
-  addRow("รหัสประจำตัว LINE", data.lineUserId || "-");
-  addRow("เวลาที่บันทึก", data.timestamp || "-");
-
-  // --- กล่องทะเบียนรถ ---
-  currY += 15;
-  drawSafeRoundRect(60, currY, 480, 110, 12, "#F8F9FA");
-
+  /* ---------- กล่องทะเบียนรถ ---------- */
+  drawSafeRoundRect(CARD_X + 30, plateBoxTop, PLATE_BOX_W, plateBoxH, 12, "#F8F9FA");
   ctx.save();
   ctx.strokeStyle = "#1F8B3D";
   ctx.lineWidth = 1.5;
   ctx.beginPath();
-  ctx.roundRect(60, currY, 480, 110, 12);
+  ctx.roundRect(CARD_X + 30, plateBoxTop, PLATE_BOX_W, plateBoxH, 12);
   ctx.stroke();
   ctx.restore();
 
-  const pChar = String(data.plateChar || "").trim();
-  const pNum = String(data.plateNumber || "").trim();
-  // ทะเบียนรถ: fit ในกรอบกว้าง 440px (กันล้นถ้าหมวดอักษร/เลขยาวผิดปกติ)
-  drawFittedText(`${pChar} ${pNum}`, 300, currY + 45, "center", 440, 38, 20, "bold", "#1C1C1E");
-  drawFittedText(data.plateProvince || "-", 300, currY + 85, "center", 440, 18, 12, "600", "#6E6E73");
+  drawFittedBlock(plateMainFit, W / 2, plateMainCenterY, "center", "bold", "#1C1C1E");
+  drawFittedBlock(plateProvinceFit, W / 2, plateProvinceCenterY, "center", "600", "#6E6E73");
 
-  currY += 145;
+  /* ---------- สรุปไฟล์หลักฐาน ---------- */
+  fileRowLayout.forEach(r => {
+    drawSafeText(r.label, CONTENT_X, r.centerY, "left", 15, "400", "#6E6E73");
+    drawFittedBlock(r.valueFit, CONTENT_RIGHT, r.centerY, "right", "600", "#1C1C1E");
+  });
 
-  // --- สรุปไฟล์หลักฐาน ---
-  const vCount = (data.videos || []).length;
-  const tCount = (data.ticketCopies || []).length;
-  const dCount = (data.driverPhotos || []).length;
-  addRow("ไฟล์วิดีโอหลักฐาน", `${vCount} ไฟล์`);
-  addRow("รูปสำเนาใบสั่ง", `${tCount} รูป`);
-  addRow("รูปหลักฐานผู้ขับขี่", `${dCount} รูป`);
-
-  currY += 10;
   ctx.save();
   ctx.strokeStyle = "#E5E5EA";
   ctx.lineWidth = 1.5;
   ctx.beginPath();
-  ctx.moveTo(60, currY);
-  ctx.lineTo(540, currY);
+  ctx.moveTo(CARD_X + 30, dividerBottomY);
+  ctx.lineTo(CARD_X + CARD_W - 30, dividerBottomY);
   ctx.stroke();
   ctx.restore();
 
-  // --- ตราประทับ ---
-  currY += 55;
+  /* ---------- ตราประทับ ---------- */
+  drawSafeRoundRect(CONTENT_X, stampCenterY - 35, 70, 70, 35, "#E8F6EE");
+  drawSafeText("✔", CONTENT_X + 35, stampCenterY - 10, "center", 26, "bold", "#1F8B3D");
+  drawSafeText("สำเร็จ", CONTENT_X + 35, stampCenterY + 14, "center", 13, "bold", "#1F8B3D");
 
-  drawSafeRoundRect(60, currY - 35, 70, 70, 35, "#E8F6EE");
-  drawSafeText("✔", 95, currY - 10, "center", 26, "bold", "#1F8B3D");
-  drawSafeText("สำเร็จ", 95, currY + 14, "center", 13, "bold", "#1F8B3D");
-
-  // ข้อความข้างๆ: fit ในความกว้างที่เหลือ (540 - 150 - เผื่อขอบ)
-  drawFittedText("บันทึกข้อมูลเข้าสู่ระบบเรียบร้อยแล้ว", 150, currY - 10, "left", 380, 16, 11, "bold", "#1F8B3D");
-  drawFittedText("เอกสารนี้สร้างโดยระบบอัตโนมัติ ไม่ต้องลงลายมือชื่อ", 150, currY + 14, "left", 380, 13, 10, "400", "#8E8E93");
+  const stampTextX = CONTENT_X + 90;
+  drawFittedBlock(stampLine1Fit, stampTextX, stampLine1CenterY, "left", "bold", "#1F8B3D");
+  drawFittedBlock(stampLine2Fit, stampTextX, stampLine2CenterY, "left", "400", "#8E8E93");
 
   return canvas.toDataURL("image/png");
 }
