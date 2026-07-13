@@ -414,6 +414,9 @@
   }
   #ovUnitDropdown{ right:0; }
 
+  #ovAnalysisCard{ position: relative; }
+  #ovAnalysisCard.ov-dropdown-open{ z-index: 50; }
+
 </style>
 </head>
 <body>
@@ -706,7 +709,7 @@
       </div>
 
       <!-- ============== วิเคราะห์เชิงลึก: ตัวกรองช่วงเวลา + เปรียบเทียบหน่วย/เดือน ============== -->
-<div class="pc-card p-5 mb-6">
+<div class="pc-card p-5 mb-6" id="ovAnalysisCard">
   <div class="flex items-center justify-between mb-1">
     <h2 class="font-bold" style="color:var(--ink);">📊 วิเคราะห์สถิติแบบกำหนดช่วงเวลา</h2>
   </div>
@@ -778,21 +781,27 @@
 
   <!-- กราฟแนวโน้มรายวัน (โหมดช่วงวันที่) -->
   <div id="ovTrendChartWrap" class="mb-6">
-    <h3 class="font-semibold text-sm mb-2" style="color:var(--ink-soft);">แนวโน้มรายวัน</h3>
-    <canvas id="ovTrendChart" height="90"></canvas>
+  <h3 class="font-semibold text-sm mb-2" style="color:var(--ink-soft);">แนวโน้มรายวัน</h3>
+  <div style="position:relative; height:200px;">
+    <canvas id="ovTrendChart"></canvas>
   </div>
+</div>
 
   <!-- กราฟเปรียบเทียบรายเดือน (โหมดเปรียบเทียบเดือน) -->
   <div id="ovMonthChartWrap" class="mb-6 hidden">
-    <h3 class="font-semibold text-sm mb-2" style="color:var(--ink-soft);">เปรียบเทียบรายเดือน</h3>
-    <canvas id="ovMonthChart" height="90"></canvas>
+  <h3 class="font-semibold text-sm mb-2" style="color:var(--ink-soft);">เปรียบเทียบรายเดือน</h3>
+  <div style="position:relative; height:200px;">
+    <canvas id="ovMonthChart"></canvas>
   </div>
+</div>
 
   <!-- กราฟจัดอันดับหน่วยงาน -->
   <div class="mb-6">
-    <h3 class="font-semibold text-sm mb-2" style="color:var(--ink-soft);">จัดอันดับหน่วยงาน (ตามช่วงที่เลือก)</h3>
-    <canvas id="ovUnitCompareChart" height="150"></canvas>
+  <h3 class="font-semibold text-sm mb-2" style="color:var(--ink-soft);">จัดอันดับหน่วยงาน (ตามช่วงที่เลือก)</h3>
+  <div style="position:relative; height:220px;">
+    <canvas id="ovUnitCompareChart"></canvas>
   </div>
+</div>
 
   <!-- ตารางสรุปรายละเอียด -->
   <div>
@@ -2653,6 +2662,19 @@ function renderOvMonthChips() {
   });
 }
 
+function openOvUnitDropdown() {
+  const dropdown = document.getElementById("ovUnitDropdown");
+  const card = document.getElementById("ovAnalysisCard");
+  if (dropdown) dropdown.style.display = "block";
+  if (card) card.classList.add("ov-dropdown-open");
+}
+function closeOvUnitDropdown() {
+  const dropdown = document.getElementById("ovUnitDropdown");
+  const card = document.getElementById("ovAnalysisCard");
+  if (dropdown) dropdown.style.display = "none";
+  if (card) card.classList.remove("ov-dropdown-open");
+}
+
 function setupOvUnitMultiSelect() {
   const btn = document.getElementById("ovUnitSelectBtn");
   const dropdown = document.getElementById("ovUnitDropdown");
@@ -2660,22 +2682,31 @@ function setupOvUnitMultiSelect() {
 
   btn.addEventListener("click", (e) => {
     e.stopPropagation();
-    dropdown.style.display = dropdown.style.display === "block" ? "none" : "block";
+    dropdown.style.display === "block" ? closeOvUnitDropdown() : openOvUnitDropdown();
   });
   document.addEventListener("click", (e) => {
-    if (!dropdown.contains(e.target) && e.target !== btn) dropdown.style.display = "none";
+    if (!dropdown.contains(e.target) && e.target !== btn) closeOvUnitDropdown();
   });
 }
 
 function populateOvUnitDropdown(unitList) {
   const dropdown = document.getElementById("ovUnitDropdown");
   if (!dropdown) return;
-  dropdown.innerHTML = unitList.map(u => `
+
+  const itemsHtml = unitList.map(u => `
     <label style="display:flex; align-items:center; gap:8px; padding:9px 14px; font-size:13.5px; cursor:pointer;">
       <input type="checkbox" class="ov-unit-checkbox" value="${u}" ${ovSelectedUnits.indexOf(u) !== -1 ? "checked" : ""} />
       <span>${u}</span>
     </label>
   `).join("") || '<div class="text-xs p-3" style="color:var(--ink-faint);">ไม่มีข้อมูลหน่วย</div>';
+
+  dropdown.innerHTML = `
+    <div style="display:flex; align-items:center; justify-content:space-between; padding:8px 14px; border-bottom:1px solid var(--sep); position:sticky; top:0; background:var(--glass-strong);">
+      <span style="font-size:11px; font-weight:700; color:var(--ink-faint);">เลือกหน่วย (เลือกได้หลายรายการ)</span>
+      <button type="button" id="ovUnitCloseBtn" style="font-size:12px; font-weight:700; color:var(--green-deep); background:none; border:none; cursor:pointer;">ปิด ✕</button>
+    </div>
+    ${itemsHtml}
+  `;
 
   dropdown.querySelectorAll(".ov-unit-checkbox").forEach(cb => {
     cb.addEventListener("change", () => {
@@ -2683,6 +2714,7 @@ function populateOvUnitDropdown(unitList) {
       updateOvUnitButtonLabel();
     });
   });
+  document.getElementById("ovUnitCloseBtn")?.addEventListener("click", closeOvUnitDropdown);
   updateOvUnitButtonLabel();
 }
 
@@ -2773,6 +2805,7 @@ function ovFormatShortDayLabel(isoDate) {
 
 function ovLineChartOptions(showLegend) {
   return {
+    maintainAspectRatio: false,   // <-- เพิ่มบรรทัดนี้
     plugins: { legend: { display: showLegend, position: "bottom", labels: { font: { size: 10 }, boxWidth: 10 } } },
     scales: {
       x: { grid: { display: false }, ticks: { font: { size: 9 } } },
@@ -2832,6 +2865,7 @@ function renderOvUnitCompareChart(data) {
       datasets: [{ label: "จำนวนรายงาน", data: entries.map(e => e[1]), backgroundColor: "#30D158", borderRadius: 6 }]
     },
     options: {
+      maintainAspectRatio: false,
       indexAxis: "y",
       plugins: { legend: { display: false } },
       scales: {
@@ -2871,6 +2905,7 @@ function renderMonthCompareChart(data) {
     type: "bar",
     data: { labels: months.map(formatMonthThai), datasets },
     options: {
+      maintainAspectRatio: false,
       plugins: { legend: { display: datasets.length > 1, position: "bottom", labels: { font: { size: 10 }, boxWidth: 10 } } },
       scales: {
         x: { grid: { display: false }, ticks: { font: { size: 10 } } },
