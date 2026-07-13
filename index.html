@@ -402,6 +402,18 @@
     border: 1px solid rgba(255,255,255,.6);
     max-height:90vh; overflow-y:auto;
   }
+
+  .ov-range-btn{
+  font-size:12.5px; font-weight:600; padding:9px 16px; border-radius:999px;
+  background: rgba(118,118,128,.10); color: var(--ink-soft); border:none;
+  transition: all .2s cubic-bezier(.2,.8,.3,1); cursor:pointer;
+  }
+  .ov-range-btn.ov-range-active{
+  background: linear-gradient(160deg,var(--green),var(--green-deep)); color:#fff;
+    box-shadow: 0 6px 16px -6px rgba(31,139,61,.5);
+  }
+  #ovUnitDropdown{ right:0; }
+
 </style>
 </head>
 <body>
@@ -692,6 +704,102 @@
           <div class="text-xs mt-2" style="color:var(--ink-faint);">ตั้งแต่เริ่มใช้งานระบบ</div>
         </div>
       </div>
+
+      <!-- ============== วิเคราะห์เชิงลึก: ตัวกรองช่วงเวลา + เปรียบเทียบหน่วย/เดือน ============== -->
+<div class="pc-card p-5 mb-6">
+  <div class="flex items-center justify-between mb-1">
+    <h2 class="font-bold" style="color:var(--ink);">📊 วิเคราะห์สถิติแบบกำหนดช่วงเวลา</h2>
+  </div>
+  <p class="text-xs mb-4" style="color:var(--ink-faint);">เลือกช่วงเวลา / หน่วยงาน เพื่อดูแนวโน้ม จัดอันดับ และเปรียบเทียบได้อิสระ</p>
+
+  <!-- แถบเลือกช่วงเวลา -->
+  <div class="flex flex-wrap gap-2 mb-4">
+    <button class="ov-range-btn ov-range-active" data-range="7d">7 วันล่าสุด</button>
+    <button class="ov-range-btn" data-range="30d">30 วันล่าสุด</button>
+    <button class="ov-range-btn" data-range="thismonth">เดือนนี้</button>
+    <button class="ov-range-btn" data-range="custom">กำหนดช่วงเอง</button>
+    <button class="ov-range-btn" data-range="months">🔁 เปรียบเทียบรายเดือน</button>
+  </div>
+
+  <!-- กำหนดช่วงเอง -->
+  <div id="ovCustomRangeRow" class="hidden grid grid-cols-2 gap-3 mb-4" style="max-width:420px;">
+    <div>
+      <label class="text-xs font-semibold">ตั้งแต่วันที่</label>
+      <input type="date" id="ovDateFrom" class="mt-1" />
+    </div>
+    <div>
+      <label class="text-xs font-semibold">ถึงวันที่</label>
+      <input type="date" id="ovDateTo" class="mt-1" />
+    </div>
+  </div>
+
+  <!-- เลือกเดือนเพื่อเปรียบเทียบ -->
+  <div id="ovMonthPickerRow" class="hidden mb-4">
+    <div class="flex items-end gap-3 mb-2">
+      <div>
+        <label class="text-xs font-semibold">เลือกเดือน</label>
+        <input type="month" id="ovMonthInput" class="mt-1" />
+      </div>
+      <button type="button" id="ovAddMonth" class="btn-secondary" style="width:auto; padding:11px 16px;">+ เพิ่มเดือน</button>
+    </div>
+    <div id="ovMonthChips" class="flex flex-wrap"></div>
+  </div>
+
+  <!-- ตัวกรองหน่วย + ปุ่มแสดงผล -->
+  <div class="flex flex-wrap items-end gap-4 mb-5 pt-4" style="border-top:1px solid var(--sep);">
+    <div class="relative">
+      <label class="text-xs font-semibold block mb-1">กรอง / เปรียบเทียบตามหน่วย</label>
+      <button type="button" id="ovUnitSelectBtn" class="btn-secondary" style="width:auto; padding:10px 16px; text-align:left;">ทุกหน่วย ▾</button>
+      <div id="ovUnitDropdown" class="dropdown-list" style="width:270px;"></div>
+    </div>
+    <button id="btnApplyOverviewFilter" class="btn-primary" style="width:auto; padding:11px 26px;">📈 แสดงผลการวิเคราะห์</button>
+    <div class="text-xs" style="color:var(--ink-faint);">* เลือกมากกว่า 1 หน่วย → กราฟแนวโน้มจะแยกเส้นเปรียบเทียบให้อัตโนมัติ</div>
+  </div>
+
+  <!-- KPI ของช่วงที่เลือก -->
+  <div class="grid grid-cols-4 gap-4 mb-5">
+    <div class="kpi-card" style="padding:16px;">
+      <div class="text-xs font-semibold" style="color:var(--ink-faint);">รวมในช่วงที่เลือก</div>
+      <div class="text-2xl font-bold mt-1" style="color:var(--green-deep);" id="ovKpiTotal">0</div>
+    </div>
+    <div class="kpi-card" style="padding:16px;">
+      <div class="text-xs font-semibold" style="color:var(--ink-faint);">เฉลี่ยต่อวัน</div>
+      <div class="text-2xl font-bold mt-1" style="color:var(--green-deep);" id="ovKpiAvg">0</div>
+    </div>
+    <div class="kpi-card" style="padding:16px;">
+      <div class="text-xs font-semibold" style="color:var(--ink-faint);">จำนวนหน่วยที่มีรายงาน</div>
+      <div class="text-2xl font-bold mt-1" style="color:var(--green-deep);" id="ovKpiUnits">0</div>
+    </div>
+    <div class="kpi-card" style="padding:16px;">
+      <div class="text-xs font-semibold" style="color:var(--ink-faint);">หน่วยยอดเยี่ยม</div>
+      <div class="text-lg font-bold mt-1" style="color:var(--green-deep);" id="ovKpiTopUnit">-</div>
+    </div>
+  </div>
+
+  <!-- กราฟแนวโน้มรายวัน (โหมดช่วงวันที่) -->
+  <div id="ovTrendChartWrap" class="mb-6">
+    <h3 class="font-semibold text-sm mb-2" style="color:var(--ink-soft);">แนวโน้มรายวัน</h3>
+    <canvas id="ovTrendChart" height="90"></canvas>
+  </div>
+
+  <!-- กราฟเปรียบเทียบรายเดือน (โหมดเปรียบเทียบเดือน) -->
+  <div id="ovMonthChartWrap" class="mb-6 hidden">
+    <h3 class="font-semibold text-sm mb-2" style="color:var(--ink-soft);">เปรียบเทียบรายเดือน</h3>
+    <canvas id="ovMonthChart" height="90"></canvas>
+  </div>
+
+  <!-- กราฟจัดอันดับหน่วยงาน -->
+  <div class="mb-6">
+    <h3 class="font-semibold text-sm mb-2" style="color:var(--ink-soft);">จัดอันดับหน่วยงาน (ตามช่วงที่เลือก)</h3>
+    <canvas id="ovUnitCompareChart" height="150"></canvas>
+  </div>
+
+  <!-- ตารางสรุปรายละเอียด -->
+  <div>
+    <h3 class="font-semibold text-sm mb-2" style="color:var(--ink-soft);">ตารางสรุปรายละเอียด</h3>
+    <div id="ovSummaryArea"><div class="text-center text-sm py-6" style="color:var(--ink-faint);">เลือกช่วงเวลาแล้วกด "แสดงผลการวิเคราะห์"</div></div>
+  </div>
+</div>
 
       <!-- Charts -->
       <div class="grid grid-cols-3 gap-5 mb-6">
@@ -2146,6 +2254,7 @@ function setupDesktop() {
   });
 
   setupPcSearchModeToggle();
+  setupOverviewFilters();
 
   const runPcSearch = debounce(async () => {
     const container = document.getElementById("pcSearchResults");
@@ -2466,6 +2575,358 @@ function renderUnitStats(byUnit) {
   }).join("");
 }
 
+/* ============================================================
+   OVERVIEW ANALYTICS: ตัวกรองช่วงเวลา + เปรียบเทียบหน่วย/เดือน
+   ============================================================ */
+let ovSelectedUnits = [];
+let ovSelectedMonths = [];
+let ovRangeMode = "7d";
+let ovTrendChartInstance = null;
+let ovUnitCompareChartInstance = null;
+let ovMonthCompareChartInstance = null;
+
+const OV_PALETTE = ["#0A84FF","#30D158","#5E5CE6","#FF9F0A","#FF3B30","#40C8E0","#AF52DE","#8E8E93"];
+
+function ovPad2(n){ return String(n).padStart(2,"0"); }
+function ovToISODate(d){ return d.getFullYear() + "-" + ovPad2(d.getMonth()+1) + "-" + ovPad2(d.getDate()); }
+
+function formatMonthThai(yyyyMM) {
+  const [y, m] = yyyyMM.split("-").map(Number);
+  const thMonths = ["มกราคม","กุมภาพันธ์","มีนาคม","เมษายน","พฤษภาคม","มิถุนายน","กรกฎาคม","สิงหาคม","กันยายน","ตุลาคม","พฤศจิกายน","ธันวาคม"];
+  return `${thMonths[m-1]} ${y + 543}`;
+}
+
+function setupOverviewFilters() {
+  document.querySelectorAll(".ov-range-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      ovRangeMode = btn.dataset.range;
+      document.querySelectorAll(".ov-range-btn").forEach(b => b.classList.remove("ov-range-active"));
+      btn.classList.add("ov-range-active");
+
+      document.getElementById("ovCustomRangeRow").classList.toggle("hidden", ovRangeMode !== "custom");
+      document.getElementById("ovMonthPickerRow").classList.toggle("hidden", ovRangeMode !== "months");
+
+      // เติมช่วงวันที่เริ่มต้นให้อัตโนมัติเมื่อเปิดโหมด "กำหนดช่วงเอง" ครั้งแรก
+      if (ovRangeMode === "custom") {
+        const fromEl = document.getElementById("ovDateFrom");
+        const toEl = document.getElementById("ovDateTo");
+        if (!fromEl.value && !toEl.value) {
+          const today = new Date();
+          const from = new Date(today); from.setDate(from.getDate() - 6);
+          fromEl.value = ovToISODate(from);
+          toEl.value = ovToISODate(today);
+        }
+      }
+    });
+  });
+
+  document.getElementById("ovAddMonth")?.addEventListener("click", () => {
+    const val = document.getElementById("ovMonthInput").value; // "2026-07"
+    if (!val) return;
+    if (ovSelectedMonths.indexOf(val) === -1) ovSelectedMonths.push(val);
+    ovSelectedMonths.sort();
+    renderOvMonthChips();
+  });
+
+  setupOvUnitMultiSelect();
+  document.getElementById("btnApplyOverviewFilter")?.addEventListener("click", loadOverviewStats);
+}
+
+function renderOvMonthChips() {
+  const wrap = document.getElementById("ovMonthChips");
+  if (!wrap) return;
+  if (!ovSelectedMonths.length) {
+    wrap.innerHTML = '<span class="text-xs" style="color:var(--ink-faint);">ยังไม่ได้เลือกเดือน (แนะนำเลือก 2 เดือนขึ้นไปเพื่อเปรียบเทียบ)</span>';
+    return;
+  }
+  wrap.innerHTML = ovSelectedMonths.map(m => `
+    <span class="badge" style="background:rgba(48,209,88,.14); color:var(--green-deep); display:inline-flex; align-items:center; gap:6px; margin:3px 4px 3px 0;">
+      ${formatMonthThai(m)}
+      <button type="button" class="ov-remove-month" data-month="${m}" style="font-weight:700; line-height:1; background:none; border:none; color:inherit; cursor:pointer;">✕</button>
+    </span>
+  `).join("");
+  wrap.querySelectorAll(".ov-remove-month").forEach(b => {
+    b.addEventListener("click", () => {
+      ovSelectedMonths = ovSelectedMonths.filter(m => m !== b.dataset.month);
+      renderOvMonthChips();
+    });
+  });
+}
+
+function setupOvUnitMultiSelect() {
+  const btn = document.getElementById("ovUnitSelectBtn");
+  const dropdown = document.getElementById("ovUnitDropdown");
+  if (!btn || !dropdown) return;
+
+  btn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    dropdown.style.display = dropdown.style.display === "block" ? "none" : "block";
+  });
+  document.addEventListener("click", (e) => {
+    if (!dropdown.contains(e.target) && e.target !== btn) dropdown.style.display = "none";
+  });
+}
+
+function populateOvUnitDropdown(unitList) {
+  const dropdown = document.getElementById("ovUnitDropdown");
+  if (!dropdown) return;
+  dropdown.innerHTML = unitList.map(u => `
+    <label style="display:flex; align-items:center; gap:8px; padding:9px 14px; font-size:13.5px; cursor:pointer;">
+      <input type="checkbox" class="ov-unit-checkbox" value="${u}" ${ovSelectedUnits.indexOf(u) !== -1 ? "checked" : ""} />
+      <span>${u}</span>
+    </label>
+  `).join("") || '<div class="text-xs p-3" style="color:var(--ink-faint);">ไม่มีข้อมูลหน่วย</div>';
+
+  dropdown.querySelectorAll(".ov-unit-checkbox").forEach(cb => {
+    cb.addEventListener("change", () => {
+      ovSelectedUnits = Array.from(dropdown.querySelectorAll(".ov-unit-checkbox:checked")).map(c => c.value);
+      updateOvUnitButtonLabel();
+    });
+  });
+  updateOvUnitButtonLabel();
+}
+
+function updateOvUnitButtonLabel() {
+  const btn = document.getElementById("ovUnitSelectBtn");
+  if (!btn) return;
+  if (!ovSelectedUnits.length) btn.innerText = "ทุกหน่วย ▾";
+  else if (ovSelectedUnits.length === 1) btn.innerText = ovSelectedUnits[0] + " ▾";
+  else btn.innerText = ovSelectedUnits.length + " หน่วยที่เลือก ▾";
+}
+
+function computeOvDateRange() {
+  const today = new Date();
+  let dateFrom = "", dateTo = ovToISODate(today);
+
+  if (ovRangeMode === "7d") {
+    const from = new Date(today); from.setDate(from.getDate() - 6);
+    dateFrom = ovToISODate(from);
+  } else if (ovRangeMode === "30d") {
+    const from = new Date(today); from.setDate(from.getDate() - 29);
+    dateFrom = ovToISODate(from);
+  } else if (ovRangeMode === "thismonth") {
+    dateFrom = ovToISODate(new Date(today.getFullYear(), today.getMonth(), 1));
+  } else if (ovRangeMode === "custom") {
+    dateFrom = document.getElementById("ovDateFrom").value || "";
+    dateTo = document.getElementById("ovDateTo").value || dateTo;
+  }
+  return { dateFrom, dateTo };
+}
+
+async function loadOverviewStats() {
+  const isMonthsMode = ovRangeMode === "months";
+
+  if (isMonthsMode && ovSelectedMonths.length < 1) {
+    showModal({ type: "warning", title: "ยังไม่ได้เลือกเดือน", message: "กรุณาเลือกอย่างน้อย 1 เดือน (แนะนำ 2 เดือนขึ้นไปเพื่อเปรียบเทียบ)" });
+    return;
+  }
+
+  const params = { units: ovSelectedUnits.join(",") };
+  if (isMonthsMode) {
+    params.months = ovSelectedMonths.join(",");
+  } else {
+    const { dateFrom, dateTo } = computeOvDateRange();
+    params.dateFrom = dateFrom;
+    params.dateTo = dateTo;
+  }
+
+  const summaryEl = document.getElementById("ovSummaryArea");
+  if (summaryEl) summaryEl.innerHTML = '<div class="text-center text-sm py-8" style="color:var(--ink-faint);"><span class="spinner inline-block"></span> กำลังประมวลผล...</div>';
+
+  const { data, ok } = await gasFetchUrl("getOverviewStats", params);
+  if (!ok) {
+    showErrorModal("โหลดสถิติไม่สำเร็จ", data.message || "");
+    return;
+  }
+
+  populateOvUnitDropdown(data.unitList || []);
+  renderOvKpis(data, isMonthsMode);
+
+  const chartJsOk = await ensureChartJsLoaded();
+  if (!chartJsOk) return;
+
+  if (isMonthsMode) {
+    document.getElementById("ovTrendChartWrap").classList.add("hidden");
+    document.getElementById("ovMonthChartWrap").classList.remove("hidden");
+    renderMonthCompareChart(data);
+  } else {
+    document.getElementById("ovMonthChartWrap").classList.add("hidden");
+    document.getElementById("ovTrendChartWrap").classList.remove("hidden");
+    renderOvTrendChart(data);
+  }
+
+  renderOvUnitCompareChart(data);
+  renderOvSummaryTable(data, isMonthsMode);
+}
+
+function renderOvKpis(data, isMonthsMode) {
+  document.getElementById("ovKpiTotal").innerText = data.totalCount || 0;
+  document.getElementById("ovKpiAvg").innerText = isMonthsMode ? "-" : (data.avgPerDay || 0);
+  document.getElementById("ovKpiUnits").innerText = data.activeUnits || 0;
+  document.getElementById("ovKpiTopUnit").innerText = data.topUnit ? `${data.topUnit.name} (${data.topUnit.count})` : "-";
+}
+
+function ovFormatShortDayLabel(isoDate) {
+  const d = new Date(isoDate + "T00:00:00");
+  return d.getDate() + "/" + (d.getMonth()+1);
+}
+
+function ovLineChartOptions(showLegend) {
+  return {
+    plugins: { legend: { display: showLegend, position: "bottom", labels: { font: { size: 10 }, boxWidth: 10 } } },
+    scales: {
+      x: { grid: { display: false }, ticks: { font: { size: 9 } } },
+      y: { beginAtZero: true, ticks: { precision: 0 }, grid: { color: "rgba(60,60,67,0.06)" } }
+    }
+  };
+}
+
+function renderOvTrendChart(data) {
+  const ctx = document.getElementById("ovTrendChart");
+
+  if (ovSelectedUnits.length > 1 && data.dailyTrendByUnit) {
+    const allDates = (data.dailyTrend || []).map(d => d.date);
+    const datasets = ovSelectedUnits.slice(0, 8).map((u, idx) => {
+      const seriesMap = {};
+      (data.dailyTrendByUnit[u] || []).forEach(p => { seriesMap[p.date] = p.count; });
+      return {
+        label: u,
+        data: allDates.map(d => seriesMap[d] || 0),
+        borderColor: OV_PALETTE[idx % OV_PALETTE.length],
+        backgroundColor: "transparent",
+        tension: 0.35, borderWidth: 2.5, pointRadius: 3
+      };
+    });
+    if (ovTrendChartInstance) ovTrendChartInstance.destroy();
+    ovTrendChartInstance = new Chart(ctx, {
+      type: "line",
+      data: { labels: allDates.map(ovFormatShortDayLabel), datasets },
+      options: ovLineChartOptions(true)
+    });
+  } else {
+    const trend = data.dailyTrend || [];
+    if (ovTrendChartInstance) ovTrendChartInstance.destroy();
+    ovTrendChartInstance = new Chart(ctx, {
+      type: "line",
+      data: {
+        labels: trend.map(t => ovFormatShortDayLabel(t.date)),
+        datasets: [{
+          label: "ยอดรายงาน", data: trend.map(t => t.count),
+          borderColor: "#0A84FF", backgroundColor: "rgba(10,132,255,0.10)",
+          fill: true, tension: 0.35, pointRadius: 3, borderWidth: 2.5
+        }]
+      },
+      options: ovLineChartOptions(false)
+    });
+  }
+}
+
+function renderOvUnitCompareChart(data) {
+  const ctx = document.getElementById("ovUnitCompareChart");
+  const entries = Object.entries(data.byUnit || {}).sort((a,b) => b[1]-a[1]).slice(0, 15);
+  if (ovUnitCompareChartInstance) ovUnitCompareChartInstance.destroy();
+  ovUnitCompareChartInstance = new Chart(ctx, {
+    type: "bar",
+    data: {
+      labels: entries.map(e => e[0]),
+      datasets: [{ label: "จำนวนรายงาน", data: entries.map(e => e[1]), backgroundColor: "#30D158", borderRadius: 6 }]
+    },
+    options: {
+      indexAxis: "y",
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { beginAtZero: true, ticks: { precision: 0 }, grid: { color: "rgba(60,60,67,0.06)" } },
+        y: { grid: { display: false }, ticks: { font: { size: 10 } } }
+      }
+    }
+  });
+}
+
+function renderMonthCompareChart(data) {
+  const ctx = document.getElementById("ovMonthChart");
+  const months = ovSelectedMonths.slice().sort();
+  const monthlyByUnit = data.monthlyByUnit || {};
+
+  let datasets;
+  if (ovSelectedUnits.length > 0) {
+    datasets = ovSelectedUnits.slice(0, 8).map((u, idx) => ({
+      label: u,
+      data: months.map(m => (monthlyByUnit[m] && monthlyByUnit[m][u]) || 0),
+      backgroundColor: OV_PALETTE[idx % OV_PALETTE.length],
+      borderRadius: 5
+    }));
+  } else {
+    datasets = [{
+      label: "ยอดรวม",
+      data: months.map(m => {
+        const perUnit = monthlyByUnit[m] || {};
+        return Object.values(perUnit).reduce((s, v) => s + v, 0);
+      }),
+      backgroundColor: "#30D158", borderRadius: 5
+    }];
+  }
+
+  if (ovMonthCompareChartInstance) ovMonthCompareChartInstance.destroy();
+  ovMonthCompareChartInstance = new Chart(ctx, {
+    type: "bar",
+    data: { labels: months.map(formatMonthThai), datasets },
+    options: {
+      plugins: { legend: { display: datasets.length > 1, position: "bottom", labels: { font: { size: 10 }, boxWidth: 10 } } },
+      scales: {
+        x: { grid: { display: false }, ticks: { font: { size: 10 } } },
+        y: { beginAtZero: true, ticks: { precision: 0 }, grid: { color: "rgba(60,60,67,0.06)" } }
+      }
+    }
+  });
+}
+
+function renderOvSummaryTable(data, isMonthsMode) {
+  const wrap = document.getElementById("ovSummaryArea");
+  if (!wrap) return;
+
+  if (isMonthsMode) {
+    const months = ovSelectedMonths.slice().sort();
+    const monthlyByUnit = data.monthlyByUnit || {};
+    const units = ovSelectedUnits.length ? ovSelectedUnits : Object.keys(data.byUnit || {});
+
+    const rows = units.map(u => {
+      const cells = months.map(m => (monthlyByUnit[m] && monthlyByUnit[m][u]) || 0);
+      const total = cells.reduce((s,v) => s+v, 0);
+      return `<tr class="border-b last:border-0" style="border-color:var(--sep);">
+        <td class="py-2 font-semibold">${u}</td>
+        ${cells.map(c => `<td class="py-2 text-center">${c}</td>`).join("")}
+        <td class="py-2 text-center font-bold" style="color:var(--green-deep);">${total}</td>
+      </tr>`;
+    }).join("");
+
+    wrap.innerHTML = `
+      <table class="w-full text-sm">
+        <thead><tr class="text-left border-b" style="color:var(--ink-faint); border-color:var(--sep);">
+          <th class="pb-2">หน่วย</th>
+          ${months.map(m => `<th class="pb-2 text-center">${formatMonthThai(m)}</th>`).join("")}
+          <th class="pb-2 text-center">รวม</th>
+        </tr></thead>
+        <tbody>${rows || '<tr><td colspan="'+(months.length+2)+'" class="py-6 text-center" style="color:var(--ink-faint);">ไม่มีข้อมูล</td></tr>'}</tbody>
+      </table>`;
+  } else {
+    const entries = Object.entries(data.byUnit || {}).sort((a,b) => b[1]-a[1]);
+    const total = entries.reduce((s,e) => s+e[1], 0);
+    wrap.innerHTML = `
+      <table class="w-full text-sm">
+        <thead><tr class="text-left border-b" style="color:var(--ink-faint); border-color:var(--sep);">
+          <th class="pb-2">หน่วย</th><th class="pb-2 text-center">จำนวนรายงาน</th><th class="pb-2 text-center">สัดส่วน</th>
+        </tr></thead>
+        <tbody>${entries.map(([u,c]) => `
+          <tr class="border-b last:border-0" style="border-color:var(--sep);">
+            <td class="py-2 font-semibold">${u}</td>
+            <td class="py-2 text-center">${c}</td>
+            <td class="py-2 text-center" style="color:var(--ink-faint);">${total ? ((c/total)*100).toFixed(1) : 0}%</td>
+          </tr>`).join("") || '<tr><td colspan="3" class="py-6 text-center" style="color:var(--ink-faint);">ไม่มีข้อมูล</td></tr>'}
+        </tbody>
+      </table>`;
+  }
+}
+
 function renderPcSearchResults(items) {
   const container = document.getElementById("pcSearchResults");
   if (!items.length) { container.innerHTML = '<div class="text-sm" style="color:var(--ink-faint);">ไม่พบข้อมูล</div>'; return; }
@@ -2657,7 +3118,7 @@ document.getElementById("btnFullscreenVideo")?.addEventListener("click", toggleF
 const DESKTOP_MEDIA_QUERY = window.matchMedia("(min-width: 1024px)");
 
 function initDesktopStatsIfVisible() {
-  if (DESKTOP_MEDIA_QUERY.matches) loadStats();
+  if (DESKTOP_MEDIA_QUERY.matches) loadStats();loadOverviewStats();
 }
 
 /* ============================================================
