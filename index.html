@@ -1665,160 +1665,135 @@ function fitTextBlock(ctx, text, maxWidth, weight, baseSize, minSize, maxLines) 
 const RECEIPT_LINE_GAP = 1.35; // ตัวคูณระยะห่างบรรทัด เทียบกับขนาดฟอนต์
 
 // วาดใบเสร็จลง canvas ที่ระบุ แล้วคืนค่าเป็น dataURL (ใช้ได้ทั้งตอนส่งใหม่ และตอนดูย้อนหลัง)
-async function renderReceiptToCanvas(data, canvasId) {
+async function renderReceiptToCanvasV2(data, canvasId) {
   await ensurePromptFontLoaded();
-
+ 
   const canvas = document.getElementById(canvasId);
   if (!canvas) throw new Error("ไม่พบ canvas: " + canvasId);
-
+ 
   const dpr = window.devicePixelRatio || 2;
   const W = 640;
-  const CARD_X = 30;
-  const CARD_W = W - CARD_X * 2;             // 580
-  const PAD_X = 40;
-  const CONTENT_X = CARD_X + PAD_X;          // 70
-  const CONTENT_RIGHT = W - CARD_X - PAD_X;  // 570
-  const CONTENT_WIDTH = CONTENT_RIGHT - CONTENT_X; // 500
-  const CARD_TOP = 40;
-  const GREEN_STRIP_H = 44;
-  const CARD_PAD_TOP = 36;
+  const CARD_X = 24;
+  const CARD_W = W - CARD_X * 2;             // 592
+  const PAD_X = 32;
+  const CONTENT_X = CARD_X + PAD_X;          // 56
+  const CONTENT_RIGHT = W - CARD_X - PAD_X;  // 584
+  const CONTENT_WIDTH = CONTENT_RIGHT - CONTENT_X; // 528
+  const CARD_TOP = 24;
+  const CARD_PAD_TOP = 40;
   const CARD_PAD_BOTTOM = 40;
-
-  // canvas ชั่วคราวไว้ "วัดขนาด" ล้วนๆ ก่อนรู้ความสูงจริงของ canvas ที่จะวาด
+ 
+  // ========== วัดข้อความ ==========
   const measureCanvas = document.createElement("canvas");
   const mctx = measureCanvas.getContext("2d");
-
+ 
   const docKey = `${data.plateChar || ""}-${data.plateNumber || ""}-${data.plateProvince || ""}-${data.timestamp || ""}`;
   const dateForDoc = data.dateThai || (data.timestamp ? new Date(data.timestamp).toISOString().slice(0, 10).replace(/-/g, "") : "");
   const docNo = "HWPD-" + dateForDoc + "-" + stableDocSeq(docKey);
-
-  /* ============ PASS 1: วัดข้อความทั้งหมดล่วงหน้า ============ */
-  const titleFit    = fitTextBlock(mctx, "กองบังคับการตำรวจทางหลวง", CONTENT_WIDTH, "bold", 19, 14, 2);
-  const subtitleFit = fitTextBlock(mctx, "เอกสารยืนยันการรายงานหลักฐานวิดีโอรถวิ่งขวา", CONTENT_WIDTH, "600", 12, 10, 2);
-  const docNoFit    = fitTextBlock(mctx, "เลขที่เอกสาร: " + docNo, CONTENT_WIDTH, "400", 14, 11, 1);
-
-  const LABEL_WIDTH = 175;
-  const VALUE_MAX_WIDTH = CONTENT_WIDTH - LABEL_WIDTH - 10;
-
+ 
+  const headerFit    = fitTextBlock(mctx, "🚓 กองบังคับการตำรวจทางหลวง", CONTENT_WIDTH, "700", 18, 13, 1);
+  const subtitleFit = fitTextBlock(mctx, "เอกสารยืนยันการรายงานหลักฐานวิดีโอรถวิ่งขวา", CONTENT_WIDTH, "500", 11, 9, 2);
+  const docNoFit    = fitTextBlock(mctx, "เลขที่เอกสาร: " + docNo, CONTENT_WIDTH, "500", 12, 10, 1);
+ 
+  const LABEL_WIDTH = 160;
+  const VALUE_MAX_WIDTH = CONTENT_WIDTH - LABEL_WIDTH - 12;
+ 
   const infoRowsSpec = [
-  { label: "ชื่อผู้รายงาน", value: data.lineName || "-", maxLines: 2, minSize: 11 },
-  { label: "หน่วยรายงาน", value: data.unit || "-", maxLines: 3, minSize: 10 },
-  { label: "รหัสประจำตัว LINE", value: data.lineUserId || "-", maxLines: 2, minSize: 11 },
-  { label: "เวลาที่บันทึก", value: data.timestamp || "-", maxLines: 1, minSize: 11 },
-];
-const infoRowFits = infoRowsSpec.map(spec => ({
-  label: spec.label,
-  valueFit: fitTextBlock(mctx, String(spec.value), VALUE_MAX_WIDTH, "600", 15, spec.minSize, spec.maxLines)
-}));
-
+    { label: "ชื่อผู้รายงาน", value: data.lineName || "-", maxLines: 2, minSize: 10 },
+    { label: "หน่วยรายงาน", value: data.unit || "-", maxLines: 2, minSize: 10 },
+    { label: "รหัส LINE", value: data.lineUserId || "-", maxLines: 1, minSize: 10 },
+    { label: "เวลาบันทึก", value: data.timestamp || "-", maxLines: 1, minSize: 10 },
+  ];
+  const infoRowFits = infoRowsSpec.map(spec => ({
+    label: spec.label,
+    valueFit: fitTextBlock(mctx, String(spec.value), VALUE_MAX_WIDTH, "600", 14, spec.minSize, spec.maxLines)
+  }));
+ 
   const pChar = String(data.plateChar || "").trim();
   const pNum = String(data.plateNumber || "").trim();
-  const PLATE_BOX_W = CARD_W - 60;
-  const PLATE_TEXT_MAX_WIDTH = PLATE_BOX_W - 40;
-  const plateMainFit = fitTextBlock(mctx, `${pChar} ${pNum}`.trim(), PLATE_TEXT_MAX_WIDTH, "bold", 36, 20, 1);
-  const plateProvinceFit = fitTextBlock(mctx, data.plateProvince || "-", PLATE_TEXT_MAX_WIDTH, "600", 18, 12, 1);
-
+  const PLATE_BOX_W = CARD_W - 48;
+  const PLATE_TEXT_MAX_WIDTH = PLATE_BOX_W - 36;
+  const plateMainFit = fitTextBlock(mctx, `${pChar} ${pNum}`.trim(), PLATE_TEXT_MAX_WIDTH, "800", 44, 22, 1);
+  const plateProvinceFit = fitTextBlock(mctx, data.plateProvince || "-", PLATE_TEXT_MAX_WIDTH, "600", 20, 13, 1);
+ 
   const vCount = (data.videos || []).length;
   const tCount = (data.ticketCopies || []).length;
   const dCount = (data.driverPhotos || []).length;
-  const fileRowsSpec = [
-    ["ไฟล์วิดีโอหลักฐาน", `${vCount} ไฟล์`],
-    ["รูปสำเนาใบสั่ง", `${tCount} รูป`],
-    ["รูปหลักฐานผู้ขับขี่", `${dCount} รูป`],
-  ];
-  const fileRowFits = fileRowsSpec.map(([label, val]) => ({
-    label,
-    valueFit: fitTextBlock(mctx, String(val), VALUE_MAX_WIDTH, "600", 15, 11, 1)
-  }));
-
-  const STAMP_LABEL_MAX_WIDTH = CONTENT_WIDTH - 100; // เผื่อพื้นที่วงกลมไอคอนด้านซ้าย
-  const stampLine1Fit = fitTextBlock(mctx, "บันทึกข้อมูลเข้าสู่ระบบเรียบร้อยแล้ว", STAMP_LABEL_MAX_WIDTH, "bold", 16, 11, 2);
-  const stampLine2Fit = fitTextBlock(mctx, "เอกสารนี้สร้างโดยระบบอัตโนมัติ ไม่ต้องลงลายมือชื่อ", STAMP_LABEL_MAX_WIDTH, "400", 13, 10, 2);
-
-  /* ============ PASS 2: คำนวณตำแหน่งจริง (Y) ของทุกส่วนจากผลวัด ============ */
+ 
+  const statusFit = fitTextBlock(mctx, "✔ บันทึกเข้าระบบสำเร็จแล้ว", CONTENT_WIDTH - 90, "700", 15, 11, 1);
+  const noteFit = fitTextBlock(mctx, "เอกสารนี้สร้างโดยระบบอัตโนมัติ", CONTENT_WIDTH - 90, "400", 11, 9, 1);
+ 
+  // ========== คำนวณตำแหน่ง ==========
   let cy = CARD_TOP + CARD_PAD_TOP;
-
-  const iconH = 46;
-  const iconCenterY = cy + iconH / 2;
-  cy += iconH;
-
-  const titleH = titleFit.lines.length * titleFit.size * RECEIPT_LINE_GAP;
-  const titleCenterY = cy + titleH / 2;
-  cy += titleH + 8;
-
-  const subtitleH = subtitleFit.lines.length * subtitleFit.size * RECEIPT_LINE_GAP;
-  const subtitleCenterY = cy + subtitleH / 2;
-  cy += subtitleH + 26;
-
-  const dividerTopY = cy;
-  cy += 30;
-
-  const docNoH = docNoFit.lines.length * docNoFit.size * RECEIPT_LINE_GAP;
-  const docNoCenterY = cy + docNoH / 2;
-  cy += docNoH + 30;
-
-  const rowLayout = infoRowFits.map(r => {
+ 
+  cy += 10;
+  const headerY = cy;
+  cy += headerFit.lines.length * headerFit.size * RECEIPT_LINE_GAP + 10;
+ 
+  const subtitleY = cy;
+  cy += subtitleFit.lines.length * subtitleFit.size * RECEIPT_LINE_GAP + 18;
+ 
+  const divider1Y = cy;
+  cy += 28;
+ 
+  const docNoY = cy;
+  cy += docNoFit.lines.length * docNoFit.size * RECEIPT_LINE_GAP + 24;
+ 
+  const infoRowLayout = infoRowFits.map(r => {
     const lineCount = Math.max(1, r.valueFit.lines.length);
-    const rowH = Math.max(38, lineCount * r.valueFit.size * RECEIPT_LINE_GAP + 14);
+    const rowH = Math.max(32, lineCount * r.valueFit.size * RECEIPT_LINE_GAP + 10);
     const centerY = cy + rowH / 2;
     cy += rowH;
     return { ...r, centerY };
   });
-
-  cy += 14;
+ 
+  cy += 18;
   const plateBoxTop = cy;
-  const plateBoxPadTB = 20;
-  const plateGapMid = 10;
+  const plateBoxPadTB = 24;
+  const plateGapMid = 12;
   const plateMainH = plateMainFit.lines.length * plateMainFit.size * RECEIPT_LINE_GAP;
   const plateProvinceH = plateProvinceFit.lines.length * plateProvinceFit.size * RECEIPT_LINE_GAP;
   const plateBoxH = plateBoxPadTB * 2 + plateMainH + plateGapMid + plateProvinceH;
   const plateMainCenterY = plateBoxTop + plateBoxPadTB + plateMainH / 2;
   const plateProvinceCenterY = plateMainCenterY + plateMainH / 2 + plateGapMid + plateProvinceH / 2;
-  cy += plateBoxH + 26;
-
-  const fileRowLayout = fileRowFits.map(r => {
-    const lineCount = Math.max(1, r.valueFit.lines.length);
-    const rowH = Math.max(34, lineCount * r.valueFit.size * RECEIPT_LINE_GAP + 12);
-    const centerY = cy + rowH / 2;
-    cy += rowH;
-    return { ...r, centerY };
-  });
-
-  cy += 10;
-  const dividerBottomY = cy;
-  cy += 45;
-
-  const stampCircleD = 70;
-  const stampLine1H = stampLine1Fit.lines.length * stampLine1Fit.size * RECEIPT_LINE_GAP;
-  const stampLine2H = stampLine2Fit.lines.length * stampLine2Fit.size * RECEIPT_LINE_GAP;
-  const stampTextGap = 8;
-  const stampTextTotalH = stampLine1H + stampTextGap + stampLine2H;
-  const stampBlockH = Math.max(stampCircleD, stampTextTotalH);
-  const stampCenterY = cy + stampBlockH / 2;
-  const stampLine1CenterY = stampCenterY - stampTextTotalH / 2 + stampLine1H / 2;
-  const stampLine2CenterY = stampLine1CenterY + stampLine1H / 2 + stampTextGap + stampLine2H / 2;
-  cy += stampBlockH;
-
+  cy += plateBoxH + 20;
+ 
+  const divider2Y = cy;
+  cy += 24;
+ 
+  const fileSummaryLine1 = `📹 ${vCount} วิดีโอ  •  🧾 ${tCount} ใบสั่ง  •  📸 ${dCount} รูป`;
+  const fileSummaryFit = fitTextBlock(mctx, fileSummaryLine1, CONTENT_WIDTH, "600", 13, 10, 1);
+  const fileSummaryY = cy;
+  cy += fileSummaryFit.lines.length * fileSummaryFit.size * RECEIPT_LINE_GAP + 20;
+ 
+  cy += 8;
+  const statusCircleCenterX = CONTENT_X + 28;
+  const statusCircleY = cy + 28;
+  const statusTextX = CONTENT_X + 75;
+  const statusLine1Y = statusCircleY - 8;
+  const statusLine2Y = statusCircleY + 12;
+  cy += 56;
+ 
   cy += CARD_PAD_BOTTOM;
-
   const cardH = cy - CARD_TOP;
   const H = CARD_TOP + cardH + 20;
-
-  /* ============ วาดจริงลง canvas ที่คำนวณขนาดแล้ว ============ */
+ 
+  // ========== วาดจริง ==========
   canvas.width = W * dpr;
   canvas.height = H * dpr;
   const ctx = canvas.getContext("2d");
   ctx.scale(dpr, dpr);
-
+ 
+  // Warmup font (เทคนิคเดิม)
   ctx.save();
   ctx.globalAlpha = 0;
   ["300", "400", "500", "600", "700", "800"].forEach(w => {
     ctx.font = `${w} 24px 'Prompt', sans-serif`;
-    ctx.fillText("กองบังคับการตำรวจทางหลวงกขคง0123456789", 0, 0);
+    ctx.fillText("กขคง0123456789", 0, 0);
   });
   ctx.restore();
   await new Promise(resolve => requestAnimationFrame(resolve));
-
+ 
   const drawSafeRoundRect = (x, y, w, h, r, fillColor) => {
     ctx.save();
     ctx.beginPath();
@@ -1832,37 +1807,17 @@ const infoRowFits = infoRowsSpec.map(spec => ({
     ctx.fill();
     ctx.restore();
   };
-
+ 
   const drawSafeText = (text, x, y, align, size, weight, color) => {
-  ctx.save();
-  ctx.font = `${weight} ${size}px 'Prompt', sans-serif`;
-  ctx.fillStyle = color;
-  ctx.textAlign = align;
-  ctx.textBaseline = "middle";
-
-  let drawX = x;
-
-  // แก้ปัญหาตัวอักษรไทยที่มีหางโค้ง (เช่น ล, ป, ญ) ทำให้หมึกจริงล้นเกินตำแหน่งอ้างอิง
-  // จนแนวขวาไม่ตรงกันระหว่างแถว: ใช้ actualBoundingBoxRight/Left (ขอบเขตหมึกจริง)
-  // แทน advance width ในการจัดตำแหน่ง
-  if (align === "right") {
-    const m = ctx.measureText(text);
-    if (typeof m.actualBoundingBoxRight === "number") {
-      const overhang = Math.max(0, m.actualBoundingBoxRight - m.width * 0); // ระยะหมึกล้นทางขวาจากจุดอ้างอิง
-      drawX = x - Math.max(0, m.actualBoundingBoxRight);
-    }
-  } else if (align === "left") {
-    const m = ctx.measureText(text);
-    if (typeof m.actualBoundingBoxLeft === "number") {
-      drawX = x + Math.max(0, m.actualBoundingBoxLeft) * 0; // ฝั่งซ้ายปกติไม่ค่อยมีปัญหา ไม่ต้องปรับ
-    }
-  }
-
-  ctx.fillText(text, drawX, y);
-  ctx.restore();
-};
-
-  // วาดหลายบรรทัดจากผล fitTextBlock() โดยกึ่งกลางแนวตั้งรอบจุด centerY ที่กำหนด
+    ctx.save();
+    ctx.font = `${weight} ${size}px 'Prompt', sans-serif`;
+    ctx.fillStyle = color;
+    ctx.textAlign = align;
+    ctx.textBaseline = "middle";
+    ctx.fillText(text, x, y);
+    ctx.restore();
+  };
+ 
   const drawFittedBlock = (fit, x, centerY, align, weight, color) => {
     const totalH = fit.lines.length * fit.size * RECEIPT_LINE_GAP;
     let y = centerY - totalH / 2 + (fit.size * RECEIPT_LINE_GAP) / 2;
@@ -1871,82 +1826,115 @@ const infoRowFits = infoRowsSpec.map(spec => ({
       y += fit.size * RECEIPT_LINE_GAP;
     });
   };
-
-  /* ---------- พื้นหลัง + แถบหัวเขียว + การ์ดขาว ---------- */
-  ctx.fillStyle = "#F2F4F7";
+ 
+  // ========== BACKGROUND BLOBS (Liquid Glass) ==========
+  // Blob 1: ด้านบนขวา - สีเขียวอ่อน
+  const grad1 = ctx.createRadialGradient(W - 80, -40, 20, W - 80, -40, 280);
+  grad1.addColorStop(0, "rgba(48, 209, 88, 0.18)");
+  grad1.addColorStop(1, "rgba(48, 209, 88, 0)");
+  ctx.fillStyle = grad1;
   ctx.fillRect(0, 0, W, H);
-
-  ctx.fillStyle = "#1F8B3D";
-  ctx.fillRect(0, 0, W, GREEN_STRIP_H);
-
-  drawSafeRoundRect(CARD_X, CARD_TOP, CARD_W, cardH, 20, "#FFFFFF");
-
-  /* ---------- Header ---------- */
-  drawSafeText("🚓", W / 2, iconCenterY, "center", 40, "normal", "#000");
-  drawFittedBlock(titleFit, W / 2, titleCenterY, "center", "bold", "#1F8B3D");
-  drawFittedBlock(subtitleFit, W / 2, subtitleCenterY, "center", "600", "#6E6E73");
-
+ 
+  // Blob 2: ด้านล่างซ้าย - สีม่วงอ่อน
+  const grad2 = ctx.createRadialGradient(80, H + 60, 30, 80, H + 60, 320);
+  grad2.addColorStop(0, "rgba(30, 139, 61, 0.1)");
+  grad2.addColorStop(1, "rgba(30, 139, 61, 0)");
+  ctx.fillStyle = grad2;
+  ctx.fillRect(0, 0, W, H);
+ 
+  // พื้นหลังสีขาว
+  ctx.fillStyle = "#FFFFFF";
+  ctx.fillRect(0, 0, W, H);
+ 
+  // ========== MAIN CARD (Liquid Glass) ==========
+  // Card background: สีขาว + transparency ให้ blur effect ดูชัด
+  drawSafeRoundRect(CARD_X, CARD_TOP, CARD_W, cardH, 24, "rgba(255, 255, 255, 0.95)");
+ 
+  // Card border: บางๆ สีเขียว
   ctx.save();
-  ctx.strokeStyle = "#E5E5EA";
+  ctx.strokeStyle = "rgba(48, 209, 88, 0.15)";
   ctx.lineWidth = 1.5;
-  ctx.setLineDash([6, 6]);
   ctx.beginPath();
-  ctx.moveTo(CARD_X + 30, dividerTopY);
-  ctx.lineTo(CARD_X + CARD_W - 30, dividerTopY);
+  ctx.roundRect(CARD_X, CARD_TOP, CARD_W, cardH, 24);
   ctx.stroke();
   ctx.restore();
-
-  drawFittedBlock(docNoFit, W / 2, docNoCenterY, "center", "400", "#8E8E93");
-
-  /* ---------- แถวข้อมูล (label ซ้าย / value ขวา รองรับหลายบรรทัด) ---------- */
-  rowLayout.forEach(r => {
-    drawSafeText(r.label, CONTENT_X, r.centerY, "left", 15, "400", "#6E6E73");
+ 
+  // ========== TOP ACCENT STRIPE (เขียว) ==========
+  drawSafeRoundRect(CARD_X, CARD_TOP, CARD_W, 3, 2, "#30D158");
+ 
+  // ========== HEADER ==========
+  drawFittedBlock(headerFit, W / 2, headerY, "center", "700", "#1F8B3D");
+  drawFittedBlock(subtitleFit, W / 2, subtitleY, "center", "500", "#6E6E73");
+ 
+  // ========== DIVIDER 1 (ขีดเขียว) ==========
+  ctx.save();
+  ctx.strokeStyle = "rgba(48, 209, 88, 0.25)";
+  ctx.lineWidth = 1.2;
+  ctx.setLineDash([5, 4]);
+  ctx.beginPath();
+  ctx.moveTo(CONTENT_X + 20, divider1Y);
+  ctx.lineTo(CONTENT_RIGHT - 20, divider1Y);
+  ctx.stroke();
+  ctx.restore();
+ 
+  // ========== DOCUMENT NUMBER ==========
+  drawFittedBlock(docNoFit, W / 2, docNoY, "center", "600", "#1F8B3D");
+ 
+  // ========== INFO ROWS (Label-Value) ==========
+  infoRowLayout.forEach(r => {
+    drawSafeText(r.label, CONTENT_X, r.centerY, "left", 13, "500", "#6E6E73");
     drawFittedBlock(r.valueFit, CONTENT_RIGHT, r.centerY, "right", "600", "#1C1C1E");
   });
-
-  /* ---------- กล่องทะเบียนรถ ---------- */
-  drawSafeRoundRect(CARD_X + 30, plateBoxTop, PLATE_BOX_W, plateBoxH, 12, "#F8F9FA");
+ 
+  // ========== PLATE BOX (เขียว border) ==========
+  drawSafeRoundRect(CARD_X + 24, plateBoxTop, PLATE_BOX_W, plateBoxH, 16, "rgba(48, 209, 88, 0.08)");
   ctx.save();
-  ctx.strokeStyle = "#1F8B3D";
-  ctx.lineWidth = 1.5;
+  ctx.strokeStyle = "#30D158";
+  ctx.lineWidth = 2;
   ctx.beginPath();
-  ctx.roundRect(CARD_X + 30, plateBoxTop, PLATE_BOX_W, plateBoxH, 12);
+  ctx.roundRect(CARD_X + 24, plateBoxTop, PLATE_BOX_W, plateBoxH, 16);
   ctx.stroke();
   ctx.restore();
-
-  drawFittedBlock(plateMainFit, W / 2, plateMainCenterY, "center", "bold", "#1C1C1E");
-  drawFittedBlock(plateProvinceFit, W / 2, plateProvinceCenterY, "center", "600", "#6E6E73");
-
-  /* ---------- สรุปไฟล์หลักฐาน ---------- */
-  fileRowLayout.forEach(r => {
-    drawSafeText(r.label, CONTENT_X, r.centerY, "left", 15, "400", "#6E6E73");
-    drawFittedBlock(r.valueFit, CONTENT_RIGHT, r.centerY, "right", "600", "#1C1C1E");
-  });
-
+ 
+  // หมวดหมู่ + เลขทะเบียน
+  drawFittedBlock(plateMainFit, W / 2, plateMainCenterY, "center", "800", "#1C1C1E");
+  drawFittedBlock(plateProvinceFit, W / 2, plateProvinceCenterY, "center", "600", "#1F8B3D");
+ 
+  // ========== DIVIDER 2 (ขีดเขียว) ==========
   ctx.save();
-  ctx.strokeStyle = "#E5E5EA";
-  ctx.lineWidth = 1.5;
+  ctx.strokeStyle = "rgba(48, 209, 88, 0.2)";
+  ctx.lineWidth = 1.2;
+  ctx.setLineDash([5, 4]);
   ctx.beginPath();
-  ctx.moveTo(CARD_X + 30, dividerBottomY);
-  ctx.lineTo(CARD_X + CARD_W - 30, dividerBottomY);
+  ctx.moveTo(CONTENT_X + 20, divider2Y);
+  ctx.lineTo(CONTENT_RIGHT - 20, divider2Y);
   ctx.stroke();
   ctx.restore();
-
-  /* ---------- ตราประทับ ---------- */
-  drawSafeRoundRect(CONTENT_X, stampCenterY - 35, 70, 70, 35, "#E8F6EE");
-  drawSafeText("✔", CONTENT_X + 35, stampCenterY - 10, "center", 26, "bold", "#1F8B3D");
-  drawSafeText("สำเร็จ", CONTENT_X + 35, stampCenterY + 14, "center", 13, "bold", "#1F8B3D");
-
-  const stampTextX = CONTENT_X + 90;
-  drawFittedBlock(stampLine1Fit, stampTextX, stampLine1CenterY, "left", "bold", "#1F8B3D");
-  drawFittedBlock(stampLine2Fit, stampTextX, stampLine2CenterY, "left", "400", "#8E8E93");
-
+ 
+  // ========== FILE SUMMARY ==========
+  drawFittedBlock(fileSummaryFit, W / 2, fileSummaryY, "center", "600", "#1F8B3D");
+ 
+  // ========== STATUS BADGE (เขียวกลม + ข้อความ) ==========
+  drawSafeRoundRect(statusCircleCenterX - 28, statusCircleY - 28, 56, 56, 28, "rgba(48, 209, 88, 0.15)");
+  ctx.save();
+  ctx.strokeStyle = "#30D158";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.arc(statusCircleCenterX, statusCircleY, 28, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.restore();
+  drawSafeText("✔", statusCircleCenterX, statusCircleY, "center", 28, "700", "#1F8B3D");
+ 
+  // ข้อความ status
+  drawFittedBlock(statusFit, statusTextX, statusLine1Y, "left", "700", "#1F8B3D");
+  drawFittedBlock(noteFit, statusTextX, statusLine2Y, "left", "500", "#8E8E93");
+ 
   return canvas.toDataURL("image/png");
 }
 
 // ใช้กับหน้าฟอร์มส่งเดิม (หลังอัปโหลดสำเร็จ)
 async function drawReceiptCanvas(data) {
-  const dataUrl = await renderReceiptToCanvas(data, "receiptCanvas");
+  const dataUrl = await renderReceiptToCanvasV2(data, "receiptCanvas");
   const receiptImg = document.getElementById("receiptImg");
   if (receiptImg) receiptImg.src = dataUrl;
 }
@@ -2012,7 +2000,7 @@ async function openReceiptView(it) {
   overlay.classList.add("open");
 
   try {
-    const dataUrl = await renderReceiptToCanvas(it, "receiptViewCanvas");
+    const dataUrl = await renderReceiptToCanvasV2(it, "receiptViewCanvas");
     img.src = dataUrl;
     img.classList.remove("hidden");
     downloadBtn.classList.remove("hidden");
