@@ -1665,7 +1665,7 @@ function fitTextBlock(ctx, text, maxWidth, weight, baseSize, minSize, maxLines) 
 const RECEIPT_LINE_GAP = 1.35; // ตัวคูณระยะห่างบรรทัด เทียบกับขนาดฟอนต์
 
 // วาดใบเสร็จลง canvas ที่ระบุ แล้วคืนค่าเป็น dataURL (ใช้ได้ทั้งตอนส่งใหม่ และตอนดูย้อนหลัง)
-// ดีไซน์: การ์ดขาว + กล่องทะเบียนพื้นเข้ม (navy) + ตัวเลขทะเบียนสีมิ้นท์ + การ์ดข้อมูลพื้นอ่อน
+// ดีไซน์: ทุกส่วนล้อมกรอบด้วยการ์ดพื้นอ่อน/พื้นเข้ม กันข้อความล้นและกันปัญหา font ยังไม่โหลดตอนวัดขนาด
 async function renderReceiptToCanvas(data, canvasId) {
   await ensurePromptFontLoaded();
 
@@ -1681,7 +1681,7 @@ async function renderReceiptToCanvas(data, canvasId) {
   const CONTENT_RIGHT = W - CARD_X - PAD_X;  // 580
   const CONTENT_WIDTH = CONTENT_RIGHT - CONTENT_X; // 520
   const CARD_TOP = 30;
-  const CARD_PAD_TOP = 36;
+  const CARD_PAD_TOP = 26;
   const CARD_PAD_BOTTOM = 34;
 
   // ---- Palette ----
@@ -1699,29 +1699,66 @@ async function renderReceiptToCanvas(data, canvasId) {
     divider:   "#E5E5EA",
   };
 
+  // ตัว font 'Prompt' มีหลายน้ำหนัก (weight) แยกไฟล์กัน — เบราว์เซอร์บางตัว (โดยเฉพาะ in-app
+  // webview เช่น LINE LIFF) จะยังไม่โหลด glyph ของ weight นั้นๆ จริงจนกว่าจะมีการ fillText ด้วย
+  // weight นั้นสักครั้งบน context ที่ใช้งานอยู่ ถ้า "อุ่นเครื่อง" เฉพาะ canvas จริง (ctx) แต่ไม่ทำกับ
+  // canvas ที่ใช้วัดขนาด (mctx) จะทำให้ PASS 1 วัดขนาดด้วย metric ที่ผิด (font fallback) แล้ว
+  // PASS 2 วาดด้วย metric จริงที่ไม่ตรงกัน ผลคือตัวหนังสือเบี้ยว/ล้นบรรทัดสลับกันไปมา
+  // จึงต้องอุ่นเครื่อง "ทั้งสอง" context ก่อนใช้งานแต่ละ pass
+  const warmUpFontOn = (c) => {
+    c.save();
+    c.globalAlpha = 0;
+    ["300", "400", "500", "600", "700", "800"].forEach(w => {
+      c.font = `${w} 24px 'Prompt', sans-serif`;
+      c.fillText("กองบังคับการตำรวจทางหลวงกขคง0123456789", 0, 0);
+    });
+    c.restore();
+  };
+
+  // แปลงค่าเวลาที่บันทึกให้เป็นวันที่/เวลาแบบไทย รองรับทั้งรูปแบบ ISO ("...T...Z")
+  // และรูปแบบเดิมที่เป็น "dd/mm/yyyy HH:MM" คั่นด้วยช่องว่าง
+  const formatReceiptDateTime = (raw) => {
+    if (!raw) return { dateStr: "-", timeStr: "-" };
+    const str = String(raw).trim();
+
+    const isoMatch = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.exec(str);
+    if (isoMatch) {
+      const d = new Date(str);
+      if (!isNaN(d.getTime())) {
+        // แปลงเป็นเวลาไทย (UTC+7)
+        const thai = new Date(d.getTime() + 7 * 60 * 60 * 1000);
+        const dd = String(thai.getUTCDate()).padStart(2, "0");
+        const mm = String(thai.getUTCMonth() + 1).padStart(2, "0");
+        const yyyy = thai.getUTCFullYear() + 543;
+        const HH = String(thai.getUTCHours()).padStart(2, "0");
+        const MM = String(thai.getUTCMinutes()).padStart(2, "0");
+        return { dateStr: `${dd}/${mm}/${yyyy}`, timeStr: `${HH}:${MM} น.` };
+      }
+    }
+
+    const parts = str.split(/\s+/);
+    if (parts.length >= 2) {
+      return { dateStr: parts[0], timeStr: parts.slice(1).join(" ") };
+    }
+    return { dateStr: str, timeStr: "-" };
+  };
+
   // canvas ชั่วคราวไว้ "วัดขนาด" ล้วนๆ ก่อนรู้ความสูงจริงของ canvas ที่จะวาด
   const measureCanvas = document.createElement("canvas");
   const mctx = measureCanvas.getContext("2d");
+  warmUpFontOn(mctx);
+  await new Promise(resolve => requestAnimationFrame(resolve));
 
   const docKey = `${data.plateChar || ""}-${data.plateNumber || ""}-${data.plateProvince || ""}-${data.timestamp || ""}`;
   const dateForDoc = data.dateThai || (data.timestamp ? new Date(data.timestamp).toISOString().slice(0, 10).replace(/-/g, "") : "");
   const docNo = "HWPD-" + dateForDoc + "-" + stableDocSeq(docKey);
 
-  // แยกวันที่ / เวลา จาก timestamp (รูปแบบ "dd/mm/yyyy HH:MM" — ปรับ split ตรงนี้ถ้ารูปแบบต่างออกไป)
-  let dateStr = data.timestamp || "-";
-  let timeStr = "";
-  if (data.timestamp) {
-    const parts = String(data.timestamp).trim().split(/\s+/);
-    if (parts.length >= 2) {
-      dateStr = parts[0];
-      timeStr = parts.slice(1).join(" ");
-    }
-  }
+  const { dateStr, timeStr } = formatReceiptDateTime(data.timestamp);
 
   /* ============ PASS 1: วัดข้อความทั้งหมดล่วงหน้า ============ */
-  const titleFit    = fitTextBlock(mctx, "เอกสารยืนยันหลักฐานจราจร", CONTENT_WIDTH, "bold", 20, 15, 2);
-  const subtitleFit = fitTextBlock(mctx, "กองบังคับการตำรวจทางหลวง", CONTENT_WIDTH, "600", 12, 10, 1);
-  const docNoFit    = fitTextBlock(mctx, "เลขที่เอกสาร: " + docNo, CONTENT_WIDTH, "400", 12, 10, 1);
+  const titleFit    = fitTextBlock(mctx, "เอกสารยืนยันหลักฐานจราจร", CONTENT_WIDTH - 40, "bold", 20, 15, 2);
+  const subtitleFit = fitTextBlock(mctx, "กองบังคับการตำรวจทางหลวง", CONTENT_WIDTH - 40, "600", 12, 10, 1);
+  const docNoFit    = fitTextBlock(mctx, "เลขที่เอกสาร: " + docNo, CONTENT_WIDTH - 40, "400", 12, 10, 1);
 
   const PLATE_TEXT_MAX_WIDTH = CONTENT_WIDTH - 40;
   const pChar = String(data.plateChar || "").trim();
@@ -1741,11 +1778,11 @@ async function renderReceiptToCanvas(data, canvasId) {
   const COL_W = (CONTENT_WIDTH - COL_GAP) / 2;
   const COL_TEXT_MAX_WIDTH = COL_W - 32;
   const dateLabelFit = fitTextBlock(mctx, "วันที่รายงาน", COL_TEXT_MAX_WIDTH, "600", 11, 9, 1);
-  const dateValueFit = fitTextBlock(mctx, dateStr, COL_TEXT_MAX_WIDTH, "bold", 16, 12, 1);
+  const dateValueFit = fitTextBlock(mctx, dateStr, COL_TEXT_MAX_WIDTH, "bold", 16, 11, 1);
   const timeLabelFit = fitTextBlock(mctx, "เวลา", COL_TEXT_MAX_WIDTH, "600", 11, 9, 1);
-  const timeValueFit = fitTextBlock(mctx, timeStr || "-", COL_TEXT_MAX_WIDTH, "bold", 16, 12, 1);
+  const timeValueFit = fitTextBlock(mctx, timeStr, COL_TEXT_MAX_WIDTH, "bold", 16, 11, 1);
 
-  const sectionLabelFit = fitTextBlock(mctx, "รายการไฟล์หลักฐาน", CONTENT_WIDTH, "600", 12, 10, 1);
+  const sectionLabelFit = fitTextBlock(mctx, "รายการไฟล์หลักฐาน", CONTENT_WIDTH - 40, "600", 12, 10, 1);
 
   const vCount = (data.videos || []).length;
   const tCount = (data.ticketCopies || []).length;
@@ -1757,7 +1794,7 @@ async function renderReceiptToCanvas(data, canvasId) {
   ];
   const fileRowFits = fileRowsSpec.map(([label, val]) => ({
     label,
-    valueFit: fitTextBlock(mctx, String(val), CONTENT_WIDTH * 0.5, "bold", 15, 11, 1)
+    valueFit: fitTextBlock(mctx, String(val), (CONTENT_WIDTH - 40) * 0.5, "bold", 15, 11, 1)
   }));
 
   const stampFit = fitTextBlock(mctx, "บันทึกข้อมูลเข้าสู่ระบบเรียบร้อยแล้ว", CONTENT_WIDTH - 20, "500", 12, 10, 2);
@@ -1765,11 +1802,15 @@ async function renderReceiptToCanvas(data, canvasId) {
   /* ============ PASS 2: คำนวณตำแหน่ง Y จริงจากผลวัด ============ */
   let cy = CARD_TOP + CARD_PAD_TOP;
 
-  // ไอคอนหัวเรื่อง (กล่องมนพื้นอ่อน)
-  const iconBoxD = 60;
+  /* ---- การ์ดหัวเรื่อง (พื้นอ่อน ล้อมกรอบไอคอน + ชื่อเรื่อง + เลขเอกสาร) ---- */
+  const headerCardTop = cy;
+  const headerPad = 26;
+  cy += headerPad;
+
+  const iconBoxD = 56;
   const iconBoxTop = cy;
   const iconCenterY = iconBoxTop + iconBoxD / 2;
-  cy += iconBoxD + 18;
+  cy += iconBoxD + 16;
 
   const titleH = titleFit.lines.length * titleFit.size * RECEIPT_LINE_GAP;
   const titleCenterY = cy + titleH / 2;
@@ -1777,13 +1818,17 @@ async function renderReceiptToCanvas(data, canvasId) {
 
   const subtitleH = subtitleFit.lines.length * subtitleFit.size * RECEIPT_LINE_GAP;
   const subtitleCenterY = cy + subtitleH / 2;
-  cy += subtitleH + 14;
+  cy += subtitleH + 12;
 
   const docNoH = docNoFit.lines.length * docNoFit.size * RECEIPT_LINE_GAP;
   const docNoCenterY = cy + docNoH / 2;
-  cy += docNoH + 26;
+  cy += docNoH;
 
-  // กล่องทะเบียนรถ (พื้นเข้ม)
+  cy += headerPad;
+  const headerCardH = cy - headerCardTop;
+  cy += 18;
+
+  /* ---- กล่องทะเบียนรถ (พื้นเข้ม) ---- */
   const plateBoxTop = cy;
   const plateBoxPadTB = 22;
   const plateLabelH = plateLabelFit.lines.length * plateLabelFit.size * RECEIPT_LINE_GAP;
@@ -1794,9 +1839,9 @@ async function renderReceiptToCanvas(data, canvasId) {
   const plateLabelCenterY = plateBoxTop + plateBoxPadTB + plateLabelH / 2;
   const plateMainCenterY = plateLabelCenterY + plateLabelH / 2 + plateGap1 + plateMainH / 2;
   const plateProvinceCenterY = plateMainCenterY + plateMainH / 2 + plateGap2 + plateProvinceH / 2;
-  cy += plateBoxH + 20;
+  cy += plateBoxH + 18;
 
-  // การ์ดผู้รายงาน (พื้นอ่อน)
+  /* ---- การ์ดผู้รายงาน (พื้นอ่อน) ---- */
   const reporterBoxTop = cy;
   const reporterPad = 20;
   const reporterLabelH = reporterLabelFit.lines.length * reporterLabelFit.size * RECEIPT_LINE_GAP;
@@ -1809,7 +1854,7 @@ async function renderReceiptToCanvas(data, canvasId) {
   const reporterUnitCenterY = reporterNameCenterY + reporterNameH / 2 + rGap2 + reporterUnitH / 2;
   cy += reporterBoxH + 14;
 
-  // สองคอลัมน์ วันที่ / เวลา
+  /* ---- สองคอลัมน์ วันที่ / เวลา (พื้นอ่อน) ---- */
   const colBoxTop = cy;
   const colPad = 16;
   const dateLabelH = dateLabelFit.lines.length * dateLabelFit.size * RECEIPT_LINE_GAP;
@@ -1822,14 +1867,16 @@ async function renderReceiptToCanvas(data, canvasId) {
   const dateValueCenterY = dateLabelCenterY + dateLabelH / 2 + colGapV + dateValueH / 2;
   const timeLabelCenterY = colBoxTop + colPad + timeLabelH / 2;
   const timeValueCenterY = timeLabelCenterY + timeLabelH / 2 + colGapV + timeValueH / 2;
-  cy += colBoxH + 26;
+  cy += colBoxH + 20;
 
-  const dividerY = cy;
-  cy += 26;
+  /* ---- การ์ดรายการไฟล์หลักฐาน (พื้นอ่อน) ---- */
+  const fileCardTop = cy;
+  const filePad = 20;
+  cy += filePad;
 
   const sectionLabelH = sectionLabelFit.lines.length * sectionLabelFit.size * RECEIPT_LINE_GAP;
   const sectionLabelCenterY = cy + sectionLabelH / 2;
-  cy += sectionLabelH + 14;
+  cy += sectionLabelH + 12;
 
   const fileRowLayout = fileRowFits.map(r => {
     const lineCount = Math.max(1, r.valueFit.lines.length);
@@ -1839,7 +1886,11 @@ async function renderReceiptToCanvas(data, canvasId) {
     return { ...r, centerY };
   });
 
-  cy += 20;
+  cy += filePad;
+  const fileCardH = cy - fileCardTop;
+  cy += 22;
+
+  /* ---- ตราประทับล่าง ---- */
   const dotR = 4;
   const stampDotCenterY = cy + dotR;
   cy += dotR * 2 + 10;
@@ -1858,13 +1909,7 @@ async function renderReceiptToCanvas(data, canvasId) {
   const ctx = canvas.getContext("2d");
   ctx.scale(dpr, dpr);
 
-  ctx.save();
-  ctx.globalAlpha = 0;
-  ["300", "400", "500", "600", "700", "800"].forEach(w => {
-    ctx.font = `${w} 24px 'Prompt', sans-serif`;
-    ctx.fillText("กองบังคับการตำรวจทางหลวงกขคง0123456789", 0, 0);
-  });
-  ctx.restore();
+  warmUpFontOn(ctx);
   await new Promise(resolve => requestAnimationFrame(resolve));
 
   const drawSafeRoundRect = (x, y, w, h, r, fillColor) => {
@@ -1889,7 +1934,6 @@ async function renderReceiptToCanvas(data, canvasId) {
     ctx.textBaseline = "middle";
 
     let drawX = x;
-
     // แก้ปัญหาตัวอักษรไทยที่มีหางโค้ง (เช่น ล, ป, ญ) ทำให้หมึกจริงล้นเกินตำแหน่งอ้างอิง
     // ใช้ actualBoundingBoxRight (ขอบเขตหมึกจริง) แทน advance width ในการจัดตำแหน่งชิดขวา
     if (align === "right") {
@@ -1918,11 +1962,10 @@ async function renderReceiptToCanvas(data, canvasId) {
   ctx.fillRect(0, 0, W, H);
   drawSafeRoundRect(CARD_X, CARD_TOP, CARD_W, cardH, 24, COLOR.cardBg);
 
-  /* ---------- ไอคอนหัวเรื่อง ---------- */
-  drawSafeRoundRect(W / 2 - iconBoxD / 2, iconBoxTop, iconBoxD, iconBoxD, 18, COLOR.softBg);
-  drawSafeText("🚓", W / 2, iconCenterY + 1, "center", 28, "normal", "#000");
-
-  /* ---------- หัวเรื่อง ---------- */
+  /* ---------- การ์ดหัวเรื่อง (พื้นอ่อน) ---------- */
+  drawSafeRoundRect(CONTENT_X, headerCardTop, CONTENT_WIDTH, headerCardH, 18, COLOR.softBg);
+  drawSafeRoundRect(W / 2 - iconBoxD / 2, iconBoxTop, iconBoxD, iconBoxD, 16, COLOR.cardBg);
+  drawSafeText("🚓", W / 2, iconCenterY + 1, "center", 26, "normal", "#000");
   drawFittedBlock(titleFit, W / 2, titleCenterY, "center", "bold", COLOR.titleText);
   drawFittedBlock(subtitleFit, W / 2, subtitleCenterY, "center", "600", COLOR.subText);
   drawFittedBlock(docNoFit, W / 2, docNoCenterY, "center", "400", COLOR.labelText);
@@ -1939,7 +1982,7 @@ async function renderReceiptToCanvas(data, canvasId) {
   drawFittedBlock(reporterNameFit, CONTENT_X + 20, reporterNameCenterY, "left", "bold", COLOR.valueText);
   drawFittedBlock(reporterUnitFit, CONTENT_X + 20, reporterUnitCenterY, "left", "400", COLOR.subText);
 
-  /* ---------- สองคอลัมน์ วันที่ / เวลา ---------- */
+  /* ---------- สองคอลัมน์ วันที่ / เวลา (พื้นอ่อน) ---------- */
   const col1X = CONTENT_X;
   const col2X = CONTENT_X + COL_W + COL_GAP;
   drawSafeRoundRect(col1X, colBoxTop, COL_W, colBoxH, 14, COLOR.softBg);
@@ -1949,22 +1992,12 @@ async function renderReceiptToCanvas(data, canvasId) {
   drawFittedBlock(timeLabelFit, col2X + 16, timeLabelCenterY, "left", "600", COLOR.labelText);
   drawFittedBlock(timeValueFit, col2X + 16, timeValueCenterY, "left", "bold", COLOR.valueText);
 
-  /* ---------- เส้นคั่น ---------- */
-  ctx.save();
-  ctx.strokeStyle = COLOR.divider;
-  ctx.lineWidth = 1.5;
-  ctx.setLineDash([6, 6]);
-  ctx.beginPath();
-  ctx.moveTo(CARD_X + 30, dividerY);
-  ctx.lineTo(CARD_X + CARD_W - 30, dividerY);
-  ctx.stroke();
-  ctx.restore();
-
-  /* ---------- รายการไฟล์หลักฐาน ---------- */
-  drawFittedBlock(sectionLabelFit, CONTENT_X, sectionLabelCenterY, "left", "600", COLOR.labelText);
+  /* ---------- การ์ดรายการไฟล์หลักฐาน (พื้นอ่อน) ---------- */
+  drawSafeRoundRect(CONTENT_X, fileCardTop, CONTENT_WIDTH, fileCardH, 16, COLOR.softBg);
+  drawFittedBlock(sectionLabelFit, CONTENT_X + 20, sectionLabelCenterY, "left", "600", COLOR.labelText);
   fileRowLayout.forEach(r => {
-    drawSafeText(r.label, CONTENT_X, r.centerY, "left", 14, "400", COLOR.subText);
-    drawFittedBlock(r.valueFit, CONTENT_RIGHT, r.centerY, "right", "bold", COLOR.mintDark);
+    drawSafeText(r.label, CONTENT_X + 20, r.centerY, "left", 14, "400", COLOR.subText);
+    drawFittedBlock(r.valueFit, CONTENT_RIGHT - 20, r.centerY, "right", "bold", COLOR.mintDark);
   });
 
   /* ---------- ตราประทับล่าง ---------- */
