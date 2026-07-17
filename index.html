@@ -593,13 +593,13 @@
       <h2 class="font-bold" style="color:var(--green-ink);">🧾 เอกสารยืนยันการรายงาน</h2>
       <p class="text-xs" style="color:var(--ink-faint);">แตะค้างที่รูปด้านล่างเพื่อบันทึกภาพ หรือกดปุ่มดาวน์โหลด</p>
     </div>
-    <div class="flex justify-center">
-      <img id="receiptImg" alt="เอกสารยืนยันการรายงาน" style="width:100%; max-width:380px; border-radius:22px; box-shadow: var(--shadow-2);" />
-    </div>
-    <canvas id="receiptCanvas" class="hidden"></canvas>
-    <button id="btnDownloadImg" class="btn-primary mt-4">📥 ดาวน์โหลดรูปภาพหลักฐานลงเครื่อง</button>
-    <button id="btnBackToForm" class="btn-secondary mt-2">⬅ กลับไปส่งรายงานใหม่</button>
+      <div style="display:flex; justify-content:center; width:100%; margin:0 auto;">
+    <img id="receiptImg" alt="เอกสารยืนยันการรายงาน" style="width:100%; max-width:640px; border-radius:22px; box-shadow: var(--shadow-2); display:block;" />
   </div>
+    <canvas id="receiptCanvas" class="hidden"></canvas>
+  <button id="btnDownloadImg" class="btn-primary mt-4">📥 ดาวน์โหลดรูปภาพหลักฐานลงเครื่อง</button>
+  <button id="btnBackToForm" class="btn-secondary mt-2">⬅ กลับไปส่งรายงานใหม่</button>
+</div>
 
   <!-- TAB: รายงานวัน -->
   <div id="tab-today" class="tab-panel">
