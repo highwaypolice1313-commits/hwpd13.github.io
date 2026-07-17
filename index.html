@@ -1914,20 +1914,23 @@ async function renderReceiptToCanvas(data, canvasId) {
     ctx.save();
     ctx.font = `${weight} ${size}px ${FONT_FAMILY}`;
     ctx.fillStyle = color;
-    ctx.textAlign = align;
     ctx.textBaseline = "middle";
 
-    let drawX = x;
-    // แก้ปัญหาตัวอักษรไทยที่มีหางโค้ง (เช่น ล, ป, ญ) ทำให้หมึกจริงล้นเกินตำแหน่งอ้างอิง
-    // ใช้ actualBoundingBoxRight (ขอบเขตหมึกจริง) แทน advance width ในการจัดตำแหน่งชิดขวา
     if (align === "right") {
+      // จัดชิดขวาโดยอิงขอบเขตหมึกจริง (actualBoundingBoxRight) แทน advance width
+      // เพื่อกันปัญหาตัวอักษรไทยที่มีหางโค้งทำให้ดูล้น/ไม่ชิดขอบจริง
+      // สำคัญ: ต้องตั้ง textAlign เป็น "left" ตอนวาด ไม่ใช่ "right" — เพราะถ้ายังเป็น "right"
+      // canvas จะจัดชิดขวาซ้ำอีกรอบทับตำแหน่งที่เราคำนวณเองแล้ว (double correction) ทำให้แต่ละ
+      // ข้อความเยื้องไม่เท่ากัน เพราะแต่ละคำมีขอบเขตหมึกจริงไม่เท่ากัน
+      ctx.textAlign = "left";
       const m = ctx.measureText(text);
-      if (typeof m.actualBoundingBoxRight === "number") {
-        drawX = x - Math.max(0, m.actualBoundingBoxRight);
-      }
+      const inkRight = (typeof m.actualBoundingBoxRight === "number") ? m.actualBoundingBoxRight : m.width;
+      ctx.fillText(text, x - inkRight, y);
+    } else {
+      ctx.textAlign = align; // "left" / "center" ใช้ค่ามาตรฐานของ canvas ได้ตรงอยู่แล้ว
+      ctx.fillText(text, x, y);
     }
 
-    ctx.fillText(text, drawX, y);
     ctx.restore();
   };
 
