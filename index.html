@@ -417,6 +417,22 @@
   #ovAnalysisCard{ position: relative; }
   #ovAnalysisCard.ov-dropdown-open{ z-index: 50; }
 
+  /* ✅ RECEIPT IMAGE CENTERING FIX */
+#tab-receipt > div:nth-child(3) {
+  width: 100%;
+  text-align: center;
+  margin: 0 auto;
+  padding: 0;
+}
+#receiptImg {
+  display: block;
+  width: 100%;
+  max-width: 640px;
+  margin: 0 auto;
+  border-radius: 22px;
+  box-shadow: var(--shadow-2);
+}
+
 </style>
 </head>
 <body>
@@ -593,7 +609,7 @@
       <h2 class="font-bold" style="color:var(--green-ink);">🧾 เอกสารยืนยันการรายงาน</h2>
       <p class="text-xs" style="color:var(--ink-faint);">แตะค้างที่รูปด้านล่างเพื่อบันทึกภาพ หรือกดปุ่มดาวน์โหลด</p>
     </div>
-      <div style="display:flex; justify-content:center; width:100%; margin:0 auto;">
+    <div style="width:100%; text-align:center; padding:0;">
     <img id="receiptImg" alt="เอกสารยืนยันการรายงาน" style="width:100%; max-width:640px; border-radius:22px; box-shadow: var(--shadow-2); display:block;" />
   </div>
     <canvas id="receiptCanvas" class="hidden"></canvas>
