@@ -1969,15 +1969,15 @@ async function renderReceiptToCanvas(data, canvasId) {
   drawSafeRoundRect(CONTENT_X, headerCardTop, CONTENT_WIDTH, headerCardH, 18, COLOR.softBg);
   drawSafeRoundRect(W / 2 - iconBoxD / 2, iconBoxTop, iconBoxD, iconBoxD, 16, COLOR.cardBg);
   drawSafeText("🚓", W / 2, iconCenterY + 1, "center", 26, "normal", "#000");
-  drawFittedBlock(titleFit, CONTENT_X + 20, titleCenterY, "left", "bold", COLOR.titleText);
-  drawFittedBlock(subtitleFit, CONTENT_X + 20, subtitleCenterY, "left", "bold", COLOR.subText);
-  drawFittedBlock(docNoFit, CONTENT_X + 20, docNoCenterY, "left", "400", COLOR.labelText);
+  drawFittedBlock(titleFit, W / 2, titleCenterY, "center", "bold", COLOR.titleText);
+  drawFittedBlock(subtitleFit, W / 2, subtitleCenterY, "center", "bold", COLOR.subText);
+  drawFittedBlock(docNoFit, W / 2, docNoCenterY, "center", "400", COLOR.labelText);
 
   /* ---------- กล่องทะเบียนรถ (พื้นเข้ม) ---------- */
   drawSafeRoundRect(CONTENT_X, plateBoxTop, CONTENT_WIDTH, plateBoxH, 18, COLOR.navy);
-  drawFittedBlock(plateLabelFit, CONTENT_X + 20, plateLabelCenterY, "left", "bold", "rgba(255,255,255,0.55)");
+  drawFittedBlock(plateLabelFit, W / 2, plateLabelCenterY, "center", "bold", "rgba(255,255,255,0.55)");
   drawFittedBlock(plateMainFit, W / 2, plateMainCenterY, "center", "bold", COLOR.mint);
-  drawFittedBlock(plateProvinceFit, CONTENT_X + 20, plateProvinceCenterY, "left", "bold", "rgba(255,255,255,0.8)");
+  drawFittedBlock(plateProvinceFit, CONTENT_X + 20, plateProvinceCenterY, "center", "bold", "rgba(255,255,255,0.8)");
 
   /* ---------- การ์ดผู้รายงาน (พื้นอ่อน) ---------- */
   drawSafeRoundRect(CONTENT_X, reporterBoxTop, CONTENT_WIDTH, reporterBoxH, 16, COLOR.softBg);
