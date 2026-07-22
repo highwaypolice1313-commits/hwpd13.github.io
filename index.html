@@ -1686,7 +1686,7 @@ async function renderReceiptToCanvas(data, canvasId) {
   const canvas = document.getElementById(canvasId);
   if (!canvas) throw new Error("ไม่พบ canvas: " + canvasId);
 
-  const dpr = window.devicePixelRatio || 2;
+  const dpr = 2;
   const W = 640;
   const CARD_X = 30;
   const CARD_W = W - CARD_X * 2;             // 580
