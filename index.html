@@ -1656,14 +1656,14 @@ function fitTextBlock(ctx, text, maxWidth, weight, baseSize, minSize, maxLines) 
   let fitted = false;
 
   for (size = baseSize; size >= minSize; size--) {
-    ctx.font = `${weight} ${size}px 'Prompt', sans-serif`;
+    ctx.font = `${weight} ${size}px ${FONT_FAMILY}`;
     lines = wrapTextToLines(ctx, text, maxWidth);
     if (lines.length <= maxLines) { fitted = true; break; }
   }
 
   if (!fitted) {
     size = minSize; // ห้ามหลุดต่ำกว่า minSize เด็ดขาด
-    ctx.font = `${weight} ${size}px 'Prompt', sans-serif`;
+    ctx.font = `${weight} ${size}px ${FONT_FAMILY}`;
     lines = wrapTextToLines(ctx, text, maxWidth);
     if (lines.length > maxLines) {
       lines = lines.slice(0, maxLines);
