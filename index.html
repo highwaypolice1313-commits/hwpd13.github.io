@@ -1206,21 +1206,36 @@ function isScriptUrlConfigured() {
   return typeof SCRIPT_URL === "string" && SCRIPT_URL.startsWith("https://script.google.com/") && !SCRIPT_URL.includes("YOUR_DEPLOYMENT_ID");
 }
 
-// สำหรับ action ที่ "อ่านข้อมูล" (GET)
-async function gasFetchUrl(action, params) {
+// เพิ่ม timeout + retry ให้ GET request (เดิม gasFetchUrl ไม่มีเลย)
+async function gasFetchUrl(action, params, timeoutMs) {
   if (!isScriptUrlConfigured()) {
     return { data: { error: true, message: "ยังไม่ได้ตั้งค่า SCRIPT_URL ในไฟล์ index.html" }, ok: false };
   }
   try {
     const qs = new URLSearchParams({ action, ...params }).toString();
-    const res = await fetch(SCRIPT_URL + "?" + qs, { method: "GET" });
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs || 12000);
+    const res = await fetch(SCRIPT_URL + "?" + qs, { method: "GET", signal: controller.signal });
+    clearTimeout(timer);
     if (!res.ok) throw new Error("HTTP " + res.status);
     const data = await res.json();
     if (data && data.error) return { data, ok: false };
     return { data, ok: true };
   } catch (err) {
-    return { data: { error: true, message: err.message }, ok: false };
+    return { data: { error: true, message: err.name === "AbortError" ? "หมดเวลาเชื่อมต่อ" : err.message }, ok: false };
   }
+}
+
+  // wrapper สำหรับ action ที่สำคัญและต้อง retry อัตโนมัติ (เช่น getUnits ตอน boot)
+async function gasFetchUrlWithRetry(action, params, retries) {
+  retries = typeof retries === "number" ? retries : 2;
+  let lastResult = null;
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    lastResult = await gasFetchUrl(action, params);
+    if (lastResult.ok) return lastResult;
+    if (attempt < retries) await new Promise(r => setTimeout(r, 700 * (attempt + 1)));
+  }
+  return lastResult;
 }
 
 // สำหรับ action ที่ "เขียนข้อมูล" (POST)
@@ -1294,17 +1309,22 @@ function setupProvinceDropdown() {
 /* ============================================================
    UNIT DROPDOWN (ฟอร์มส่งคลิป)
    ============================================================ */
+// loadUnitList: ใช้ retry อัตโนมัติ + ทำให้ปุ่ม "ลองใหม่" กดได้จริง
 async function loadUnitList() {
   const statusEl = document.getElementById("unitLoadStatus");
   const selectEl = document.getElementById("plateUnit");
-  if (statusEl) statusEl.innerText = "กำลังโหลดรายชื่อหน่วย...";
+  if (statusEl) statusEl.innerHTML = "กำลังโหลดรายชื่อหน่วย...";
 
-  const { data, ok } = await gasFetchUrl("getUnits", {});
+  const { data, ok } = await gasFetchUrlWithRetry("getUnits", {}, 2);
 
   if (!ok) {
-    if (statusEl) statusEl.innerText = "⚠ โหลดรายชื่อหน่วยไม่สำเร็จ: " + (data.message || "") + " กด 🔄 เพื่อลองใหม่";
     UNITS = [];
     if (selectEl) selectEl.innerHTML = '<option value="">-- โหลดรายชื่อหน่วยไม่สำเร็จ --</option>';
+    if (statusEl) {
+      statusEl.innerHTML = "⚠ โหลดรายชื่อหน่วยไม่สำเร็จ: " + (data.message || "") +
+        ' <button type="button" id="btnRetryUnits" style="color:var(--green-deep); font-weight:700; text-decoration:underline; background:none; border:none; cursor:pointer;">ลองใหม่</button>';
+      document.getElementById("btnRetryUnits")?.addEventListener("click", loadUnitList);
+    }
     return;
   }
 
@@ -3268,14 +3288,17 @@ function hideAppLoadingOverlay() {
   setTimeout(() => overlay.remove(), 400);
 }
 
+// bootApp: รัน LIFF + โหลดหน่วยพร้อมกันจริงๆ, ไม่รอ PC dashboard, มี hard timeout กันจอโหลดค้าง
 async function bootApp() {
+  setAppLoadingText("กำลังเชื่อมต่อ...");
 
-  setAppLoadingText("กำลังเชื่อมต่อ LINE...");
-  await initLiffOrSimulate();
+  // รันพร้อมกัน (เดิมต่อคิวกันทำให้ช้าสะสม) + มี hard cap 8 วิ กันจอค้างถ้าเน็ตแย่จริงๆ
+  await Promise.race([
+    Promise.all([ initLiffOrSimulate(), loadUnitList() ]),
+    new Promise(resolve => setTimeout(resolve, 8000))
+  ]);
 
-  setAppLoadingText("กำลังโหลดข้อมูลเบื้องต้น...");
   setupProvinceDropdown();
-  await loadUnitList();
   setupBottomNav();
   setupFilePickers();
   setupUploadForm();
@@ -3284,13 +3307,13 @@ async function bootApp() {
   setupMobileSearchFilters();
   setupDesktop();
 
-  await waitForWindowLoad(4000);
+  // ซ่อนจอโหลดทันที ไม่ต้องรอ PC dashboard อีกต่อไป
+  hideAppLoadingOverlay();
+
   initDesktopStatsIfVisible();
   DESKTOP_MEDIA_QUERY.addEventListener("change", (e) => {
-    if (e.matches) loadStats();
+    if (e.matches) initDesktopStatsIfVisible();
   });
-
-  hideAppLoadingOverlay();
 
   if (!isScriptUrlConfigured()) {
     showModal({
@@ -3298,6 +3321,14 @@ async function bootApp() {
       title: "ยังไม่ได้ตั้งค่า SCRIPT_URL",
       message: "กรุณาแก้ค่า SCRIPT_URL ในไฟล์ index.html ให้เป็น URL เว็บแอปที่ Deploy จาก Apps Script (ลงท้าย /exec) มิฉะนั้นระบบจะยังใช้งานจริงไม่ได้"
     });
+  }
+}
+
+// แก้ bug: เดิม loadOverviewStats() ถูกเรียกทุกครั้งแม้อยู่บนมือถือ เพราะ ; คั่นนอก if
+function initDesktopStatsIfVisible() {
+  if (DESKTOP_MEDIA_QUERY.matches) {
+    loadStats();
+    loadOverviewStats();
   }
 }
 
