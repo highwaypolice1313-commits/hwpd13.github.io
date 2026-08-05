@@ -2133,9 +2133,18 @@ document.getElementById("receiptViewOverlay")?.addEventListener("click", (e) => 
 async function loadTodayData() {
   const container = document.getElementById("todayList");
   container.innerHTML = '<div class="text-center text-sm py-6" style="color:var(--ink-faint);"><span class="spinner inline-block"></span> กำลังโหลดข้อมูล...</div>';
-  const { data, ok } = await gasFetchUrl("fetchToday", {});
+
+  // fetchToday อ่านทั้งชีต อาจช้ากว่า action อื่น ให้เวลานานขึ้น + ลองใหม่อัตโนมัติ
+  let result = await gasFetchUrl("fetchToday", {}, 20000);
+  if (!result.ok && result.data.message === "หมดเวลาเชื่อมต่อ") {
+    result = await gasFetchUrl("fetchToday", {}, 20000); // ลองอีกครั้งเดียว เผื่อ cold start รอบแรก
+  }
+  const { data, ok } = result;
+
   if (!ok) {
-    container.innerHTML = '<div class="text-center text-sm py-6" style="color:var(--red);">⚠ โหลดข้อมูลไม่สำเร็จ: ' + (data.message || "ตรวจสอบการตั้งค่า SCRIPT_URL") + '</div>';
+    container.innerHTML = '<div class="text-center text-sm py-6" style="color:var(--red);">⚠ โหลดข้อมูลไม่สำเร็จ: ' + (data.message || "ตรวจสอบการตั้งค่า SCRIPT_URL") +
+      ' <button type="button" id="btnRetryToday" style="display:block; margin:10px auto 0; color:var(--green-deep); font-weight:700; text-decoration:underline; background:none; border:none; cursor:pointer;">ลองใหม่</button></div>';
+    document.getElementById("btnRetryToday")?.addEventListener("click", loadTodayData);
     return;
   }
   renderItemCards(container, data.items || []);
