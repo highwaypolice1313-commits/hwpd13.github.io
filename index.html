@@ -3269,8 +3269,6 @@ function hideAppLoadingOverlay() {
 }
 
 async function bootApp() {
-  setAppLoadingText("กำลังโหลดฟอนต์...");
-  await preloadAllFonts(5000);
 
   setAppLoadingText("กำลังเชื่อมต่อ LINE...");
   await initLiffOrSimulate();
