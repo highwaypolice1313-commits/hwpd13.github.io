@@ -1951,22 +1951,31 @@ async function renderReceiptToCanvas(data, canvasId) {
     ctx.font = `${weight} ${size}px ${FONT_FAMILY}`;
     ctx.fillStyle = color;
     ctx.textBaseline = "middle";
+    // สำคัญ: ไม่พึ่ง ctx.textAlign = "center"/"right" ของเบราว์เซอร์อีกต่อไป
+    // เพราะ canvas นี้ถูกสร้างด้วย document.createElement("canvas") และไม่เคย
+    // ถูกแนบเข้า DOM เลย (ลอยอยู่ในหน่วยความจำ) เมื่อรันผ่าน LIFF บน iOS
+    // (WebKit / LINE in-app browser) alignment ภายในของ canvas ที่ไม่ได้แนบ DOM
+    // จะไม่เสถียรกับข้อความไทยที่มีสระ/วรรณยุกต์ลอย ทำให้ข้อความเริ่มวาดที่จุด
+    // กึ่งกลางแล้ววิ่งไปทางขวาแทนที่จะกึ่งกลางจริง จึงคำนวณตำแหน่งเริ่มวาดเอง
+    // ด้วย measureText() แล้ววาดด้วย textAlign="left" เสมอ ซึ่งเสถียรกับทุกเบราว์เซอร์
+    ctx.textAlign = "left";
 
+    const m = ctx.measureText(text);
+    const inkRight = (typeof m.actualBoundingBoxRight === "number") ? m.actualBoundingBoxRight : m.width;
+
+    let drawX = x;
     if (align === "right") {
       // จัดชิดขวาโดยอิงขอบเขตหมึกจริง (actualBoundingBoxRight) แทน advance width
       // เพื่อกันปัญหาตัวอักษรไทยที่มีหางโค้งทำให้ดูล้น/ไม่ชิดขอบจริง
-      // สำคัญ: ต้องตั้ง textAlign เป็น "left" ตอนวาด ไม่ใช่ "right" — เพราะถ้ายังเป็น "right"
-      // canvas จะจัดชิดขวาซ้ำอีกรอบทับตำแหน่งที่เราคำนวณเองแล้ว (double correction) ทำให้แต่ละ
-      // ข้อความเยื้องไม่เท่ากัน เพราะแต่ละคำมีขอบเขตหมึกจริงไม่เท่ากัน
-      ctx.textAlign = "left";
-      const m = ctx.measureText(text);
-      const inkRight = (typeof m.actualBoundingBoxRight === "number") ? m.actualBoundingBoxRight : m.width;
-      ctx.fillText(text, x - inkRight, y);
-    } else {
-      ctx.textAlign = align; // "left" / "center" ใช้ค่ามาตรฐานของ canvas ได้ตรงอยู่แล้ว
-      ctx.fillText(text, x, y);
+      drawX = x - inkRight;
+    } else if (align === "center") {
+      // จัดกึ่งกลางโดยเลื่อนจุดเริ่มวาดไปทางซ้ายครึ่งหนึ่งของความกว้างข้อความ
+      // (ใช้ advance width ซึ่งให้ผลกึ่งกลางที่สม่ำเสมอและเพียงพอสำหรับกรณีนี้)
+      drawX = x - m.width / 2;
     }
+    // align === "left" -> drawX = x ตามค่าเริ่มต้น
 
+    ctx.fillText(text, drawX, y);
     ctx.restore();
   };
 
